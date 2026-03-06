@@ -213,6 +213,10 @@ int OnInit()
    }
    g_engineReady = true;
 
+   // 5b. Draw channel overlay immediately
+   if(ShowChannelOverlay)
+      DrawChannelOverlay();
+
    // 6. Initialize cycles array
    InitializeCycles();
 
@@ -309,6 +313,10 @@ void OnTick()
       lastDashUpdate = now;
       PopulateDashboardData();
       UpdateDashboard();
+
+      // Channel overlay — disegnato sempre (anche IDLE), purché engine ready
+      if(ShowChannelOverlay && g_engineReady)
+         DrawChannelOverlay();
    }
 
    // ── 2. VIRTUAL MONITOR (ogni tick, qualsiasi stato) ──────────────
@@ -344,9 +352,7 @@ void OnTick()
    bool hasSignal = EngineCalculate(sig);
    g_lastSignal = sig;
 
-   // ── 8. CHANNEL OVERLAY (ogni nuova barra, sempre) ────────────────
-   if(ShowChannelOverlay)
-      DrawChannelOverlay(sig);
+   // ── 8. (overlay ora in sezione dashboard update) ─────────────────
 
    // ── 9. LTF CHECK (ogni barra, se finestra aperta) ────────────────
    if(InpUseLTFEntry && DPCLTFIsWaiting())

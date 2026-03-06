@@ -18,16 +18,15 @@ bool    g_canvasCreated = false;
 //+------------------------------------------------------------------+
 //| DrawChannelOverlay — Full overlay: bands + fill + midline + MA   |
 //+------------------------------------------------------------------+
-void DrawChannelOverlay(const EngineSignal &sig)
+void DrawChannelOverlay()
 {
    if(!ShowChannelOverlay) return;
-   if(sig.upperBand <= 0 || sig.lowerBand <= 0) return;
 
    int depth = MathMax(1, OverlayDepth);
    int totalBars = iBars(_Symbol, PERIOD_CURRENT);
    if(totalBars < depth + 2) return;
 
-   int dcLen = (g_lastSignal.extraValues[5] > 0) ? (int)g_lastSignal.extraValues[5] : 20;
+   int dcLen = (g_dpc_dcLen > 0) ? g_dpc_dcLen : 20;
 
    // Arrays for band data (used by fill)
    double arrU[], arrL[], arrM[], arrMA[];
@@ -157,7 +156,7 @@ void RedrawOverlayFill()
    int totalBars = iBars(_Symbol, PERIOD_CURRENT);
    if(totalBars < depth + 2) return;
 
-   int dcLen = (g_lastSignal.extraValues[5] > 0) ? (int)g_lastSignal.extraValues[5] : 20;
+   int dcLen = (g_dpc_dcLen > 0) ? g_dpc_dcLen : 20;
 
    double arrU[], arrL[];
    datetime arrT[];

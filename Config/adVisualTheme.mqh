@@ -1,55 +1,55 @@
 //+------------------------------------------------------------------+
 //|                                          adVisualTheme.mqh       |
-//|           AcquaDulza EA v1.0.0 — Palette "Tropical Lagoon"       |
+//|           AcquaDulza EA v1.0.0 — Palette "Deep Ocean"            |
 //|                                                                  |
 //|  Colori hardcodati — editabili SOLO via codice sorgente          |
 //|  NON visibili nelle impostazioni EA                              |
 //|                                                                  |
-//|  Palette: Tropical Turchese / Acquamarina / Corallo              |
+//|  Palette: Deep Ocean — da AcquaDulza_Dashboard_Ocean_v3.html     |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
 //+------------------------------------------------------------------+
-//| SFONDI — Tropical Lagoon                                         |
+//| SFONDI — Deep Ocean                                              |
 //+------------------------------------------------------------------+
-#define AD_BG_DEEP         C'26,77,109'      // Tropical water — sfondo chart
-#define AD_BG_PANEL        C'30,90,122'      // Panel background
-#define AD_BG_SECTION_A    C'37,107,141'     // Sezioni alternate A
-#define AD_BG_SECTION_B    C'42,118,155'     // Sezioni alternate B
-#define AD_BG_CELL         C'45,127,163'     // Sfondo celle griglia
+#define AD_BG_DEEP         C'3,8,15'         // #03080f — ocean abyss, chart bg
+#define AD_BG_PANEL        C'9,21,37'        // #091525 — panel background
+#define AD_BG_SECTION_A    C'13,30,53'       // #0d1e35 — sezioni alternate A
+#define AD_BG_SECTION_B    C'18,37,64'       // #122540 — sezioni alternate B
+#define AD_BG_CELL         C'26,51,80'       // #1a3350 — sfondo celle griglia
 
 //+------------------------------------------------------------------+
 //| BORDI                                                            |
 //+------------------------------------------------------------------+
-#define AD_BORDER          C'58,146,181'     // Bordo pannello
-#define AD_BORDER_GLOW     C'75,170,210'     // Bordo attivo / hover
+#define AD_BORDER          C'30,61,92'       // #1e3d5c — bordo pannello
+#define AD_BORDER_GLOW     C'42,85,128'      // #2a5580 — bordo attivo / hover
 
 // Alias dashboard
 #define AD_PANEL_BG        AD_BG_PANEL
 #define AD_PANEL_BORDER    AD_BORDER
 
 //+------------------------------------------------------------------+
-//| ACCENT — Turchese caldo                                          |
+//| ACCENT — Bioluminescenza                                         |
 //+------------------------------------------------------------------+
-#define AD_BIOLUM          C'0,232,212'      // Turchese caldo — accent
-#define AD_BIOLUM_DIM      C'0,160,145'      // Turchese smorzato
+#define AD_BIOLUM          C'0,212,255'      // #00d4ff — cyan luminoso
+#define AD_BIOLUM_DIM      C'0,136,170'      // #0088aa — cyan smorzato
 
 //+------------------------------------------------------------------+
 //| SEGNALI — Acquamarina / Corallo                                  |
 //+------------------------------------------------------------------+
-#define AD_BUY             C'0,212,160'      // Acquamarina — BUY/profit
-#define AD_BUY_DIM         C'0,140,105'      // BUY smorzato
-#define AD_SELL            C'255,85,110'     // Corallo — SELL/loss
-#define AD_SELL_DIM        C'170,45,72'      // SELL smorzato
-#define AD_AMBER           C'255,190,80'     // Ambra marina — warning/TWS
-#define AD_AMBER_DIM       C'170,110,20'     // Ambra smorzato
+#define AD_BUY             C'0,232,176'      // #00e8b0 — acquamarina profonda
+#define AD_BUY_DIM         C'0,122,92'       // #007a5c — BUY smorzato
+#define AD_SELL            C'255,77,109'     // #ff4d6d — corallo
+#define AD_SELL_DIM        C'136,34,51'      // #882233 — SELL smorzato
+#define AD_AMBER           C'255,179,71'     // #ffb347 — ambra marina
+#define AD_AMBER_DIM       C'136,85,0'       // #885500 — ambra smorzato
 
 //+------------------------------------------------------------------+
 //| TESTO                                                            |
 //+------------------------------------------------------------------+
-#define AD_TEXT_HI         C'232,244,250'    // Testo principale
-#define AD_TEXT_MID        C'143,189,212'    // Testo secondario
-#define AD_TEXT_LO         C'70,120,150'     // Testo disabilitato
+#define AD_TEXT_HI         C'221,238,255'    // #ddeeff — testo principale
+#define AD_TEXT_MID        C'122,154,184'    // #7a9ab8 — testo secondario
+#define AD_TEXT_LO         C'42,74,101'      // #2a4a65 — testo disabilitato
 
 // Alias dashboard
 #define AD_TEXT_PRIMARY    AD_TEXT_HI
@@ -68,8 +68,8 @@
 //+------------------------------------------------------------------+
 //| CANDELE CHART                                                    |
 //+------------------------------------------------------------------+
-#define AD_CANDLE_BULL     C'0,212,160'      // Verde acqua
-#define AD_CANDLE_BEAR     C'255,85,119'     // Corallo
+#define AD_CANDLE_BULL     C'0,232,176'      // #00e8b0 — acquamarina
+#define AD_CANDLE_BEAR     C'255,77,109'     // #ff4d6d — corallo
 
 //+------------------------------------------------------------------+
 //| OVERLAY CANALE — Replica DonchianPredictiveChannel.mq5           |
@@ -78,9 +78,9 @@
 #define AD_CHAN_LOWER_CLR   C'65,105,225'    // Royal blue
 #define AD_CHAN_MID_UP_CLR  clrLime          // Midline bullish
 #define AD_CHAN_MID_DN_CLR  clrRed           // Midline bearish
-#define AD_CHAN_MID_FLAT_CLR C'0,232,212'    // Midline flat (= AD_BIOLUM)
+#define AD_CHAN_MID_FLAT_CLR C'0,212,255'    // Midline flat (= AD_BIOLUM)
 #define AD_CHAN_FILL_CLR    C'30,144,255'    // DodgerBlue fill
-#define AD_CHAN_FILL_ALPHA  30               // Trasparenza fill (0-255)
+#define AD_CHAN_FILL_ALPHA  40               // Trasparenza fill (piu visibile su nero)
 #define AD_CHAN_MA_CLR      clrTeal          // MA line
 #define AD_CHAN_WIDTH       1
 #define AD_CHAN_STYLE       STYLE_SOLID
@@ -94,7 +94,7 @@
 #define AD_ARROW_TWS_BUY   C'0,160,90'      // TWS BUY — dark green
 #define AD_ARROW_TWS_SELL  C'180,60,60'     // TWS SELL — dark red
 #define AD_ARROW_SIZE      5                 // Arrow width (come indicatore)
-#define AD_ARROW_OFFSET    1.5               // Offset multiplier × ATR
+#define AD_ARROW_OFFSET    1.5               // Offset multiplier x ATR
 
 //+------------------------------------------------------------------+
 //| ENTRY/EXIT                                                       |
@@ -168,13 +168,13 @@
 #define AD_SIDE_W          240
 
 //+------------------------------------------------------------------+
-//| ApplyChartTheme() — Applica palette Tropical Lagoon al chart     |
+//| ApplyChartTheme() — Applica palette Deep Ocean al chart          |
 //+------------------------------------------------------------------+
 void ApplyChartTheme()
 {
    ChartSetInteger(0, CHART_COLOR_BACKGROUND,   AD_BG_DEEP);
    ChartSetInteger(0, CHART_COLOR_FOREGROUND,   AD_TEXT_HI);
-   ChartSetInteger(0, CHART_COLOR_GRID,         C'50,100,135');
+   ChartSetInteger(0, CHART_COLOR_GRID,         C'15,30,50');
    ChartSetInteger(0, CHART_COLOR_CANDLE_BULL,  AD_CANDLE_BULL);
    ChartSetInteger(0, CHART_COLOR_CANDLE_BEAR,  AD_CANDLE_BEAR);
    ChartSetInteger(0, CHART_COLOR_CHART_UP,     AD_CANDLE_BULL);
