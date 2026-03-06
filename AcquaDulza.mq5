@@ -213,9 +213,11 @@ int OnInit()
    }
    g_engineReady = true;
 
-   // 5b. Draw channel overlay immediately
+   // 5b. Draw channel overlay + historical signals immediately
    if(ShowChannelOverlay)
       DrawChannelOverlay();
+   if(ShowSignalArrows)
+      ScanHistoricalSignals();
 
    // 6. Initialize cycles array
    InitializeCycles();
@@ -352,7 +354,9 @@ void OnTick()
    bool hasSignal = EngineCalculate(sig);
    g_lastSignal = sig;
 
-   // ── 8. (overlay ora in sezione dashboard update) ─────────────────
+   // ── 8. Refresh historical signal scan (new bar → new data) ───────
+   if(ShowSignalArrows)
+      ScanHistoricalSignals();
 
    // ── 9. LTF CHECK (ogni barra, se finestra aperta) ────────────────
    if(InpUseLTFEntry && DPCLTFIsWaiting())

@@ -179,6 +179,154 @@ void DrawSignalMarkers(const EngineSignal &sig)
 }
 
 //+------------------------------------------------------------------+
+//| ScanHistoricalSignals — Backtest-style scan: draws arrows/labels |
+//|  for all past signals within OverlayDepth bars.                  |
+//|  Uses DPCComputeBands + DPCClassifySignal (same as indicator).   |
+//+------------------------------------------------------------------+
+void ScanHistoricalSignals()
+{
+   if(!ShowSignalArrows) return;
+
+   int depth = MathMax(1, OverlayDepth);
+   int totalBars = iBars(_Symbol, PERIOD_CURRENT);
+   if(totalBars < depth + 2) return;
+
+   int dcLen = (g_dpc_dcLen > 0) ? g_dpc_dcLen : 20;
+   if(totalBars < dcLen + 5) return;
+
+   // Cleanup old historical markers
+   ObjectsDeleteAll(0, "AD_HSIG_");
+   ObjectsDeleteAll(0, "AD_HDOT_");
+   ObjectsDeleteAll(0, "AD_HLBL_");
+   ObjectsDeleteAll(0, "AD_HVLN_");
+
+   // Simple cooldown tracking: last signal bar index per direction
+   int lastBuyBar  = -999;
+   int lastSellBar = -999;
+   int minSpacing  = MathMax(2, dcLen / 4);  // minimum bars between same-dir signals
+
+   for(int i = depth; i >= 1; i--)
+   {
+      if(i >= totalBars - dcLen) continue;  // need lookback
+
+      double upper, lower, mid;
+      DPCComputeBands(i, dcLen, upper, lower, mid);
+      if(upper <= 0 || lower <= 0) continue;
+
+      double high1  = iHigh(_Symbol, PERIOD_CURRENT, i);
+      double low1   = iLow(_Symbol, PERIOD_CURRENT, i);
+      double open1  = iOpen(_Symbol, PERIOD_CURRENT, i);
+      double close1 = iClose(_Symbol, PERIOD_CURRENT, i);
+      datetime barTime = iTime(_Symbol, PERIOD_CURRENT, i);
+
+      bool bearBase = (high1 >= upper);
+      bool bullBase = (low1 <= lower);
+
+      // Anti-ambiguity
+      if(bearBase && bullBase) continue;
+
+      if(!bearBase && !bullBase) continue;
+
+      int direction = bullBase ? +1 : -1;
+
+      // Simple cooldown: skip if too close to last same-dir signal
+      if(direction > 0 && (lastBuyBar - i) < minSpacing) continue;
+      if(direction < 0 && (lastSellBar - i) < minSpacing) continue;
+
+      // Classify TBS/TWS
+      int quality = DPCClassifySignal(direction, open1, close1, upper, lower);
+
+      // Skip TWS if disabled
+      if(!InpShowTWSSignals && quality == PATTERN_TWS) continue;
+
+      // Update cooldown
+      if(direction > 0) lastBuyBar = i;
+      else              lastSellBar = i;
+
+      // === DRAW HISTORICAL MARKERS ===
+      bool isBuy = (direction > 0);
+      color clr = GetSignalArrowColor(isBuy, quality);
+      string patternName = (quality >= PATTERN_TBS) ? "TBS" : "TWS";
+      string timeStr = TimeToString(barTime, TIME_DATE|TIME_MINUTES);
+      double bandPrice = isBuy ? lower : upper;
+
+      // ATR for offset
+      double atr = DPCGetATR(i);
+      double atrPrice = (atr > 0) ? atr : 0;
+      double offset = atrPrice * AD_ARROW_OFFSET;
+
+      // Arrow
+      {
+         string name = StringFormat("AD_HSIG_%s_%d_%s",
+                       isBuy ? "BUY" : "SELL", quality, timeStr);
+         int arrowCode = isBuy ? 233 : 234;
+         double price = isBuy ? (bandPrice - offset) : (bandPrice + offset);
+         if(price <= 0) price = bandPrice;
+
+         ObjectCreate(0, name, OBJ_ARROW, 0, barTime, price);
+         ObjectSetInteger(0, name, OBJPROP_ARROWCODE, arrowCode);
+         ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+         ObjectSetInteger(0, name, OBJPROP_WIDTH, AD_ARROW_SIZE);
+         ObjectSetInteger(0, name, OBJPROP_ANCHOR, isBuy ? ANCHOR_TOP : ANCHOR_BOTTOM);
+         ObjectSetInteger(0, name, OBJPROP_BACK, false);
+         ObjectSetInteger(0, name, OBJPROP_ZORDER, 400);
+         ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+         ObjectSetInteger(0, name, OBJPROP_HIDDEN, false);
+         ObjectSetString(0, name, OBJPROP_TOOLTIP,
+             StringFormat("%s %s | Band: %s | Mid: %s",
+                          patternName, isBuy ? "BUY" : "SELL",
+                          DoubleToString(bandPrice, _Digits),
+                          DoubleToString(mid, _Digits)));
+      }
+
+      // Entry dot at band
+      {
+         string name = StringFormat("AD_HDOT_%s_%s",
+                       isBuy ? "BUY" : "SELL", timeStr);
+         ObjectCreate(0, name, OBJ_ARROW, 0, barTime, bandPrice);
+         ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 159);
+         ObjectSetInteger(0, name, OBJPROP_COLOR, isBuy ? AD_ENTRY_BUY_CLR : AD_ENTRY_SELL_CLR);
+         ObjectSetInteger(0, name, OBJPROP_WIDTH, 2);
+         ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
+         ObjectSetInteger(0, name, OBJPROP_BACK, false);
+         ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+         ObjectSetInteger(0, name, OBJPROP_HIDDEN, false);
+      }
+
+      // Text label "TRIGGER BUY [TBS]"
+      {
+         string name = StringFormat("AD_HLBL_%s_%s",
+                       isBuy ? "BUY" : "SELL", timeStr);
+         string text = StringFormat("TRIGGER %s [%s]", isBuy ? "BUY" : "SELL", patternName);
+         double labelOffset = atrPrice * (AD_ARROW_OFFSET + 0.5);
+         double price = isBuy ? (bandPrice - labelOffset) : (bandPrice + labelOffset);
+
+         ObjectCreate(0, name, OBJ_TEXT, 0, barTime, price);
+         ObjectSetString(0, name, OBJPROP_TEXT, text);
+         ObjectSetString(0, name, OBJPROP_FONT, "Arial");
+         ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 7);
+         ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+         ObjectSetInteger(0, name, OBJPROP_ANCHOR, isBuy ? ANCHOR_UPPER : ANCHOR_LOWER);
+         ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+         ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+      }
+
+      // Trigger VLine
+      {
+         string name = StringFormat("AD_HVLN_%d", (int)barTime);
+         if(ObjectFind(0, name) < 0)
+            ObjectCreate(0, name, OBJ_VLINE, 0, barTime, 0);
+         ObjectSetInteger(0, name, OBJPROP_COLOR, AD_TRIGGER_CLR);
+         ObjectSetInteger(0, name, OBJPROP_STYLE, STYLE_DOT);
+         ObjectSetInteger(0, name, OBJPROP_WIDTH, 1);
+         ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+         ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+         ObjectSetInteger(0, name, OBJPROP_BACK, true);
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
 //| CleanupSignalMarkers — Remove all signal marker objects          |
 //+------------------------------------------------------------------+
 void CleanupSignalMarkers()
@@ -187,4 +335,8 @@ void CleanupSignalMarkers()
    ObjectsDeleteAll(0, "AD_DOT_");
    ObjectsDeleteAll(0, "AD_LBL_");
    ObjectsDeleteAll(0, "AD_TRIG_");
+   ObjectsDeleteAll(0, "AD_HSIG_");
+   ObjectsDeleteAll(0, "AD_HDOT_");
+   ObjectsDeleteAll(0, "AD_HLBL_");
+   ObjectsDeleteAll(0, "AD_HVLN_");
 }

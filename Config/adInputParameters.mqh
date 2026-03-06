@@ -106,7 +106,7 @@ input group "                                                           "
 input bool           ShowChannelOverlay     = true;          // Show Channel Overlay on Chart
 input bool           ShowSignalArrows       = true;          // Show Signal Arrows
 input bool           ShowTPTargetLines      = true;          // Show TP Target Lines
-input int            OverlayDepth           = 100;           // Channel Overlay Depth (bars, 0=arrows only)
+input int            OverlayDepth           = 500;           // Channel Overlay Depth (bars, 0=arrows only)
 
 //+------------------------------------------------------------------+
 //| 7. ADVANCED                                                      |
