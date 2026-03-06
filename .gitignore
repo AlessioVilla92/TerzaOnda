@@ -1,0 +1,18 @@
+# Legacy Carneval files
+Strategies/
+deprecated/
+
+# MT5 build artifacts
+*.ex5
+*.ex4
+*.log
+Logs/
+
+# IDE / Editor
+.vscode/
+*.swp
+*.bak
+*~
+
+# Claude internal
+.claude/

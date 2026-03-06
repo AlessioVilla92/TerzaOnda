@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AcquaDulza EA — Ocean Dashboard v3</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* ── OCEAN PALETTE ── */
+    --ocean-deep:      #03080f;
+    --ocean-abyss:     #060e1c;
+    --ocean-dark:      #091525;
+    --ocean-mid:       #0d1e35;
+    --ocean-surface:   #122540;
+    --ocean-light:     #1a3350;
+    --ocean-border:    #1e3d5c;
+    --ocean-glow:      #2a5580;
+
+    /* Accent — bioluminescenza */
+    --biolum:          #00d4ff;
+    --biolum-dim:      #0088aa;
+    --biolum-glow:     rgba(0,212,255,0.12);
+
+    /* Signal colors */
+    --wave-buy:        #00e8b0;   /* acquamarina profonda */
+    --wave-buy-dim:    #007a5c;
+    --wave-buy-glow:   rgba(0,232,176,0.15);
+    --wave-sell:       #ff4d6d;   /* corallo */
+    --wave-sell-dim:   #882233;
+    --wave-sell-glow:  rgba(255,77,109,0.15);
+    --amber:           #ffb347;   /* ambra marina */
+    --amber-dim:       #885500;
+
+    /* Text */
+    --text-hi:         #ddeeff;
+    --text-mid:        #7a9ab8;
+    --text-lo:         #2a4a65;
+    --text-accent:     #a0d4f0;
+
+    /* Semantic */
+    --ok:    var(--wave-buy);
+    --warn:  var(--amber);
+    --error: var(--wave-sell);
+    --info:  var(--biolum);
+
+    /* Fonts */
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-ui:   'Syne', sans-serif;
+
+    /* Sizing */
+    --panel-w: 300px;
+    --side-w:  220px;
+    --panel-r: 4px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--ocean-abyss);
+    color: var(--text-hi);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Subtle ocean texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 40% at 20% 0%, rgba(0,100,180,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 30% at 80% 100%, rgba(0,180,150,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ════════════════════ TOP BAR ════════════════════ */
+  .topbar {
+    position: relative;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    height: 46px;
+    background: var(--ocean-mid);
+    border-bottom: 1px solid var(--ocean-border);
+    box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-text {
+    font-family: var(--font-ui);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--biolum);
+    text-shadow: 0 0 20px rgba(0,212,255,0.4);
+  }
+  .logo-sub {
+    font-size: 9px;
+    color: var(--text-mid);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+  }
+  .logo-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--ocean-border);
+  }
+  .engine-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: rgba(0,212,255,0.06);
+    border: 1px solid var(--biolum-dim);
+    border-radius: 3px;
+    font-size: 10px;
+    color: var(--biolum);
+    letter-spacing: 0.1em;
+  }
+  .pulse-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--wave-buy);
+    box-shadow: 0 0 8px var(--wave-buy);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100%{ opacity:1; transform:scale(1); }
+    50%{ opacity:0.4; transform:scale(0.85); }
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 11px;
+    color: var(--text-mid);
+  }
+  .topbar-pair {
+    color: var(--text-hi);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .topbar-price {
+    color: var(--biolum);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .topbar-change { color: var(--wave-buy); font-size: 11px; }
+  .divider-v { width:1px; height:20px; background: var(--ocean-border); }
+
+  /* ════════════════════ MAIN LAYOUT ════════════════════ */
+  .layout {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: var(--panel-w) 1fr var(--side-w);
+    flex: 1;
+    min-height: calc(100vh - 46px - 28px);
+  }
+
+  /* ════════════════════ LEFT PANEL ════════════════════ */
+  .left {
+    background: var(--ocean-dark);
+    border-right: 1px solid var(--ocean-border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Panel block */
+  .pblock {
+    border-bottom: 1px solid var(--ocean-border);
+  }
+  .pblock-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px 8px;
+    background: var(--ocean-mid);
+  }
+  .pblock-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-lo);
+  }
+  .pblock-label.accent-biolum { color: var(--biolum-dim); }
+  .pblock-label.accent-buy { color: var(--wave-buy-dim); }
+  .pblock-label.accent-amber { color: var(--amber-dim); }
+  .pblock-body { padding: 12px 14px; }
+
+  /* ── SYSTEM STATUS ── */
+  .status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--ocean-border);
+    border: 1px solid var(--ocean-border);
+    border-radius: var(--panel-r);
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .sg-cell {
+    background: var(--ocean-surface);
+    padding: 8px 10px;
+  }
+  .sg-label {
+    font-size: 8px;
+    color: var(--text-lo);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .sg-val {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-hi);
+  }
+  .sg-val.ok    { color: var(--wave-buy); }
+  .sg-val.warn  { color: var(--amber); }
+  .sg-val.err   { color: var(--wave-sell); }
+  .sg-val.info  { color: var(--biolum); }
+
+  /* STATE badge */
+  .state-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    width: 100%;
+    justify-content: center;
+  }
+  .state-active {
+    background: rgba(0,232,176,0.08);
+    border: 1px solid var(--wave-buy-dim);
+    color: var(--wave-buy);
+  }
+  .state-idle {
+    background: rgba(122,154,184,0.06);
+    border: 1px solid var(--ocean-border);
+    color: var(--text-mid);
+  }
+
+  /* ── DPC ENGINE BANDS ── */
+  .band-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--ocean-mid);
+    border: 1px solid var(--ocean-border);
+    border-radius: var(--panel-r);
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .band-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--ocean-border);
+    position: relative;
+  }
+  .band-row:last-child { border-bottom: none; }
+  .band-row-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    opacity: 0.06;
+    border-radius: 0;
+  }
+  .band-row.upper .band-row-fill { background: var(--wave-sell); width: 100%; }
+  .band-row.lower .band-row-fill { background: var(--wave-buy); width: 100%; }
+  .band-row.mid   .band-row-fill { background: var(--biolum); width: 60%; }
+  .band-tag {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-mid);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .band-dot { width:6px; height:6px; border-radius:50%; }
+  .bd-u { background: var(--wave-sell); box-shadow: 0 0 5px var(--wave-sell); }
+  .bd-m { background: var(--biolum); box-shadow: 0 0 5px var(--biolum); }
+  .bd-l { background: var(--wave-buy); box-shadow: 0 0 5px var(--wave-buy); }
+  .band-price {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .bp-u { color: var(--wave-sell); }
+  .bp-m { color: var(--biolum); }
+  .bp-l { color: var(--wave-buy); }
+
+  /* Channel bar visualizer */
+  .channel-viz {
+    padding: 4px 12px 10px;
+    background: var(--ocean-mid);
+  }
+  .cv-track {
+    height: 6px;
+    background: var(--ocean-border);
+    border-radius: 3px;
+    position: relative;
+    overflow: visible;
+  }
+  .cv-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 100%;
+    background: linear-gradient(90deg, var(--wave-buy-dim), var(--biolum-dim), var(--wave-sell-dim));
+    border-radius: 3px;
+    opacity: 0.5;
+  }
+  .cv-price {
+    position: absolute;
+    width: 3px; height: 16px;
+    background: var(--biolum);
+    box-shadow: 0 0 8px var(--biolum);
+    border-radius: 1px;
+    top: -5px;
+    left: 53%;
+    transform: translateX(-50%);
+  }
+  .cv-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 9px;
+    color: var(--text-mid);
+  }
+
+  /* Regime tag */
+  .regime-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: rgba(0,232,176,0.05);
+    border: 1px solid rgba(0,232,176,0.15);
+    border-radius: 3px;
+    font-size: 9px;
+    color: var(--wave-buy);
+    margin-bottom: 0;
+  }
+  .rt-dot { width:5px; height:5px; border-radius:50%; background: var(--wave-buy); }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 14px;
+    background: var(--ocean-dark);
+    border-bottom: 1px solid var(--ocean-border);
+  }
+  .fb-pill {
+    font-size: 8px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    letter-spacing: 0.06em;
+  }
+  .fb-on {
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--biolum);
+  }
+  .fb-off {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--ocean-border);
+    color: var(--text-lo);
+  }
+  .fb-warn {
+    background: rgba(255,179,71,0.08);
+    border: 1px solid rgba(255,179,71,0.2);
+    color: var(--amber);
+  }
+
+  /* ── LAST SIGNALS ── */
+  .sig-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--ocean-surface);
+    border: 1px solid var(--ocean-border);
+    border-radius: var(--panel-r);
+    margin-bottom: 6px;
+  }
+  .sig-item.buy  { border-left: 3px solid var(--wave-buy); }
+  .sig-item.sell { border-left: 3px solid var(--wave-sell); }
+  .sig-dir { font-size: 11px; font-weight: 700; }
+  .sig-dir.buy  { color: var(--wave-buy); }
+  .sig-dir.sell { color: var(--wave-sell); }
+  .sig-route { font-size: 9px; color: var(--text-mid); margin-top: 2px; }
+  .sig-quality {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .q-pill {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+  }
+  .q-tbs { background: rgba(0,212,255,0.08); border: 1px solid var(--biolum-dim); color: var(--biolum); }
+  .q-tws { background: rgba(255,179,71,0.06); border: 1px solid var(--amber-dim); color: var(--amber); }
+  .sig-time { font-size: 8px; color: var(--text-lo); }
+
+  /* ── PERFORMANCE ── */
+  .perf-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--ocean-border);
+    border: 1px solid var(--ocean-border);
+    border-radius: var(--panel-r);
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .pg-cell {
+    background: var(--ocean-surface);
+    padding: 8px 10px;
+  }
+  .pg-label {
+    font-size: 8px;
+    color: var(--text-lo);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 3px;
+  }
+  .pg-val { font-size: 14px; font-weight: 700; }
+  .pg-sub { font-size: 8px; color: var(--text-mid); margin-top: 2px; }
+
+  /* Active cycles table */
+  .cycle-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9px;
+  }
+  .cycle-table th {
+    text-align: left;
+    padding: 4px 6px;
+    color: var(--text-lo);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--ocean-border);
+  }
+  .cycle-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid rgba(30,61,92,0.5);
+    color: var(--text-mid);
+  }
+  .cycle-table tr:last-child td { border-bottom: none; }
+  .ct-dir.buy  { color: var(--wave-buy); font-weight: 700; }
+  .ct-dir.sell { color: var(--wave-sell); font-weight: 700; }
+  .ct-pnl.pos  { color: var(--wave-buy); }
+  .ct-pnl.neg  { color: var(--wave-sell); }
+  .ct-state {
+    font-size: 8px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: rgba(0,212,255,0.06);
+    border: 1px solid var(--biolum-dim);
+    color: var(--biolum);
+  }
+
+  /* ── CONTROL BUTTONS ── */
+  .btn-row {
+    display: flex;
+    gap: 6px;
+    padding: 12px 14px;
+  }
+  .btn {
+    flex: 1;
+    padding: 9px 4px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: rgba(255,255,255,0.05);
+  }
+  .btn:hover::before { opacity: 1; }
+
+  .btn-start {
+    background: rgba(0,232,176,0.08);
+    border: 1px solid var(--wave-buy-dim);
+    color: var(--wave-buy);
+    box-shadow: 0 0 12px rgba(0,232,176,0.1);
+  }
+  .btn-pause {
+    background: rgba(255,179,71,0.06);
+    border: 1px solid var(--amber-dim);
+    color: var(--amber);
+  }
+  .btn-recovery {
+    background: rgba(0,212,255,0.06);
+    border: 1px solid var(--biolum-dim);
+    color: var(--biolum);
+  }
+  .btn-stop {
+    background: rgba(255,77,109,0.06);
+    border: 1px solid var(--wave-sell-dim);
+    color: var(--wave-sell);
+  }
+
+  /* ════════════════════ CENTER CHART ════════════════════ */
+  .center {
+    background: var(--ocean-deep);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+    background: var(--ocean-mid);
+    border-bottom: 1px solid var(--ocean-border);
+    font-size: 10px;
+  }
+  .tf-btn {
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 10px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+    transition: all 0.12s;
+    border: 1px solid transparent;
+  }
+  .tf-btn.active {
+    background: var(--biolum);
+    color: #000;
+    font-weight: 700;
+  }
+  .tf-btn:not(.active) {
+    background: var(--ocean-surface);
+    color: var(--text-mid);
+    border-color: var(--ocean-border);
+  }
+  .chart-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-left: auto;
+    font-size: 9px;
+    color: var(--text-mid);
+  }
+  .leg-item { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width:8px; height:8px; border-radius:50%; }
+
+  .chart-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-wrap svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ════════════════════ RIGHT PANEL ════════════════════ */
+  .right {
+    background: var(--ocean-dark);
+    border-left: 1px solid var(--ocean-border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  /* Engine Monitor side panel */
+  .em-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 12px;
+    font-size: 10px;
+    border-bottom: 1px solid rgba(30,61,92,0.4);
+  }
+  .em-key { color: var(--text-mid); letter-spacing: 0.04em; }
+  .em-val { color: var(--text-hi); font-weight: 600; }
+  .em-val.ok   { color: var(--wave-buy); }
+  .em-val.info { color: var(--biolum); }
+  .em-val.warn { color: var(--amber); }
+
+  /* Signal feed */
+  .feed-item {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(30,61,92,0.4);
+    font-size: 9px;
+  }
+  .feed-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+  .fd-buy  { background: var(--wave-buy); box-shadow: 0 0 5px var(--wave-buy); }
+  .fd-sell { background: var(--wave-sell); box-shadow: 0 0 5px var(--wave-sell); }
+  .fd-sys  { background: var(--biolum); box-shadow: 0 0 5px var(--biolum); }
+  .fd-warn { background: var(--amber); box-shadow: 0 0 5px var(--amber); }
+  .feed-text { color: var(--text-mid); line-height: 1.4; }
+  .feed-time { color: var(--text-lo); font-size: 8px; margin-top: 2px; }
+
+  /* ════════════════════ STATUS BAR ════════════════════ */
+  .statusbar {
+    position: relative;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 16px;
+    height: 28px;
+    background: var(--ocean-mid);
+    border-top: 1px solid var(--ocean-border);
+    font-size: 9px;
+    color: var(--text-mid);
+    letter-spacing: 0.04em;
+  }
+  .sb-item { display: flex; align-items: center; gap: 5px; }
+  .sb-dot { width:5px; height:5px; border-radius:50%; }
+  .sb-sep { width:1px; height:14px; background: var(--ocean-border); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--ocean-border); border-radius: 2px; }
+
+  /* Open trade callout on chart */
+  .trade-callout {
+    position: absolute;
+    background: rgba(9,21,37,0.95);
+    border: 1px solid var(--ocean-border);
+    border-radius: 5px;
+    padding: 8px 12px;
+    font-size: 10px;
+    color: var(--text-hi);
+    pointer-events: none;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  .tc-buy  { border-left: 3px solid var(--wave-buy); }
+  .tc-sell { border-left: 3px solid var(--wave-sell); }
+  .tc-label { font-size: 8px; color: var(--text-mid); margin-bottom: 2px; letter-spacing: 0.06em; }
+  .tc-val   { color: var(--text-hi); }
+  .tc-pnl   { color: var(--wave-buy); font-weight: 700; font-size: 11px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div>
+      <div class="logo-text">🌊 ACQUADULZA</div>
+      <div class="logo-sub">Expert Advisor · DPC Engine</div>
+    </div>
+    <div class="logo-divider"></div>
+    <div class="engine-badge">
+      <span class="pulse-dot"></span>
+      DPC v7.19 · M15 PRESET
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-pair">XAUUSD</span>
+    <span class="topbar-price">2 648.90</span>
+    <span class="topbar-change">▲ +4.30</span>
+    <div class="divider-v"></div>
+    <span>London · 14:37</span>
+    <div class="divider-v"></div>
+    <span>Magic 88401</span>
+    <div class="divider-v"></div>
+    <span style="color:var(--wave-buy);">● ACTIVE</span>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- ════════ LEFT PANEL ════════ -->
+  <div class="left">
+
+    <!-- SYSTEM STATUS -->
+    <div class="pblock">
+      <div class="pblock-title">
+        <span class="pblock-label">◈ System Status</span>
+        <span style="font-size:9px;color:var(--text-lo);">v1.0.0</span>
+      </div>
+      <div class="pblock-body">
+        <div class="state-badge state-active" style="margin-bottom:10px;">
+          <span class="pulse-dot"></span>
+          ● ACTIVE
+        </div>
+        <div class="status-grid">
+          <div class="sg-cell">
+            <div class="sg-label">Session</div>
+            <div class="sg-val info">LONDON</div>
+          </div>
+          <div class="sg-cell">
+            <div class="sg-label">Uptime</div>
+            <div class="sg-val">03:14:07</div>
+          </div>
+          <div class="sg-cell">
+            <div class="sg-label">Spread</div>
+            <div class="sg-val ok">1.8 pip ✓</div>
+          </div>
+          <div class="sg-cell">
+            <div class="sg-label">ATR(14)</div>
+            <div class="sg-val">14.2 pip</div>
+          </div>
+          <div class="sg-cell">
+            <div class="sg-label">Balance</div>
+            <div class="sg-val">$20 000</div>
+          </div>
+          <div class="sg-cell">
+            <div class="sg-label">Equity</div>
+            <div class="sg-val ok">$20 247</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DPC ENGINE -->
+    <div class="pblock">
+      <div class="pblock-title">
+        <span class="pblock-label accent-biolum">◈ DPC Engine · M15</span>
+        <span style="font-size:9px;color:var(--wave-buy);">● ACTIVE</span>
+      </div>
+      <div class="pblock-body">
+        <div class="band-stack">
+          <div class="band-row upper">
+            <div class="band-row-fill"></div>
+            <div class="band-tag"><div class="band-dot bd-u"></div>UPPER</div>
+            <div class="band-price bp-u">2 661.40</div>
+          </div>
+          <div class="band-row mid">
+            <div class="band-row-fill"></div>
+            <div class="band-tag"><div class="band-dot bd-m"></div>MID · TP</div>
+            <div class="band-price bp-m">2 651.80</div>
+          </div>
+          <div class="band-row lower">
+            <div class="band-row-fill"></div>
+            <div class="band-tag"><div class="band-dot bd-l"></div>LOWER</div>
+            <div class="band-price bp-l">2 642.20</div>
+          </div>
+        </div>
+        <div class="channel-viz">
+          <div class="cv-track">
+            <div class="cv-fill"></div>
+            <div class="cv-price"></div>
+          </div>
+          <div class="cv-meta">
+            <span>Width: 19.2 pip</span>
+            <span>MinWidth: 8.0 pip ✓</span>
+            <span>Trend: BULL</span>
+          </div>
+        </div>
+        <div class="regime-tag">
+          <div class="rt-dot"></div>
+          FLAT REGIME · TBS/TWS SIGNALS ACTIVE
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER STATUS BAR -->
+    <div class="filter-bar">
+      <div class="fb-pill fb-on">Flat ✓</div>
+      <div class="fb-pill fb-on">Width ✓</div>
+      <div class="fb-pill fb-on">MA EMA</div>
+      <div class="fb-pill fb-on">Age ✓</div>
+      <div class="fb-pill fb-off">TWS hid</div>
+      <div class="fb-pill fb-on">London ✓</div>
+      <div class="fb-pill fb-warn">TWS:1</div>
+    </div>
+
+    <!-- LAST SIGNALS -->
+    <div class="pblock">
+      <div class="pblock-title">
+        <span class="pblock-label accent-buy">◈ Last Signals</span>
+        <span style="font-size:9px;color:var(--text-lo);">B:4 · S:3 · Tot:7</span>
+      </div>
+      <div class="pblock-body">
+        <div class="sig-item buy">
+          <div>
+            <div class="sig-dir buy">▲ BUY</div>
+            <div class="sig-route">2 642.20 → TP 2 651.80</div>
+          </div>
+          <div class="sig-quality">
+            <div class="q-pill q-tbs">TBS</div>
+            <div class="sig-time">14:35 · LTF ✓</div>
+          </div>
+        </div>
+        <div class="sig-item sell">
+          <div>
+            <div class="sig-dir sell">▼ SELL</div>
+            <div class="sig-route">2 661.40 → TP 2 651.80</div>
+          </div>
+          <div class="sig-quality">
+            <div class="q-pill q-tws">TWS</div>
+            <div class="sig-time">14:22 · filtered</div>
+          </div>
+        </div>
+        <div class="sig-item buy">
+          <div>
+            <div class="sig-dir buy">▲ BUY</div>
+            <div class="sig-route">2 642.80 → TP 2 651.80</div>
+          </div>
+          <div class="sig-quality">
+            <div class="q-pill q-tbs">TBS</div>
+            <div class="sig-time">14:07 · filled</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVE CYCLES -->
+    <div class="pblock">
+      <div class="pblock-title">
+        <span class="pblock-label accent-buy">◈ Active Cycles</span>
+        <span style="font-size:9px;color:var(--wave-buy);">2 / 3</span>
+      </div>
+      <div class="pblock-body">
+        <table class="cycle-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Dir</th><th>State</th><th>Entry</th><th>P&L</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:var(--text-lo);">01</td>
+              <td class="ct-dir buy">BUY</td>
+              <td><span class="ct-state">TRIG-LIVE</span></td>
+              <td>2642.20</td>
+              <td class="ct-pnl pos">+$68.40</td>
+            </tr>
+            <tr>
+              <td style="color:var(--text-lo);">02</td>
+              <td class="ct-dir buy">BUY</td>
+              <td><span class="ct-state">TRIG-LIVE</span></td>
+              <td>2642.80</td>
+              <td class="ct-pnl pos">+$22.10</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- P&L SESSION -->
+    <div class="pblock">
+      <div class="pblock-title">
+        <span class="pblock-label" style="color:var(--wave-sell-dim);">◈ P&L Session</span>
+        <span style="font-size:9px;color:var(--wave-buy);">+$247.30</span>
+      </div>
+      <div class="pblock-body">
+        <div class="perf-grid">
+          <div class="pg-cell">
+            <div class="pg-label">P&L</div>
+            <div class="pg-val ok">+$247</div>
+            <div class="pg-sub">+1.23%</div>
+          </div>
+          <div class="pg-cell">
+            <div class="pg-label">Win Rate</div>
+            <div class="pg-val ok">71%</div>
+            <div class="pg-sub">TBS 83%</div>
+          </div>
+          <div class="pg-cell">
+            <div class="pg-label">Max DD</div>
+            <div class="pg-val err">-$38</div>
+            <div class="pg-sub">1.9%</div>
+          </div>
+          <div class="pg-cell">
+            <div class="pg-label">Trades</div>
+            <div class="pg-val">7</div>
+            <div class="pg-sub">5W · 2L</div>
+          </div>
+          <div class="pg-cell">
+            <div class="pg-label">Float</div>
+            <div class="pg-val ok">+$90.50</div>
+            <div class="pg-sub">open</div>
+          </div>
+          <div class="pg-cell">
+            <div class="pg-label">Hedges</div>
+            <div class="pg-val">0</div>
+            <div class="pg-sub">today</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="btn-row">
+      <button class="btn btn-start">▶ START</button>
+      <button class="btn btn-pause">⏸</button>
+      <button class="btn btn-recovery">↺</button>
+      <button class="btn btn-stop">■</button>
+    </div>
+
+  </div><!-- /left -->
+
+  <!-- ════════ CHART CENTER ════════ -->
+  <div class="center">
+    <div class="chart-bar">
+      <span style="font-weight:700;color:var(--text-hi);font-size:12px;">XAUUSD</span>
+      <div style="width:1px;height:16px;background:var(--ocean-border);"></div>
+      <span class="tf-btn">M5</span>
+      <span class="tf-btn active">M15</span>
+      <span class="tf-btn">M30</span>
+      <span class="tf-btn">H1</span>
+      <div class="chart-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--wave-sell);"></div> Upper DC</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--biolum);"></div> Midline</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--wave-buy);"></div> Lower DC</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#ffcc00;"></div> Trigger</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--wave-buy);"></div> TBS</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--amber);"></div> TWS</div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <svg viewBox="0 0 860 440" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="dcFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ff4d6d" stop-opacity="0.4"/>
+            <stop offset="50%" stop-color="#00d4ff" stop-opacity="0.05"/>
+            <stop offset="100%" stop-color="#00e8b0" stop-opacity="0.3"/>
+          </linearGradient>
+          <filter id="glow-buy"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-sell"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+
+        <rect width="860" height="440" fill="#03080f"/>
+
+        <!-- Grid -->
+        <g opacity="0.2" stroke="#1a3350" stroke-width="0.5">
+          <line x1="0" y1="70" x2="860" y2="70"/>
+          <line x1="0" y1="150" x2="860" y2="150"/>
+          <line x1="0" y1="220" x2="860" y2="220"/>
+          <line x1="0" y1="295" x2="860" y2="295"/>
+          <line x1="0" y1="370" x2="860" y2="370"/>
+          <line x1="107" y1="0" x2="107" y2="440"/>
+          <line x1="215" y1="0" x2="215" y2="440"/>
+          <line x1="322" y1="0" x2="322" y2="440"/>
+          <line x1="430" y1="0" x2="430" y2="440"/>
+          <line x1="537" y1="0" x2="537" y2="440"/>
+          <line x1="645" y1="0" x2="645" y2="440"/>
+          <line x1="752" y1="0" x2="752" y2="440"/>
+        </g>
+
+        <!-- DC Fill -->
+        <path fill="url(#dcFill)" opacity="0.08" d="M20,82 L100,80 L180,85 L260,88 L340,93 L420,97 L500,100 L580,103 L660,101 L740,99 L820,96 L860,94 L860,295 L820,292 L740,288 L660,283 L580,278 L500,273 L420,268 L340,263 L260,261 L180,265 L100,268 L20,271 Z"/>
+
+        <!-- DC Bands -->
+        <path fill="none" stroke="#ff4d6d" stroke-width="1.5" d="M20,82 L100,80 L180,85 L260,88 L340,93 L420,97 L500,100 L580,103 L660,101 L740,99 L820,96 L860,94"/>
+        <path fill="none" stroke="#00e8b0" stroke-width="1.5" d="M20,271 L100,268 L180,265 L260,261 L340,263 L420,268 L500,273 L580,278 L660,283 L740,288 L820,292 L860,295"/>
+        <path fill="none" stroke="#00d4ff" stroke-width="1" stroke-dasharray="5,4" opacity="0.7" d="M20,176 L100,174 L180,175 L260,174 L340,178 L420,182 L500,186 L580,190 L660,192 L740,193 L820,194 L860,194"/>
+
+        <!-- TP lines -->
+        <line x1="215" y1="186" x2="390" y2="186" stroke="#00d4ff" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+        <line x1="600" y1="190" x2="860" y2="190" stroke="#00d4ff" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+
+        <!-- CANDLES -->
+        <!-- Bull -->
+        <rect fill="#007a5c" x="23" y="145" width="7" height="50"/>
+        <line stroke="#007a5c" x1="26" y1="132" x2="26" y2="145"/>
+        <line stroke="#007a5c" x1="26" y1="195" x2="26" y2="210"/>
+
+        <rect fill="#882233" x="33" y="148" width="7" height="55"/>
+        <line stroke="#882233" x1="36" y1="133" x2="36" y2="148"/>
+        <line stroke="#882233" x1="36" y1="203" x2="36" y2="220"/>
+
+        <rect fill="#007a5c" x="43" y="150" width="7" height="52"/>
+        <rect fill="#882233" x="53" y="148" width="7" height="60"/>
+        <rect fill="#007a5c" x="63" y="152" width="7" height="50"/>
+        <rect fill="#882233" x="73" y="148" width="7" height="62"/>
+        <rect fill="#007a5c" x="83" y="150" width="7" height="55"/>
+
+        <!-- TRIGGER CANDLE lower -->
+        <rect fill="#cc9900" x="95" y="248" width="7" height="18" opacity="0.9"/>
+        <line stroke="#ffcc00" x1="98" y1="242" x2="98" y2="248"/>
+        <line stroke="#ffcc00" x1="98" y1="266" x2="98" y2="275"/>
+
+        <rect fill="#00c47a" x="105" y="220" width="7" height="38"/>
+        <rect fill="#00c47a" x="115" y="200" width="7" height="40"/>
+        <rect fill="#00c47a" x="125" y="188" width="7" height="42"/>
+        <rect fill="#882233" x="135" y="182" width="7" height="52"/>
+        <rect fill="#00c47a" x="145" y="178" width="7" height="48"/>
+        <rect fill="#882233" x="155" y="175" width="7" height="55"/>
+        <rect fill="#00c47a" x="165" y="172" width="7" height="50"/>
+
+        <!-- More candles -->
+        <rect fill="#882233" x="175" y="148" width="7" height="60"/>
+        <rect fill="#00c47a" x="185" y="152" width="7" height="55"/>
+        <rect fill="#882233" x="195" y="150" width="7" height="62"/>
+
+        <!-- TRIGGER upper -->
+        <rect fill="#cc9900" x="208" y="88" width="7" height="22" opacity="0.9"/>
+        <line stroke="#ffcc00" x1="211" y1="80" x2="211" y2="88"/>
+        <line stroke="#ffcc00" x1="211" y1="110" x2="211" y2="124"/>
+
+        <rect fill="#882233" x="218" y="108" width="7" height="55"/>
+        <rect fill="#882233" x="228" y="118" width="7" height="58"/>
+        <rect fill="#00c47a" x="238" y="128" width="7" height="50"/>
+        <rect fill="#882233" x="248" y="133" width="7" height="58"/>
+        <rect fill="#00c47a" x="258" y="136" width="7" height="52"/>
+        <rect fill="#882233" x="268" y="138" width="7" height="60"/>
+        <rect fill="#00c47a" x="278" y="140" width="7" height="52"/>
+        <rect fill="#882233" x="288" y="143" width="7" height="58"/>
+        <rect fill="#00c47a" x="298" y="145" width="7" height="50"/>
+        <rect fill="#882233" x="308" y="148" width="7" height="60"/>
+        <rect fill="#00c47a" x="318" y="150" width="7" height="52"/>
+
+        <!-- More middle -->
+        <rect fill="#882233" x="330" y="148" width="7" height="62"/>
+        <rect fill="#00c47a" x="340" y="150" width="7" height="55"/>
+        <rect fill="#882233" x="350" y="148" width="7" height="60"/>
+
+        <!-- TRIGGER lower -->
+        <rect fill="#cc9900" x="362" y="250" width="7" height="18" opacity="0.9"/>
+        <line stroke="#ffcc00" x1="365" y1="244" x2="365" y2="250"/>
+        <line stroke="#ffcc00" x1="365" y1="268" x2="365" y2="278"/>
+
+        <rect fill="#00c47a" x="372" y="225" width="7" height="42"/>
+        <rect fill="#00c47a" x="382" y="207" width="7" height="42"/>
+        <rect fill="#882233" x="392" y="198" width="7" height="52"/>
+        <rect fill="#00c47a" x="402" y="190" width="7" height="48"/>
+        <rect fill="#882233" x="412" y="186" width="7" height="56"/>
+        <rect fill="#00c47a" x="422" y="180" width="7" height="50"/>
+        <rect fill="#882233" x="432" y="174" width="7" height="58"/>
+        <rect fill="#00c47a" x="442" y="170" width="7" height="50"/>
+        <rect fill="#882233" x="452" y="165" width="7" height="60"/>
+        <rect fill="#00c47a" x="462" y="160" width="7" height="52"/>
+        <rect fill="#882233" x="472" y="157" width="7" height="62"/>
+        <rect fill="#00c47a" x="482" y="155" width="7" height="55"/>
+        <rect fill="#882233" x="492" y="152" width="7" height="60"/>
+
+        <!-- TRIGGER upper -->
+        <rect fill="#cc9900" x="508" y="88" width="7" height="24" opacity="0.9"/>
+        <line stroke="#ffcc00" x1="511" y1="78" x2="511" y2="88"/>
+        <line stroke="#ffcc00" x1="511" y1="112" x2="511" y2="128"/>
+
+        <rect fill="#882233" x="518" y="112" width="7" height="58"/>
+        <rect fill="#882233" x="528" y="122" width="7" height="62"/>
+        <rect fill="#00c47a" x="538" y="133" width="7" height="55"/>
+        <rect fill="#882233" x="548" y="138" width="7" height="60"/>
+        <rect fill="#00c47a" x="558" y="142" width="7" height="55"/>
+        <rect fill="#882233" x="568" y="148" width="7" height="60"/>
+        <rect fill="#00c47a" x="578" y="150" width="7" height="52"/>
+        <rect fill="#882233" x="588" y="148" width="7" height="62"/>
+        <rect fill="#00c47a" x="598" y="150" width="7" height="52"/>
+        <rect fill="#882233" x="608" y="148" width="7" height="60"/>
+        <rect fill="#00c47a" x="618" y="150" width="7" height="52"/>
+        <rect fill="#882233" x="628" y="148" width="7" height="60"/>
+        <rect fill="#00c47a" x="638" y="150" width="7" height="52"/>
+        <rect fill="#882233" x="648" y="148" width="7" height="62"/>
+        <rect fill="#00c47a" x="658" y="150" width="7" height="52"/>
+        <rect fill="#882233" x="668" y="148" width="7" height="62"/>
+        <rect fill="#00c47a" x="678" y="150" width="7" height="52"/>
+
+        <!-- LAST TRIGGER lower — active -->
+        <rect fill="#cc9900" x="693" y="252" width="7" height="22" opacity="0.9"/>
+        <line stroke="#ffcc00" x1="696" y1="244" x2="696" y2="252"/>
+        <line stroke="#ffcc00" x1="696" y1="274" x2="696" y2="286"/>
+
+        <rect fill="#00c47a" x="703" y="228" width="7" height="44"/>
+        <rect fill="#00c47a" x="713" y="212" width="7" height="42"/>
+        <rect fill="#00c47a" x="723" y="198" width="7" height="42"/>
+        <rect fill="#00c47a" x="733" y="188" width="7" height="40"/>
+        <rect fill="#882233" x="743" y="183" width="7" height="50"/>
+        <rect fill="#00c47a" x="753" y="178" width="7" height="45"/>
+        <rect fill="#00c47a" x="763" y="173" width="7" height="42"/>
+        <rect fill="#00c47a" x="773" y="170" width="7" height="40" opacity="0.8"/>
+        <rect fill="#00c47a" x="783" y="168" width="7" height="38" opacity="0.7"/>
+        <rect fill="#00c47a" x="793" y="165" width="7" height="35" opacity="0.6"/>
+        <!-- open candle -->
+        <rect fill="#00c47a" x="806" y="170" width="7" height="25" opacity="0.5"/>
+        <line stroke="#00c47a" x1="809" y1="163" x2="809" y2="170" opacity="0.5"/>
+
+        <!-- BUY ARROWS (TBS=aquamarine, TWS=amber) -->
+        <polygon filter="url(#glow-buy)" fill="#00e8b0" points="98,283 92,298 104,298"/>
+        <polygon filter="url(#glow-buy)" fill="#00e8b0" points="365,286 359,301 371,301"/>
+        <polygon filter="url(#glow-buy)" fill="#00e8b0" points="696,294 690,309 702,309"/>
+
+        <!-- SELL ARROWS -->
+        <polygon filter="url(#glow-sell)" fill="#ff4d6d" points="211,72 205,57 217,57"/>
+        <polygon filter="url(#glow-sell)" fill="#ffb347" points="511,70 505,55 517,55"/>
+
+        <!-- Entry dots -->
+        <circle fill="#00e8b0" cx="98" cy="268" r="3" opacity="0.9"/>
+        <circle fill="#00e8b0" cx="365" cy="268" r="3" opacity="0.9"/>
+        <circle fill="#00e8b0" cx="696" cy="278" r="3" opacity="0.9"/>
+        <circle fill="#ff4d6d" cx="211" cy="82" r="3" opacity="0.9"/>
+        <circle fill="#ffb347" cx="511" cy="82" r="3" opacity="0.9"/>
+
+        <!-- Price axis -->
+        <text fill="#ff4d6d" font-family="JetBrains Mono" font-size="9" x="824" y="82" text-anchor="start">2661</text>
+        <text fill="#00d4ff" font-family="JetBrains Mono" font-size="9" x="824" y="190" text-anchor="start">2651</text>
+        <text fill="#00e8b0" font-family="JetBrains Mono" font-size="9" x="824" y="298" text-anchor="start">2642</text>
+
+        <!-- Current price -->
+        <line x1="0" y1="192" x2="800" y2="192" stroke="#00d4ff" stroke-width="0.5" stroke-dasharray="2,5" opacity="0.35"/>
+        <rect x="800" y="185" width="50" height="14" fill="#00d4ff" rx="2"/>
+        <text fill="#000" font-family="JetBrains Mono" font-size="9" font-weight="700" x="825" y="195" text-anchor="middle">2648.9</text>
+
+        <!-- Time labels -->
+        <text fill="#2a4a65" font-family="JetBrains Mono" font-size="8" x="95" y="432" text-anchor="middle">13:15</text>
+        <text fill="#2a4a65" font-family="JetBrains Mono" font-size="8" x="211" y="432" text-anchor="middle">13:45</text>
+        <text fill="#2a4a65" font-family="JetBrains Mono" font-size="8" x="365" y="432" text-anchor="middle">14:07</text>
+        <text fill="#2a4a65" font-family="JetBrains Mono" font-size="8" x="511" y="432" text-anchor="middle">14:22</text>
+        <text fill="#2a4a65" font-family="JetBrains Mono" font-size="8" x="696" y="432" text-anchor="middle">14:35</text>
+
+        <!-- Signal labels -->
+        <text fill="#00e8b0" font-family="JetBrains Mono" font-size="8" x="108" y="312">TBS BUY</text>
+        <text fill="#00e8b0" font-family="JetBrains Mono" font-size="8" x="375" y="315">TBS BUY</text>
+        <text fill="#00e8b0" font-family="JetBrains Mono" font-size="8" x="706" y="320">TBS BUY ◀ OPEN</text>
+        <text fill="#ff4d6d" font-family="JetBrains Mono" font-size="8" x="138" y="50">TBS SELL</text>
+        <text fill="#ffb347" font-family="JetBrains Mono" font-size="8" x="465" y="48">TWS SELL</text>
+      </svg>
+
+      <!-- Callout -->
+      <div class="trade-callout tc-buy" style="bottom:90px;left:480px;">
+        <div class="tc-label">● OPEN · BUY · TBS</div>
+        <div style="display:flex;gap:16px;margin-top:4px;">
+          <div><div class="tc-label">Entry</div><div class="tc-val">2 642.20</div></div>
+          <div><div class="tc-label">TP</div><div style="color:var(--biolum);">2 651.80</div></div>
+          <div><div class="tc-label">Lot</div><div class="tc-val">0.02</div></div>
+        </div>
+        <div class="tc-pnl">+$68.40</div>
+      </div>
+    </div>
+  </div><!-- /center -->
+
+  <!-- ════════ RIGHT PANEL ════════ -->
+  <div class="right">
+
+    <div class="pblock-title">
+      <span class="pblock-label">◈ Engine Monitor</span>
+    </div>
+
+    <div class="em-row"><span class="em-key">DPC Engine</span><span class="em-val ok">ACTIVE</span></div>
+    <div class="em-row"><span class="em-key">ATR(14)</span><span class="em-val">14.2 pip</span></div>
+    <div class="em-row"><span class="em-key">EMA ATR(200)</span><span class="em-val info">13.8 pip</span></div>
+    <div class="em-row"><span class="em-key">Spread</span><span class="em-val ok">1.8 pip</span></div>
+    <div class="em-row"><span class="em-key">TF Preset</span><span class="em-val info">M15</span></div>
+    <div class="em-row"><span class="em-key">DC Period</span><span class="em-val">20</span></div>
+    <div class="em-row"><span class="em-key">MA EMA(30)</span><span class="em-val">2648.2</span></div>
+    <div class="em-row"><span class="em-key">SmartCD</span><span class="em-val ok">ON S3/O2</span></div>
+    <div class="em-row"><span class="em-key">LTF Entry</span><span class="em-val info">M5 ✓</span></div>
+    <div class="em-row"><span class="em-key">Session</span><span class="em-val info">LONDON</span></div>
+    <div class="em-row"><span class="em-key">AutoSave</span><span class="em-val ok">47s ago</span></div>
+    <div class="em-row"><span class="em-key">Handles</span><span class="em-val ok">OK ×3</span></div>
+
+    <div style="padding:8px 12px;border-bottom:1px solid var(--ocean-border);">
+      <div class="pblock-label" style="margin-bottom:8px;">◈ Signal Feed</div>
+    </div>
+
+    <div class="feed-item">
+      <div class="feed-dot fd-buy"></div>
+      <div>
+        <div class="feed-text">TBS BUY · 2642.20 → 2651.80</div>
+        <div class="feed-time">14:35 · LTF M5 confirmed</div>
+      </div>
+    </div>
+    <div class="feed-item">
+      <div class="feed-dot fd-sell"></div>
+      <div>
+        <div class="feed-text">TWS SELL · hidden by filter</div>
+        <div class="feed-time">14:22 · InpShowTWS=OFF</div>
+      </div>
+    </div>
+    <div class="feed-item">
+      <div class="feed-dot fd-buy"></div>
+      <div>
+        <div class="feed-text">TBS BUY · 2642.80 · filled</div>
+        <div class="feed-time">14:07 · +9.0 pip running</div>
+      </div>
+    </div>
+    <div class="feed-item">
+      <div class="feed-dot fd-sell"></div>
+      <div>
+        <div class="feed-text">TBS SELL · 2660.90 · TP hit ✓</div>
+        <div class="feed-time">13:45 · +9.1 pip · $44.80</div>
+      </div>
+    </div>
+    <div class="feed-item">
+      <div class="feed-dot fd-sys"></div>
+      <div>
+        <div class="feed-text">SmartCooldown reset</div>
+        <div class="feed-time">13:32 · midline crossed</div>
+      </div>
+    </div>
+    <div class="feed-item">
+      <div class="feed-dot fd-buy"></div>
+      <div>
+        <div class="feed-text">TBS BUY · 2641.90 · TP hit ✓</div>
+        <div class="feed-time">13:15 · +9.8 pip · $48.00</div>
+      </div>
+    </div>
+    <div class="feed-item">
+      <div class="feed-dot fd-sys"></div>
+      <div>
+        <div class="feed-text">Engine DPC ready · M15</div>
+        <div class="feed-time">11:20 · OnInit complete</div>
+      </div>
+    </div>
+
+  </div><!-- /right -->
+
+</div><!-- /layout -->
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div class="sb-item"><span class="sb-dot" style="background:var(--wave-buy);box-shadow:0 0 5px var(--wave-buy);"></span> ACTIVE</div>
+  <div class="sb-sep"></div>
+  <div class="sb-item">DPC v7.19 · M15 auto-preset</div>
+  <div class="sb-sep"></div>
+  <div class="sb-item">SmartCooldown ON</div>
+  <div class="sb-sep"></div>
+  <div class="sb-item">TBS:ON · TWS:HIDDEN</div>
+  <div class="sb-sep"></div>
+  <div class="sb-item">LTF→M5</div>
+  <div class="sb-sep"></div>
+  <div class="sb-item" style="margin-left:auto;">
+    <span class="sb-dot" style="background:var(--wave-buy);"></span> AutoSave 47s ago
+  </div>
+  <div class="sb-sep"></div>
+  <span>v1.0.0</span>
+  <div class="sb-sep"></div>
+  <span>Magic 88401</span>
+</div>
+
+</body>
+</html>

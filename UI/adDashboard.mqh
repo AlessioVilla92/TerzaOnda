@@ -1,0 +1,626 @@
+//+------------------------------------------------------------------+
+//|                                          adDashboard.mqh         |
+//|           AcquaDulza EA v1.0.0 — Dashboard Display               |
+//|                                                                  |
+//|  Ocean theme dashboard — Pragmatic approach.                     |
+//|  Layout: Title | SysStatus | Engine | Filters | LastSignals      |
+//|          ActiveCycles | P&L | Controls | StatusBar               |
+//|  Side panel: Engine Monitor + Signal Feed                        |
+//+------------------------------------------------------------------+
+#property copyright "AcquaDulza (C) 2026"
+
+//+------------------------------------------------------------------+
+//| Dashboard Helper Functions                                       |
+//+------------------------------------------------------------------+
+void DashRectangle(string name, int x, int y, int width, int height,
+                   color bgClr, color borderClr)
+{
+   string objName = "AD_" + name;
+
+   if(ObjectFind(0, objName) < 0)
+   {
+      ObjectCreate(0, objName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, objName, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, objName, OBJPROP_BACK, false);
+      ObjectSetInteger(0, objName, OBJPROP_ZORDER, AD_Z_RECT);
+      ObjectSetInteger(0, objName, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, objName, OBJPROP_HIDDEN, true);
+   }
+
+   ObjectSetInteger(0, objName, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, objName, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, objName, OBJPROP_XSIZE, width);
+   ObjectSetInteger(0, objName, OBJPROP_YSIZE, height);
+   ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, bgClr);
+   ObjectSetInteger(0, objName, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+   ObjectSetInteger(0, objName, OBJPROP_BORDER_COLOR, borderClr);
+}
+
+void DashLabel(string id, int x, int y, string text, color clr,
+               int fontSize = AD_FONT_SIZE_BODY, string fontName = "")
+{
+   if(fontName == "") fontName = AD_FONT_BODY;
+   string name = "AD_DASH_" + id;
+
+   if(ObjectFind(0, name) < 0)
+   {
+      ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+      ObjectSetInteger(0, name, OBJPROP_ZORDER, AD_Z_LABEL);
+   }
+
+   ObjectSetString(0, name, OBJPROP_FONT, fontName);
+   ObjectSetInteger(0, name, OBJPROP_FONTSIZE, fontSize);
+   ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+   ObjectSetString(0, name, OBJPROP_TEXT, text == "" ? " " : text);
+}
+
+// ApplyChartTheme() definita in adVisualTheme.mqh
+
+//+------------------------------------------------------------------+
+//| DrawTitleBar — Logo + Engine Badge + Pair + State (46px)        |
+//+------------------------------------------------------------------+
+void DrawTitleBar(int x, int y, int w)
+{
+   int pad = AD_PAD;
+   DashRectangle("TITLE_PANEL", x, y, w, AD_H_TOPBAR, AD_BG_SECTION_A, AD_PANEL_BORDER);
+
+   // Logo + version
+   DashLabel("H1", x + pad, y + 6, "ACQUADULZA", AD_BIOLUM, 16, AD_FONT_TITLE);
+   DashLabel("H2", x + pad + 195, y + 12, "v" + EA_VERSION, AD_TEXT_MUTED, 9);
+
+   // Engine badge
+   string engineBadge = "DPC v7.19";
+   if(InpEngineAutoTFPreset)
+      engineBadge += " · " + EnumToString(Period()) + " PRESET";
+   DashLabel("H_ENG", x + w - 280, y + 7, engineBadge, AD_BIOLUM, 9, AD_FONT_SECTION);
+
+   // Pair + price
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   DashLabel("H_PAIR", x + pad, y + 28, _Symbol, AD_TEXT_HI, 11, AD_FONT_SECTION);
+   DashLabel("H_PRICE", x + pad + 90, y + 28, DoubleToString(bid, _Digits), AD_BIOLUM, 11);
+   DashLabel("H_SPREAD", x + pad + 200, y + 30, StringFormat("Spread:%.1f", GetSpreadPips()), AD_TEXT_MUTED, 8);
+
+   // State badge with dot
+   string stateStr = "IDLE"; color stateClr = AD_TEXT_MUTED;
+   switch(g_systemState)
+   {
+      case STATE_ACTIVE:       stateStr = "ACTIVE";       stateClr = AD_BUY; break;
+      case STATE_PAUSED:       stateStr = "PAUSED";       stateClr = AD_AMBER; break;
+      case STATE_ERROR:        stateStr = "ERROR";        stateClr = AD_SELL; break;
+      case STATE_INITIALIZING: stateStr = "INIT...";      stateClr = AD_BIOLUM; break;
+   }
+   DashLabel("H_STATE", x + w - 100, y + 28, CharToString(0x25CF) + " " + stateStr, stateClr, 11, AD_FONT_SECTION);
+}
+
+//+------------------------------------------------------------------+
+//| DrawSystemStatus — 2x3 grid: Session|Uptime|Spread|ATR|Bal|Eq  |
+//+------------------------------------------------------------------+
+void DrawSystemStatus(int x, int y, int w)
+{
+   int pad = AD_PAD;
+   DashRectangle("SYS_PANEL", x, y, w, AD_H_SYSSTATUS, AD_PANEL_BG, AD_PANEL_BORDER);
+   DashLabel("SYS_TITLE", x + pad, y + 4, "SYSTEM STATUS", AD_BIOLUM_DIM, 9, AD_FONT_SECTION);
+
+   // Grid: 3 rows x 2 columns, labels + values
+   int col1 = x + pad;
+   int col2 = x + pad + 110;
+   int col3 = x + pad + 220;
+   int col4 = x + pad + 330;
+   int col5 = x + pad + 440;
+   int col6 = x + pad + 550;
+   int row1 = y + 22;
+   int row2 = y + 40;
+   int row3 = y + 58;
+
+   // Row 1: Session | Uptime | Magic
+   DashLabel("SY_L1", col1, row1, "SESSION", AD_TEXT_LO, 7);
+   DashLabel("SY_V1", col1, row1 + 10, GetSessionStatus(), AD_TEXT_HI, 10, AD_FONT_SECTION);
+
+   DashLabel("SY_L2", col3, row1, "UPTIME", AD_TEXT_LO, 7);
+   int upSec = (int)(TimeCurrent() - g_systemStartTime);
+   int upH = upSec / 3600; int upM = (upSec % 3600) / 60; int upS = upSec % 60;
+   DashLabel("SY_V2", col3, row1 + 10,
+             StringFormat("%02d:%02d:%02d", upH, upM, upS), AD_TEXT_HI, 10);
+
+   DashLabel("SY_L3", col5, row1, "MAGIC", AD_TEXT_LO, 7);
+   DashLabel("SY_V3", col5, row1 + 10, IntegerToString(MagicNumber), AD_TEXT_MID, 10);
+
+   // Row 2: Spread | ATR | Balance
+   double spread = GetSpreadPips();
+   DashLabel("SY_L4", col1, row2, "SPREAD", AD_TEXT_LO, 7);
+   DashLabel("SY_V4", col1, row2 + 10,
+             StringFormat("%.1f pip", spread),
+             spread > MaxSpreadPips ? AD_SELL : AD_BUY, 10);
+
+   DashLabel("SY_L5", col3, row2, "ATR(14)", AD_TEXT_LO, 7);
+   DashLabel("SY_V5", col3, row2 + 10,
+             StringFormat("%.1f pip", g_atrCache.valuePips), AD_BIOLUM, 10);
+
+   DashLabel("SY_L6", col5, row2, "BALANCE", AD_TEXT_LO, 7);
+   DashLabel("SY_V6", col5, row2 + 10, FormatMoney(GetBalance()), AD_TEXT_HI, 10);
+
+   // Row 3: Equity only (wider)
+   double equity = GetEquity();
+   double balance = GetBalance();
+   DashLabel("SY_L7", col1, row3, "EQUITY", AD_TEXT_LO, 7);
+   DashLabel("SY_V7", col1, row3 + 10, FormatMoney(equity),
+             equity >= balance ? AD_BUY : AD_SELL, 10, AD_FONT_SECTION);
+}
+
+//+------------------------------------------------------------------+
+//| DrawEnginePanel — Band Stack + Width + SmartCD (88px)           |
+//+------------------------------------------------------------------+
+void DrawEnginePanel(int x, int y, int w)
+{
+   int pad = AD_PAD;
+   DashRectangle("ENG_PANEL", x, y, w, AD_H_ENGINE, AD_BG_DEEP, AD_PANEL_BORDER);
+   DashLabel("ENG_TITLE", x + pad, y + 6, "DPC ENGINE", AD_BIOLUM, 10, AD_FONT_SECTION);
+
+   bool ready = g_engineReady;
+   DashLabel("ENG_STATUS", x + w - 100, y + 6,
+             ready ? "ACTIVE" : "INIT...", ready ? AD_BUY : AD_AMBER, 10, AD_FONT_SECTION);
+
+   if(g_lastSignal.upperBand > 0)
+   {
+      DashLabel("ENG_UPPER", x + pad, y + 26,
+                StringFormat("Upper  %s", DoubleToString(g_lastSignal.upperBand, _Digits)),
+                AD_SELL, 9);
+      DashLabel("ENG_MID", x + pad + 180, y + 26,
+                StringFormat("Mid    %s", DoubleToString(g_lastSignal.midline, _Digits)),
+                AD_BIOLUM, 9);
+      DashLabel("ENG_LOWER", x + pad + 360, y + 26,
+                StringFormat("Lower  %s", DoubleToString(g_lastSignal.lowerBand, _Digits)),
+                AD_BUY, 9);
+
+      // Channel width + regime
+      string regime = g_lastSignal.isFlat ? "FLAT" : "TRENDING";
+      color regClr = g_lastSignal.isFlat ? AD_BUY : AD_AMBER;
+      DashLabel("ENG_WIDTH", x + pad, y + 44,
+                StringFormat("Width: %.1f pip", g_lastSignal.channelWidthPip),
+                AD_BIOLUM, 9, AD_FONT_SECTION);
+      DashLabel("ENG_REGIME", x + pad + 140, y + 44, regime, regClr, 9, AD_FONT_SECTION);
+
+      // SmartCooldown (reads engine config from extraValues[5-9])
+      int eDcLen  = (int)g_lastSignal.extraValues[5];
+      int eMaLen  = (int)g_lastSignal.extraValues[6];
+      double eMinW = g_lastSignal.extraValues[7];
+      int eNSame  = (int)g_lastSignal.extraValues[8];
+      int eNOpp   = (int)g_lastSignal.extraValues[9];
+
+      string cdStr = InpUseSmartCooldown
+         ? StringFormat("SmartCD ON (S%d/O%d)", eNSame, eNOpp)
+         : StringFormat("Fixed CD (%d bars)", eDcLen);
+      DashLabel("ENG_CD", x + pad + 280, y + 44, cdStr, AD_TEXT_SECONDARY, 9);
+
+      // Engine config summary
+      DashLabel("ENG_CFG", x + pad, y + 62,
+                StringFormat("Period:%d | MA:%s(%d) | MinW:%.0f",
+                eDcLen, EnumToString(InpMAType), eMaLen, eMinW),
+                AD_TEXT_MUTED, 8);
+   }
+   else
+   {
+      DashLabel("ENG_UPPER", x + pad, y + 26, "Waiting for data...", AD_TEXT_MUTED, 9);
+      DashLabel("ENG_MID", x + pad + 180, y + 26, " ", AD_TEXT_MUTED, 9);
+      DashLabel("ENG_LOWER", x + pad + 360, y + 26, " ", AD_TEXT_MUTED, 9);
+      DashLabel("ENG_WIDTH", x + pad, y + 44, " ", AD_TEXT_MUTED, 9);
+      DashLabel("ENG_REGIME", x + pad + 140, y + 44, " ", AD_TEXT_MUTED, 9);
+      DashLabel("ENG_CD", x + pad + 280, y + 44, " ", AD_TEXT_MUTED, 9);
+      DashLabel("ENG_CFG", x + pad, y + 62, " ", AD_TEXT_MUTED, 8);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| DrawFilterBar — Individual colored pills (22px)                 |
+//+------------------------------------------------------------------+
+void DrawFilterBar(int x, int y, int w)
+{
+   DashRectangle("FILT_PANEL", x, y, w, AD_H_FILTERS, AD_PANEL_BG, AD_PANEL_BORDER);
+
+   int px = x + AD_PAD;
+   for(int f = 0; f < g_lastSignal.filterCount && f < 8; f++)
+   {
+      string state = "";
+      color  clr   = AD_TEXT_MUTED;
+
+      if(g_lastSignal.filterStates[f] == 1)
+      {  state = "+"; clr = AD_BUY; }
+      else if(g_lastSignal.filterStates[f] == -1)
+      {  state = "!"; clr = AD_SELL; }
+      else
+      {  state = "_"; clr = AD_TEXT_LO; }
+
+      string pill = "[" + state + g_lastSignal.filterNames[f] + "]";
+      DashLabel(StringFormat("FP%d", f), px, y + 3, pill, clr, 8);
+      px += StringLen(pill) * 6 + 4;
+   }
+
+   // Session pill
+   bool inSession = IsWithinSession();
+   DashLabel("FP_SESS", px, y + 3,
+             inSession ? "[+Sess]" : "[!Sess]",
+             inSession ? AD_BUY : AD_SELL, 8);
+}
+
+//+------------------------------------------------------------------+
+//| DrawLastSignals — Last 3 signals with direction + route (76px) |
+//+------------------------------------------------------------------+
+void DrawLastSignals(int x, int y, int w)
+{
+   int pad = AD_PAD;
+   DashRectangle("SIG_PANEL", x, y, w, AD_H_LASTSIG, AD_BG_SECTION_B, AD_PANEL_BORDER);
+   DashLabel("SIG_TITLE", x + pad, y + 4, "LAST SIGNALS", AD_AMBER_DIM, 9, AD_FONT_SECTION);
+   DashLabel("SIG_CNT", x + w - 120, y + 5,
+             StringFormat("B:%d S:%d Tot:%d", g_buySignals, g_sellSignals, g_totalSignals),
+             AD_TEXT_MUTED, 8);
+
+   int ly = y + 22;
+   for(int i = 0; i < 3; i++)
+   {
+      if(i < g_signalHistCount)
+      {
+         string arrow = g_signalHist[i].dir > 0 ? "\x25B2" : "\x25BC";
+         string dirStr = g_signalHist[i].dir > 0 ? "BUY " : "SELL";
+         color dirClr = g_signalHist[i].dir > 0 ? AD_BUY : AD_SELL;
+         string qStr = g_signalHist[i].quality == PATTERN_TBS ? "[TBS]" : "[TWS]";
+         color qClr = g_signalHist[i].quality == PATTERN_TBS ? AD_BUY : AD_AMBER;
+
+         DashLabel(StringFormat("SH%d_DIR", i), x + pad, ly,
+                   arrow + " " + dirStr + FormatPrice(g_signalHist[i].entry) +
+                   " -> " + FormatPrice(g_signalHist[i].tp),
+                   dirClr, 9);
+         DashLabel(StringFormat("SH%d_Q", i), x + pad + 350, ly, qStr, qClr, 9, AD_FONT_SECTION);
+         DashLabel(StringFormat("SH%d_T", i), x + w - 80, ly,
+                   TimeToString(g_signalHist[i].time, TIME_MINUTES),
+                   AD_TEXT_MUTED, 8);
+         DashLabel(StringFormat("SH%d_S", i), x + w - 40, ly,
+                   g_signalHist[i].status, AD_TEXT_MID, 8);
+      }
+      else
+      {
+         DashLabel(StringFormat("SH%d_DIR", i), x + pad, ly, " ", AD_TEXT_MUTED, 9);
+         DashLabel(StringFormat("SH%d_Q", i), x + pad + 350, ly, " ", AD_TEXT_MUTED, 9);
+         DashLabel(StringFormat("SH%d_T", i), x + w - 80, ly, " ", AD_TEXT_MUTED, 8);
+         DashLabel(StringFormat("SH%d_S", i), x + w - 40, ly, " ", AD_TEXT_MUTED, 8);
+      }
+      ly += 16;
+   }
+}
+
+//+------------------------------------------------------------------+
+//| DrawActiveCycles — Header + max 4 cycle rows                   |
+//+------------------------------------------------------------------+
+void DrawActiveCycles(int x, int y, int w)
+{
+   int pad = AD_PAD;
+   int cycH = AD_H_CYCLES;
+   DashRectangle("CYCLE_PANEL", x, y, w, cycH, AD_BG_DEEP, AD_PANEL_BORDER);
+   DashLabel("CY_TITLE", x + pad, y + 4, "ACTIVE CYCLES", AD_BUY_DIM, 9, AD_FONT_SECTION);
+
+   int activeCycles = CountActiveCycles();
+   DashLabel("CY_CNT", x + w - 70, y + 5,
+             StringFormat("%d/%d", activeCycles, MaxConcurrentTrades), AD_BUY, 9, AD_FONT_SECTION);
+
+   // Column header
+   DashLabel("CY_HDR", x + pad, y + 20,
+             "#     Dir    State    Entry              P&L", AD_TEXT_LO, 7);
+
+   int cy = y + 34;
+   int displayed = 0;
+   for(int i = 0; i < ArraySize(g_cycles) && displayed < 4; i++)
+   {
+      if(g_cycles[i].state == CYCLE_IDLE || g_cycles[i].state == CYCLE_CLOSED) continue;
+
+      string dirStr = g_cycles[i].direction > 0 ? "BUY " : "SELL";
+      string stStr = (g_cycles[i].state == CYCLE_PENDING) ? "PEND" : "LIVE";
+      color dirClr = g_cycles[i].direction > 0 ? AD_BUY : AD_SELL;
+
+      double floatPL = 0;
+      if(g_cycles[i].state == CYCLE_ACTIVE && g_cycles[i].ticket > 0)
+         floatPL = GetFloatingProfit(g_cycles[i].ticket);
+      color plClr = floatPL >= 0 ? AD_BUY : AD_SELL;
+
+      DashLabel(StringFormat("CY%d", displayed), x + pad, cy,
+                StringFormat("%02d    %s   %s     %s",
+                g_cycles[i].cycleID, dirStr, stStr, FormatPrice(g_cycles[i].entryPrice)),
+                dirClr, 9);
+      DashLabel(StringFormat("CY%d_PL", displayed), x + w - 80, cy,
+                StringFormat("%+.2f", floatPL), plClr, 9);
+      cy += 16;
+      displayed++;
+   }
+   for(int c = displayed; c < 4; c++)
+   {
+      DashLabel(StringFormat("CY%d", c), x + pad, cy, " ", AD_TEXT_MUTED, 9);
+      DashLabel(StringFormat("CY%d_PL", c), x + w - 80, cy, " ", AD_TEXT_MUTED, 9);
+      cy += 16;
+   }
+}
+
+//+------------------------------------------------------------------+
+//| DrawPLSession — 3x2 grid: P&L|WinRate|MaxDD|Trades|Float|Daily |
+//+------------------------------------------------------------------+
+void DrawPLSession(int x, int y, int w)
+{
+   int pad = AD_PAD;
+   DashRectangle("PL_PANEL", x, y, w, AD_H_PL, AD_PANEL_BG, AD_PANEL_BORDER);
+   DashLabel("PL_TITLE", x + pad, y + 4, "P&L SESSION", AD_SELL_DIM, 9, AD_FONT_SECTION);
+
+   int colW = (w - 2 * pad) / 3;
+   int c1 = x + pad;
+   int c2 = x + pad + colW;
+   int c3 = x + pad + 2 * colW;
+   int r1 = y + 22;
+   int r2 = y + 54;
+
+   // Row 1: P&L | Win Rate | Max DD
+   color plClr = g_sessionRealizedProfit >= 0 ? AD_BUY : AD_SELL;
+   DashLabel("PL_L1", c1, r1, "P&L", AD_TEXT_LO, 7);
+   DashLabel("PL_V1", c1, r1 + 10, StringFormat("%+.2f", g_sessionRealizedProfit), plClr, 11, AD_FONT_SECTION);
+   double pnlPct = GetBalance() > 0 ? (g_sessionRealizedProfit / GetBalance() * 100) : 0;
+   DashLabel("PL_S1", c1, r1 + 24, StringFormat("%+.2f%%", pnlPct), AD_TEXT_MID, 8);
+
+   int totalT = g_sessionWins + g_sessionLosses;
+   double winrate = totalT > 0 ? (double)g_sessionWins / totalT * 100.0 : 0;
+   DashLabel("PL_L2", c2, r1, "WIN RATE", AD_TEXT_LO, 7);
+   DashLabel("PL_V2", c2, r1 + 10, StringFormat("%.0f%%", winrate),
+             winrate >= 50 ? AD_BUY : AD_SELL, 11, AD_FONT_SECTION);
+   DashLabel("PL_S2", c2, r1 + 24,
+             StringFormat("%dW · %dL", g_sessionWins, g_sessionLosses), AD_TEXT_MID, 8);
+
+   DashLabel("PL_L3", c3, r1, "MAX DD", AD_TEXT_LO, 7);
+   DashLabel("PL_V3", c3, r1 + 10, StringFormat("%.1f%%", g_maxDrawdownPct),
+             g_maxDrawdownPct > 3.0 ? AD_SELL : AD_TEXT_HI, 11, AD_FONT_SECTION);
+   double ddMoney = GetBalance() * g_maxDrawdownPct / 100.0;
+   DashLabel("PL_S3", c3, r1 + 24, StringFormat("-$%.0f", ddMoney), AD_TEXT_MID, 8);
+
+   // Row 2: Trades | Float | Daily Loss
+   DashLabel("PL_L4", c1, r2, "TRADES", AD_TEXT_LO, 7);
+   DashLabel("PL_V4", c1, r2 + 10, IntegerToString(totalT), AD_TEXT_HI, 11, AD_FONT_SECTION);
+   DashLabel("PL_S4", c1, r2 + 24, "total", AD_TEXT_MID, 8);
+
+   double totalFloat = 0;
+   for(int fi = 0; fi < ArraySize(g_cycles); fi++)
+   {
+      if(g_cycles[fi].state == CYCLE_ACTIVE && g_cycles[fi].ticket > 0)
+         totalFloat += GetFloatingProfit(g_cycles[fi].ticket);
+   }
+   color fClr = totalFloat >= 0 ? AD_BUY : AD_SELL;
+   DashLabel("PL_L5", c2, r2, "FLOAT", AD_TEXT_LO, 7);
+   DashLabel("PL_V5", c2, r2 + 10, StringFormat("%+.2f", totalFloat), fClr, 11, AD_FONT_SECTION);
+   DashLabel("PL_S5", c2, r2 + 24, "open", AD_TEXT_MID, 8);
+
+   color dClr = g_dailyRealizedProfit >= 0 ? AD_BUY : AD_SELL;
+   DashLabel("PL_L6", c3, r2, "DAILY", AD_TEXT_LO, 7);
+   DashLabel("PL_V6", c3, r2 + 10, StringFormat("%+.2f", g_dailyRealizedProfit), dClr, 11, AD_FONT_SECTION);
+   DashLabel("PL_S6", c3, r2 + 24, "today", AD_TEXT_MID, 8);
+}
+
+//+------------------------------------------------------------------+
+//| DrawControls — Title + session + time (52px)                    |
+//+------------------------------------------------------------------+
+void DrawControls(int x, int y, int w)
+{
+   int pad = AD_PAD;
+   DashRectangle("CTRL_PANEL", x, y, w, AD_H_CONTROLS, AD_PANEL_BG, AD_PANEL_BORDER);
+   DashLabel("CT_TITLE", x + pad, y + 4, "CONTROLS", AD_AMBER_DIM, 9, AD_FONT_SECTION);
+
+   DashLabel("CT_SESS", x + pad + 100, y + 5,
+             "Session: " + GetSessionStatus(), AD_TEXT_SECONDARY, 8);
+   DashLabel("CT_TIME", x + w - 80, y + 5,
+             TimeToString(TimeCurrent(), TIME_MINUTES), AD_TEXT_MUTED, 8);
+
+   // Button feedback
+   if(ObjectFind(0, "AD_BTN_START_" + _Symbol) >= 0)
+      UpdateButtonFeedback();
+}
+
+//+------------------------------------------------------------------+
+//| DrawStatusBar — Bottom summary bar (20px)                       |
+//+------------------------------------------------------------------+
+void DrawStatusBar(int x, int y, int w)
+{
+   DashRectangle("SBAR_PANEL", x, y, w, AD_H_STATUSBAR, AD_BG_SECTION_A, AD_PANEL_BORDER);
+
+   string stateStr = "IDLE";
+   switch(g_systemState)
+   {
+      case STATE_ACTIVE: stateStr = "ACTIVE"; break;
+      case STATE_PAUSED: stateStr = "PAUSED"; break;
+      case STATE_ERROR:  stateStr = "ERROR";  break;
+   }
+
+   string cdMode = InpUseSmartCooldown ? "SmartCD:ON" : "FixedCD";
+   string twsMode = InpShowTWSSignals ? "TWS:ON" : "TWS:HID";
+   string ltfMode = InpUseLTFEntry ? "LTF:ON" : "";
+
+   string bar = CharToString(0x25CF) + " " + stateStr
+              + "  DPC v7.19"
+              + "  " + cdMode
+              + "  TBS:ON " + twsMode
+              + (ltfMode != "" ? "  " + ltfMode : "")
+              + "  v" + EA_VERSION
+              + "  M:" + IntegerToString(MagicNumber);
+
+   DashLabel("SBAR_TXT", x + AD_PAD, y + 3, bar, AD_TEXT_MID, 8);
+}
+
+//+------------------------------------------------------------------+
+//| UpdateSidePanel — Engine Monitor (12 rows) + Signal Feed        |
+//+------------------------------------------------------------------+
+void UpdateSidePanel()
+{
+   int sx = AD_DASH_X + AD_DASH_W + 10;
+   int sy = AD_DASH_Y;
+   int sw = AD_SIDE_W;
+
+   // === ENGINE MONITOR ===
+   DashRectangle("SIDE_MON", sx, sy, sw, 220, AD_BG_DEEP, AD_PANEL_BORDER);
+   DashLabel("SM_TITLE", sx + 10, sy + 5, "ENGINE MONITOR", AD_BIOLUM_DIM, 9, AD_FONT_SECTION);
+
+   int ly = sy + 22;
+   int lh = 15;
+   int valX = sx + 100;
+
+   // 1. Engine status
+   DashLabel("SM_R01L", sx + 10, ly, "DPC Engine", AD_TEXT_MID, 8);
+   DashLabel("SM_R01V", valX, ly, g_engineReady ? "ACTIVE" : "INIT", g_engineReady ? AD_BUY : AD_AMBER, 8, AD_FONT_SECTION);
+   ly += lh;
+
+   // 2. ATR
+   DashLabel("SM_R02L", sx + 10, ly, "ATR(14)", AD_TEXT_MID, 8);
+   DashLabel("SM_R02V", valX, ly,
+             StringFormat("%.1f pip", g_lastSignal.extraValues[0] > 0 ? PointsToPips(g_lastSignal.extraValues[0]) : g_atrCache.valuePips),
+             AD_BIOLUM, 8);
+   ly += lh;
+
+   // 3. EMA ATR
+   DashLabel("SM_R03L", sx + 10, ly, "EMA ATR", AD_TEXT_MID, 8);
+   DashLabel("SM_R03V", valX, ly,
+             StringFormat("%.1f pip", g_lastSignal.extraValues[1] > 0 ? PointsToPips(g_lastSignal.extraValues[1]) : 0),
+             AD_TEXT_SECONDARY, 8);
+   ly += lh;
+
+   // 4. Spread
+   double spread = GetSpreadPips();
+   DashLabel("SM_R04L", sx + 10, ly, "Spread", AD_TEXT_MID, 8);
+   DashLabel("SM_R04V", valX, ly,
+             StringFormat("%.1f pip", spread),
+             spread > MaxSpreadPips ? AD_SELL : AD_TEXT_SECONDARY, 8);
+   ly += lh;
+
+   // 5. TF Preset
+   DashLabel("SM_R05L", sx + 10, ly, "TF Preset", AD_TEXT_MID, 8);
+   DashLabel("SM_R05V", valX, ly, EnumToString(Period()), AD_TEXT_SECONDARY, 8);
+   ly += lh;
+
+   // 6. DC Period
+   int dcLen = (int)g_lastSignal.extraValues[5];
+   DashLabel("SM_R06L", sx + 10, ly, "DC Period", AD_TEXT_MID, 8);
+   DashLabel("SM_R06V", valX, ly, IntegerToString(dcLen > 0 ? dcLen : 20), AD_TEXT_SECONDARY, 8);
+   ly += lh;
+
+   // 7. MA value
+   DashLabel("SM_R07L", sx + 10, ly, "MA Value", AD_TEXT_MID, 8);
+   DashLabel("SM_R07V", valX, ly,
+             g_lastSignal.extraValues[2] > 0 ? DoubleToString(g_lastSignal.extraValues[2], _Digits) : "---",
+             AD_TEXT_SECONDARY, 8);
+   ly += lh;
+
+   // 8. SmartCD
+   int nS = (int)g_lastSignal.extraValues[8];
+   int nO = (int)g_lastSignal.extraValues[9];
+   DashLabel("SM_R08L", sx + 10, ly, "SmartCD", AD_TEXT_MID, 8);
+   DashLabel("SM_R08V", valX, ly,
+             InpUseSmartCooldown ? StringFormat("ON S%d/O%d", nS, nO) : "OFF",
+             InpUseSmartCooldown ? AD_BUY : AD_TEXT_MUTED, 8);
+   ly += lh;
+
+   // 9. LTF
+   DashLabel("SM_R09L", sx + 10, ly, "LTF Entry", AD_TEXT_MID, 8);
+   DashLabel("SM_R09V", valX, ly,
+             InpUseLTFEntry ? EnumToString(DPCGetLTFTimeframe()) : "OFF",
+             InpUseLTFEntry ? AD_BIOLUM : AD_TEXT_MUTED, 8);
+   ly += lh;
+
+   // 10. Session
+   DashLabel("SM_R10L", sx + 10, ly, "Session", AD_TEXT_MID, 8);
+   DashLabel("SM_R10V", valX, ly, GetSessionStatus(), AD_TEXT_SECONDARY, 8);
+   ly += lh;
+
+   // 11. AutoSave
+   DashLabel("SM_R11L", sx + 10, ly, "AutoSave", AD_TEXT_MID, 8);
+   string saveStr = "---";
+   if(g_lastAutoSaveTime > 0)
+   {
+      int ago = (int)(TimeCurrent() - g_lastAutoSaveTime);
+      saveStr = IntegerToString(ago) + "s ago";
+   }
+   DashLabel("SM_R11V", valX, ly, saveStr, AD_TEXT_MUTED, 8);
+   ly += lh;
+
+   // 12. HTF
+   DashLabel("SM_R12L", sx + 10, ly, "HTF Filter", AD_TEXT_MID, 8);
+   DashLabel("SM_R12V", valX, ly, HTFGetStatusString(), AD_TEXT_SECONDARY, 8);
+   ly += lh;
+
+   // Virtual mode indicator
+   if(VirtualMode)
+   {
+      ly += 4;
+      DashLabel("SM_VIRT", sx + 10, ly, "VIRTUAL MODE", AD_AMBER, 9, AD_FONT_SECTION);
+   }
+   else
+      DashLabel("SM_VIRT", sx + 10, ly + 4, " ", AD_TEXT_MUTED, 8);
+
+   // === SIGNAL FEED ===
+   int feedY = sy + 230;
+   DashRectangle("SIDE_FEED", sx, feedY, sw, 110, AD_BG_PANEL, AD_PANEL_BORDER);
+   DashLabel("SF_TITLE", sx + 10, feedY + 5, "SIGNAL FEED", AD_AMBER_DIM, 9, AD_FONT_SECTION);
+
+   int fy = feedY + 22;
+   for(int i = 0; i < MAX_FEED_ITEMS; i++)
+   {
+      if(i < g_feedCount)
+         DashLabel(StringFormat("SF%d", i), sx + 10, fy, g_feedLines[i], g_feedColors[i], 8);
+      else
+         DashLabel(StringFormat("SF%d", i), sx + 10, fy, " ", AD_TEXT_MUTED, 8);
+      fy += 15;
+   }
+}
+
+//+------------------------------------------------------------------+
+//| UpdateDashboard — Main dashboard update                         |
+//+------------------------------------------------------------------+
+void UpdateDashboard()
+{
+   int x = AD_DASH_X;
+   int y = AD_DASH_Y;
+   int w = AD_DASH_W;
+
+   DrawTitleBar(x, y, w);        y += AD_H_TOPBAR + AD_GAP;
+   DrawSystemStatus(x, y, w);    y += AD_H_SYSSTATUS + AD_GAP;
+   DrawEnginePanel(x, y, w);     y += AD_H_ENGINE + AD_GAP;
+   DrawFilterBar(x, y, w);       y += AD_H_FILTERS + AD_GAP;
+   DrawLastSignals(x, y, w);     y += AD_H_LASTSIG + AD_GAP;
+   DrawActiveCycles(x, y, w);    y += AD_H_CYCLES + AD_GAP;
+   DrawPLSession(x, y, w);       y += AD_H_PL + AD_GAP;
+   DrawControls(x, y, w);        y += AD_H_CONTROLS + AD_GAP;
+   DrawStatusBar(x, y, w);
+
+   UpdateSidePanel();
+}
+
+//+------------------------------------------------------------------+
+//| CreateDashboard — Create all panels + buttons                   |
+//+------------------------------------------------------------------+
+void CreateDashboard()
+{
+   UpdateDashboard();
+
+   // Calculate controls Y position for buttons
+   int ctrlY = AD_DASH_Y;
+   ctrlY += AD_H_TOPBAR + AD_GAP;
+   ctrlY += AD_H_SYSSTATUS + AD_GAP;
+   ctrlY += AD_H_ENGINE + AD_GAP;
+   ctrlY += AD_H_FILTERS + AD_GAP;
+   ctrlY += AD_H_LASTSIG + AD_GAP;
+   ctrlY += AD_H_CYCLES + AD_GAP;
+   ctrlY += AD_H_PL + AD_GAP;
+
+   CreateControlButtons(AD_DASH_X, ctrlY, AD_DASH_W);
+   AdLogI(LOG_CAT_UI, "Dashboard created (Ocean Pragmatic v1.0)");
+}
+
+//+------------------------------------------------------------------+
+//| DestroyDashboard — Remove all dashboard objects                 |
+//+------------------------------------------------------------------+
+void DestroyDashboard()
+{
+   ObjectsDeleteAll(0, "AD_");
+}
