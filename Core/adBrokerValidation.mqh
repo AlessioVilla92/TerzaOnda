@@ -275,6 +275,6 @@ void SetupTradeObject()
    else
       g_trade.SetTypeFilling(ORDER_FILLING_RETURN);
 
-   AdLogI(LOG_CAT_BROKER, StringFormat("Trade object: magic=%d slippage=%d fill=%s",
-      MagicNumber, Slippage, EnumToString(g_trade.TypeFilling())));
+   AdLogI(LOG_CAT_BROKER, StringFormat("Trade object: magic=%d slippage=%d",
+      MagicNumber, Slippage));
 }

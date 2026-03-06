@@ -408,6 +408,7 @@ void OnTick()
                DrawTriggerArrow(g_cycles[slot].cycleID, sig.entryPrice,
                                sig.barTime, sig.direction > 0);
                DrawTPLine(g_cycles[slot].cycleID, sig.tpPrice, sig.direction > 0);
+               DrawTPDot(g_cycles[slot].cycleID, sig.tpPrice, sig.barTime, sig.direction > 0);
             }
          }
       }
@@ -438,6 +439,10 @@ void OnChartEvent(const int id, const long &lparam,
 {
    if(id == CHARTEVENT_OBJECT_CLICK)
       HandleButtonClick(sparam);
+
+   // Redraw canvas fill on chart scroll/zoom/resize
+   if(id == CHARTEVENT_CHART_CHANGE)
+      RedrawOverlayFill();
 }
 
 //+------------------------------------------------------------------+

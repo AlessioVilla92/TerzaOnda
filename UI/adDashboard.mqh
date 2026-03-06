@@ -94,7 +94,7 @@ void DrawTitleBar(int x, int y, int w)
       case STATE_ERROR:        stateStr = "ERROR";        stateClr = AD_SELL; break;
       case STATE_INITIALIZING: stateStr = "INIT...";      stateClr = AD_BIOLUM; break;
    }
-   DashLabel("H_STATE", x + w - 100, y + 28, CharToString(0x25CF) + " " + stateStr, stateClr, 11, AD_FONT_SECTION);
+   DashLabel("H_STATE", x + w - 100, y + 28, ShortToString(0x25CF) + " " + stateStr, stateClr, 11, AD_FONT_SECTION);
 }
 
 //+------------------------------------------------------------------+
@@ -439,7 +439,7 @@ void DrawStatusBar(int x, int y, int w)
    string twsMode = InpShowTWSSignals ? "TWS:ON" : "TWS:HID";
    string ltfMode = InpUseLTFEntry ? "LTF:ON" : "";
 
-   string bar = CharToString(0x25CF) + " " + stateStr
+   string bar = ShortToString(0x25CF) + " " + stateStr
               + "  DPC v7.19"
               + "  " + cdMode
               + "  TBS:ON " + twsMode

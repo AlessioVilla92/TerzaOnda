@@ -180,7 +180,7 @@ void CheckDailyReset()
          g_dailyRealizedProfit = 0;
          g_dailyWins           = 0;
          g_dailyLosses         = 0;
-         AdLogI(LOG_CAT_SYSTEM, "Daily counters reset");
+         Print("[SYSTEM] Daily counters reset");
       }
    }
    g_dailyCyclesDate = TimeCurrent();

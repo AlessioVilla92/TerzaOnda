@@ -135,7 +135,7 @@ double DPCGetMAValue(int barShift)
 
 //+------------------------------------------------------------------+
 //| DPCGetMidlineColor — Midline trend direction                     |
-//| 0=bullish (rising), 1=bearish (falling)                          |
+//| 0=bullish (lime), 1=bearish (red), 2=flat (cyan)                 |
 //+------------------------------------------------------------------+
 int DPCGetMidlineColor(int barShift)
 {
@@ -144,9 +144,10 @@ int DPCGetMidlineColor(int barShift)
    DPCComputeBands(barShift, g_dpc_dcLen, u1, l1, m1);
    DPCComputeBands(barShift + 2, g_dpc_dcLen, u3, l3, m3);
 
-   if(m1 > m3) return 0;  // bullish
-   if(m1 < m3) return 1;  // bearish
-   return 0;
+   double threshold = g_symbolPoint * 2;
+   if(m1 - m3 > threshold) return 0;  // bullish
+   if(m3 - m1 > threshold) return 1;  // bearish
+   return 2;                           // flat
 }
 
 //+------------------------------------------------------------------+
