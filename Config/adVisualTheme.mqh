@@ -12,7 +12,7 @@
 //+------------------------------------------------------------------+
 //| SFONDI — Deep Ocean                                              |
 //+------------------------------------------------------------------+
-#define AD_BG_DEEP         C'3,8,15'         // #03080f — ocean abyss, chart bg
+#define AD_BG_DEEP         C'20,10,35'       // #140a23 — deep violet, chart bg
 #define AD_BG_PANEL        C'9,21,37'        // #091525 — panel background
 #define AD_BG_SECTION_A    C'13,30,53'       // #0d1e35 — sezioni alternate A
 #define AD_BG_SECTION_B    C'18,37,64'       // #122540 — sezioni alternate B
@@ -27,6 +27,7 @@
 // Alias dashboard
 #define AD_PANEL_BG        AD_BG_PANEL
 #define AD_PANEL_BORDER    AD_BORDER
+#define AD_SIDE_BORDER     C'100,200,230'    // Azzurro chiaro per side panels
 
 //+------------------------------------------------------------------+
 //| ACCENT — Bioluminescenza                                         |
@@ -74,15 +75,15 @@
 //+------------------------------------------------------------------+
 //| OVERLAY CANALE — Replica DonchianPredictiveChannel.mq5           |
 //+------------------------------------------------------------------+
-#define AD_CHAN_UPPER_CLR   C'65,105,225'    // Royal blue (come indicatore)
-#define AD_CHAN_LOWER_CLR   C'65,105,225'    // Royal blue
+#define AD_CHAN_UPPER_CLR   C'100,160,255'   // Blu chiaro (allineato Carneval, piu' visibile)
+#define AD_CHAN_LOWER_CLR   C'100,160,255'   // Blu chiaro
 #define AD_CHAN_MID_UP_CLR  clrLime          // Midline bullish
 #define AD_CHAN_MID_DN_CLR  clrRed           // Midline bearish
 #define AD_CHAN_MID_FLAT_CLR C'0,212,255'    // Midline flat (= AD_BIOLUM)
 #define AD_CHAN_FILL_CLR    C'30,144,255'    // DodgerBlue fill
 #define AD_CHAN_FILL_ALPHA  40               // Trasparenza fill (piu visibile su nero)
 #define AD_CHAN_MA_CLR      clrTeal          // MA line
-#define AD_CHAN_WIDTH       1
+#define AD_CHAN_WIDTH       2                // Spessore 2 (allineato Carneval)
 #define AD_CHAN_STYLE       STYLE_SOLID
 #define AD_CHAN_MID_STYLE   STYLE_DOT
 
@@ -116,9 +117,10 @@
 #define AD_TP_LINE_WIDTH   1
 
 //+------------------------------------------------------------------+
-//| TRIGGER CANDLE                                                   |
+//| TRIGGER CANDLE (VLine rimossa — colore mantenuto per eventuale   |
+//| riattivazione futura di DrawTriggerVLine in adChannelOverlay)    |
 //+------------------------------------------------------------------+
-#define AD_TRIGGER_CLR     clrYellow         // VLine sulla candela trigger
+#define AD_TRIGGER_CLR     clrYellow         // VLine sulla candela trigger (non attiva)
 
 //+------------------------------------------------------------------+
 //| Z-ORDER                                                          |
@@ -156,7 +158,8 @@
 #define AD_PAD             14
 #define AD_GAP             4
 
-#define AD_H_TOPBAR        46
+#define AD_H_HEADER        36                // Header: ACQUADULZA + versione + ENGINE
+#define AD_H_TOPBAR        32                // TitleBar: Pair + Price + Spread + State
 #define AD_H_SYSSTATUS     76
 #define AD_H_ENGINE        88
 #define AD_H_FILTERS       22
@@ -165,7 +168,7 @@
 #define AD_H_PL            88
 #define AD_H_CONTROLS      52
 #define AD_H_STATUSBAR     20
-#define AD_SIDE_W          240
+#define AD_SIDE_W          210
 
 //+------------------------------------------------------------------+
 //| ApplyChartTheme() — Applica palette Deep Ocean al chart          |
@@ -174,7 +177,7 @@ void ApplyChartTheme()
 {
    ChartSetInteger(0, CHART_COLOR_BACKGROUND,   AD_BG_DEEP);
    ChartSetInteger(0, CHART_COLOR_FOREGROUND,   AD_TEXT_HI);
-   ChartSetInteger(0, CHART_COLOR_GRID,         C'15,30,50');
+   ChartSetInteger(0, CHART_COLOR_GRID,         C'35,20,55');
    ChartSetInteger(0, CHART_COLOR_CANDLE_BULL,  AD_CANDLE_BULL);
    ChartSetInteger(0, CHART_COLOR_CANDLE_BEAR,  AD_CANDLE_BEAR);
    ChartSetInteger(0, CHART_COLOR_CHART_UP,     AD_CANDLE_BULL);

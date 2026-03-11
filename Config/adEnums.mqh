@@ -187,8 +187,8 @@ struct DashboardData
    int                lastQuality;
 
    // Extra engine values (da EngineSignal.extraValues)
-   double             extraValues[8];
-   string             extraLabels[8];
+   double             extraValues[12];
+   string             extraLabels[12];
    int                extraCount;
 
    // Filters (da EngineSignal.filterStates)

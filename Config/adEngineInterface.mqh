@@ -74,8 +74,11 @@ struct EngineSignal
       filterCount    = 0;
       for(int i = 0; i < 12; i++)
       {
-         extraValues[i]  = 0.0;
-         extraLabels[i]  = "";
+         extraValues[i] = 0.0;
+         extraLabels[i] = "";
+      }
+      for(int i = 0; i < 8; i++)
+      {
          filterStates[i] = 0;
          filterNames[i]  = "";
       }

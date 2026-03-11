@@ -145,6 +145,9 @@ void PopulateDashboardData()
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   if(_UninitReason == REASON_CHARTCHANGE)
+      AdLogI(LOG_CAT_INIT, StringFormat("RE-INIT: TF changed -> %s", EnumToString(Period())));
+
    AdLogI(LOG_CAT_INIT, "=======================================================");
    AdLogI(LOG_CAT_INIT, StringFormat("ACQUADULZA EA v%s — Symbol: %s | TF: %s",
           EA_VERSION, _Symbol, EnumToString(Period())));
@@ -218,6 +221,7 @@ int OnInit()
       DrawChannelOverlay();
    if(ShowSignalArrows)
       ScanHistoricalSignals();
+   ChartRedraw();  // Force immediate visual update
 
    // 6. Initialize cycles array
    InitializeCycles();
@@ -250,7 +254,7 @@ int OnInit()
    }
 
    // 11. Timer per auto-save
-   EventSetTimer(60);
+   EventSetTimer(1);  // 1s initially for overlay retry, then 60s
 
    // Se recovery non ha trovato nulla, system resta IDLE
    if(!g_recoveryPerformed && g_systemState == STATE_INITIALIZING)
@@ -263,6 +267,8 @@ int OnInit()
    UpdateDashboard();
 
    // Feed: engine ready
+   if(_UninitReason == REASON_CHARTCHANGE)
+      AddFeedItem("TF changed -> " + EnumToString(Period()), AD_BIOLUM);
    AddFeedItem("Engine DPC ready · " + EnumToString(Period()), AD_BIOLUM);
 
    AdLogI(LOG_CAT_INIT, StringFormat("ACQUADULZA ready — %s",
@@ -275,6 +281,9 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+   if(reason == REASON_CHARTCHANGE)
+      AdLogI(LOG_CAT_SYSTEM, "DEINIT: Timeframe change — releasing handles");
+
    // Salva stato prima di uscire
    if(reason == REASON_REMOVE && ClearStateOnRemove)
    {
@@ -316,9 +325,16 @@ void OnTick()
       PopulateDashboardData();
       UpdateDashboard();
 
-      // Channel overlay — disegnato sempre (anche IDLE), purché engine ready
+      // Channel overlay live edge — lightweight update (only bar[0] segment)
       if(ShowChannelOverlay && g_engineReady)
-         DrawChannelOverlay();
+         UpdateChannelLiveEdge();
+   }
+
+   // ── 1b. CHANNEL OVERLAY FULL REDRAW (solo nuova barra) ───────────
+   if(ShowChannelOverlay && g_engineReady && IsNewBarOverlay())
+   {
+      DrawChannelOverlay();
+      ChartRedraw();
    }
 
    // ── 2. VIRTUAL MONITOR (ogni tick, qualsiasi stato) ──────────────
@@ -452,7 +468,14 @@ void OnChartEvent(const int id, const long &lparam,
 
    // Redraw canvas fill on chart scroll/zoom/resize
    if(id == CHARTEVENT_CHART_CHANGE)
-      RedrawOverlayFill();
+   {
+      if(ShowChannelOverlay && g_engineReady)
+      {
+         UpdateChannelLiveEdge();
+         RedrawOverlayFill();
+      }
+      ChartRedraw();
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -460,6 +483,24 @@ void OnChartEvent(const int id, const long &lparam,
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+   // Retry initial overlay draw (timeseries not ready during OnInit)
+   static bool initialDrawDone = false;
+   if(!initialDrawDone && g_engineReady)
+   {
+      int bars = iBars(_Symbol, PERIOD_CURRENT);
+      if(bars > 50)
+      {
+         if(ShowChannelOverlay) DrawChannelOverlay();
+         if(ShowSignalArrows) ScanHistoricalSignals();
+         PopulateDashboardData();
+         UpdateDashboard();
+         ChartRedraw();
+         initialDrawDone = true;
+         EventSetTimer(60);  // Switch to 60s for auto-save
+         AdLogI(LOG_CAT_UI, StringFormat("Initial overlay draw — %d bars available", bars));
+      }
+   }
+
    if(EnableAutoSave)
       ExecuteAutoSave();
 }

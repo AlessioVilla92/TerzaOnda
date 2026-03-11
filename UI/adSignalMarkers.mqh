@@ -4,7 +4,7 @@
 //|                                                                  |
 //|  Replica indicatore DonchianPredictiveChannel.mq5:               |
 //|  TBS arrows (bright lime/red) + TWS arrows (dark green/red)      |
-//|  ATR offset, signal text labels, trigger VLine                   |
+//|  ATR offset, signal text labels, entry dots                      |
 //|  Engine-agnostic: reads EngineSignal only.                       |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
@@ -165,17 +165,13 @@ void DrawTriggerArrow(int cycleID, double price, datetime barTime, bool isBuy)
 }
 
 //+------------------------------------------------------------------+
-//| DrawSignalMarkers — Combined: arrow + dot + label + trigger VL   |
+//| DrawSignalMarkers — Combined: arrow + dot + label               |
 //+------------------------------------------------------------------+
 void DrawSignalMarkers(const EngineSignal &sig)
 {
    DrawSignalArrow(sig);
    DrawEntryDot(sig);
    DrawSignalLabel(sig);
-
-   // Trigger candle VLine (yellow dotted behind candles)
-   if(sig.direction != 0 && sig.isNewSignal)
-      DrawTriggerVLine(sig.barTime, sig.direction > 0);
 }
 
 //+------------------------------------------------------------------+
@@ -189,22 +185,25 @@ void ScanHistoricalSignals()
 
    int depth = MathMax(1, OverlayDepth);
    int totalBars = iBars(_Symbol, PERIOD_CURRENT);
-   if(totalBars < depth + 2) return;
-
    int dcLen = (g_dpc_dcLen > 0) ? g_dpc_dcLen : 20;
-   if(totalBars < dcLen + 5) return;
+   if(totalBars < dcLen + 5)
+   {
+      AdLogW(LOG_CAT_UI, StringFormat("ScanHistoricalSignals: insufficient bars (%d < %d)", totalBars, dcLen + 5));
+      return;
+   }
+   depth = MathMin(depth, totalBars - 2);
 
    // Cleanup old historical markers
    ObjectsDeleteAll(0, "AD_HSIG_");
    ObjectsDeleteAll(0, "AD_HDOT_");
    ObjectsDeleteAll(0, "AD_HLBL_");
-   ObjectsDeleteAll(0, "AD_HVLN_");
 
    // Simple cooldown tracking: last signal bar index per direction
    int lastBuyBar  = -999;
    int lastSellBar = -999;
    int minSpacing  = MathMax(2, dcLen / 4);  // minimum bars between same-dir signals
 
+   int signalCount = 0;
    for(int i = depth; i >= 1; i--)
    {
       if(i >= totalBars - dcLen) continue;  // need lookback
@@ -230,8 +229,8 @@ void ScanHistoricalSignals()
       int direction = bullBase ? +1 : -1;
 
       // Simple cooldown: skip if too close to last same-dir signal
-      if(direction > 0 && (lastBuyBar - i) < minSpacing) continue;
-      if(direction < 0 && (lastSellBar - i) < minSpacing) continue;
+      if(direction > 0 && lastBuyBar > 0 && (lastBuyBar - i) < minSpacing) continue;
+      if(direction < 0 && lastSellBar > 0 && (lastSellBar - i) < minSpacing) continue;
 
       // Classify TBS/TWS
       int quality = DPCClassifySignal(direction, open1, close1, upper, lower);
@@ -311,19 +310,10 @@ void ScanHistoricalSignals()
          ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
       }
 
-      // Trigger VLine
-      {
-         string name = StringFormat("AD_HVLN_%d", (int)barTime);
-         if(ObjectFind(0, name) < 0)
-            ObjectCreate(0, name, OBJ_VLINE, 0, barTime, 0);
-         ObjectSetInteger(0, name, OBJPROP_COLOR, AD_TRIGGER_CLR);
-         ObjectSetInteger(0, name, OBJPROP_STYLE, STYLE_DOT);
-         ObjectSetInteger(0, name, OBJPROP_WIDTH, 1);
-         ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
-         ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
-         ObjectSetInteger(0, name, OBJPROP_BACK, true);
-      }
+      signalCount++;
    }
+
+   AdLogI(LOG_CAT_UI, StringFormat("ScanHistoricalSignals: depth=%d, found=%d signals", depth, signalCount));
 }
 
 //+------------------------------------------------------------------+
@@ -338,5 +328,4 @@ void CleanupSignalMarkers()
    ObjectsDeleteAll(0, "AD_HSIG_");
    ObjectsDeleteAll(0, "AD_HDOT_");
    ObjectsDeleteAll(0, "AD_HLBL_");
-   ObjectsDeleteAll(0, "AD_HVLN_");
 }

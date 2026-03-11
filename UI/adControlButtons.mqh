@@ -122,15 +122,23 @@ void HandleButtonClick(string sparam)
    // Reset button state (OBJ_BUTTON toggles on click)
    ObjectSetInteger(0, sparam, OBJPROP_STATE, false);
 
-   // START
+   // START — accetta IDLE, ERROR e INITIALIZING (l'utente puo' forzare l'avvio)
    if(sparam == BtnObjName(BTN_START))
    {
-      if(g_systemState == STATE_IDLE || g_systemState == STATE_ERROR)
+      if(g_systemState == STATE_IDLE || g_systemState == STATE_ERROR || g_systemState == STATE_INITIALIZING)
       {
          g_systemState = STATE_ACTIVE;
          AdLogI(LOG_CAT_UI, "Button: START -> ACTIVE");
+
+         // Alert visivo — conferma avvio sistema con info chiave
+         Alert("AcquaDulza: System ACTIVE | ",
+               _Symbol, " ", EnumToString(Period()),
+               " | Engine: DPC v7.19",
+               " | Magic: ", MagicNumber,
+               " | Balance: ", DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2));
       }
       UpdateButtonFeedback();
+      ChartRedraw();
       return;
    }
 
@@ -148,6 +156,7 @@ void HandleButtonClick(string sparam)
          AdLogI(LOG_CAT_UI, "Button: RESUME -> ACTIVE");
       }
       UpdateButtonFeedback();
+      ChartRedraw();
       return;
    }
 
@@ -157,6 +166,7 @@ void HandleButtonClick(string sparam)
       AdLogI(LOG_CAT_UI, "Button: RECOVERY");
       AttemptRecovery();
       UpdateButtonFeedback();
+      ChartRedraw();
       return;
    }
 
@@ -167,6 +177,7 @@ void HandleButtonClick(string sparam)
       CloseAllOrders();
       g_systemState = STATE_IDLE;
       UpdateButtonFeedback();
+      ChartRedraw();
       return;
    }
 }

@@ -60,6 +60,7 @@ bool EngineInit()
    DPCResetLTF();
    g_dpcLastProcessedBuyBar  = 0;
    g_dpcLastProcessedSellBar = 0;
+   g_lastSignal.Reset();
 
    // 5. Validate first read
    double testU, testL, testM;

@@ -3,9 +3,11 @@
 //|           AcquaDulza EA v1.0.0 — Dashboard Display               |
 //|                                                                  |
 //|  Ocean theme dashboard — Pragmatic approach.                     |
-//|  Layout: Title | SysStatus | Engine | Filters | LastSignals      |
+//|  Layout: Header (logo+ver+engine) | TitleBar (pair+state)        |
+//|          SysStatus | Engine | Filters | LastSignals              |
 //|          ActiveCycles | P&L | Controls | StatusBar               |
 //|  Side panel: Engine Monitor + Signal Feed                        |
+//|  Dashboard foreground (BACK=false, Z=15000+) — overlay behind    |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -62,28 +64,41 @@ void DashLabel(string id, int x, int y, string text, color clr,
 // ApplyChartTheme() definita in adVisualTheme.mqh
 
 //+------------------------------------------------------------------+
-//| DrawTitleBar — Logo + Engine Badge + Pair + State (46px)        |
+//| DrawHeaderRow — Title header: ACQUADULZA + version + ENGINE (36px)|
+//+------------------------------------------------------------------+
+void DrawHeaderRow(int x, int y, int w)
+{
+   DashRectangle("HDR_PANEL", x, y, w, AD_H_HEADER, AD_BG_SECTION_A, AD_BIOLUM_DIM);
+
+   // ACQUADULZA — grande, font title
+   DashLabel("HDR_LOGO", x + AD_PAD, y + 7, "ACQUADULZA", AD_BIOLUM, 14, AD_FONT_TITLE);
+
+   // Versione
+   DashLabel("HDR_VER", x + AD_PAD + 175, y + 12, "v" + EA_VERSION, AD_TEXT_MUTED, 9);
+
+   // ENGINE: DonchianPredictiveChannel
+   DashLabel("HDR_ENG", x + w - 280, y + 12, "ENGINE: DonchianPredictiveChannel", AD_BIOLUM_DIM, 9, AD_FONT_SECTION);
+}
+
+//+------------------------------------------------------------------+
+//| DrawTitleBar — Pair + Price + Spread + State (32px)             |
 //+------------------------------------------------------------------+
 void DrawTitleBar(int x, int y, int w)
 {
    int pad = AD_PAD;
    DashRectangle("TITLE_PANEL", x, y, w, AD_H_TOPBAR, AD_BG_SECTION_A, AD_PANEL_BORDER);
 
-   // Logo + version
-   DashLabel("H1", x + pad, y + 6, "ACQUADULZA", AD_BIOLUM, 16, AD_FONT_TITLE);
-   DashLabel("H2", x + pad + 195, y + 12, "v" + EA_VERSION, AD_TEXT_MUTED, 9);
-
-   // Engine badge
-   string engineBadge = "DPC v7.19";
-   if(InpEngineAutoTFPreset)
-      engineBadge += " · " + EnumToString(Period()) + " PRESET";
-   DashLabel("H_ENG", x + w - 280, y + 7, engineBadge, AD_BIOLUM, 9, AD_FONT_SECTION);
-
-   // Pair + price
+   // Pair + price + spread
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   DashLabel("H_PAIR", x + pad, y + 28, _Symbol, AD_TEXT_HI, 11, AD_FONT_SECTION);
-   DashLabel("H_PRICE", x + pad + 90, y + 28, DoubleToString(bid, _Digits), AD_BIOLUM, 11);
-   DashLabel("H_SPREAD", x + pad + 200, y + 30, StringFormat("Spread:%.1f", GetSpreadPips()), AD_TEXT_MUTED, 8);
+   DashLabel("H_PAIR", x + pad, y + 8, _Symbol, AD_TEXT_HI, 11, AD_FONT_SECTION);
+   DashLabel("H_PRICE", x + pad + 90, y + 8, DoubleToString(bid, _Digits), AD_BIOLUM, 11);
+   DashLabel("H_SPREAD", x + pad + 200, y + 10, StringFormat("Spread:%.1f", GetSpreadPips()), AD_TEXT_MUTED, 8);
+
+   // TF preset badge
+   string tfBadge = "DPC v7.19";
+   if(InpEngineAutoTFPreset)
+      tfBadge += " " + EnumToString(Period());
+   DashLabel("H_TF", x + pad + 310, y + 10, tfBadge, AD_BIOLUM_DIM, 8);
 
    // State badge with dot
    string stateStr = "IDLE"; color stateClr = AD_TEXT_MUTED;
@@ -94,7 +109,7 @@ void DrawTitleBar(int x, int y, int w)
       case STATE_ERROR:        stateStr = "ERROR";        stateClr = AD_SELL; break;
       case STATE_INITIALIZING: stateStr = "INIT...";      stateClr = AD_BIOLUM; break;
    }
-   DashLabel("H_STATE", x + w - 100, y + 28, ShortToString(0x25CF) + " " + stateStr, stateClr, 11, AD_FONT_SECTION);
+   DashLabel("H_STATE", x + w - 100, y + 8, ShortToString(0x25CF) + " " + stateStr, stateClr, 11, AD_FONT_SECTION);
 }
 
 //+------------------------------------------------------------------+
@@ -430,9 +445,10 @@ void DrawStatusBar(int x, int y, int w)
    string stateStr = "IDLE";
    switch(g_systemState)
    {
-      case STATE_ACTIVE: stateStr = "ACTIVE"; break;
-      case STATE_PAUSED: stateStr = "PAUSED"; break;
-      case STATE_ERROR:  stateStr = "ERROR";  break;
+      case STATE_ACTIVE:       stateStr = "ACTIVE"; break;
+      case STATE_PAUSED:       stateStr = "PAUSED"; break;
+      case STATE_ERROR:        stateStr = "ERROR";  break;
+      case STATE_INITIALIZING: stateStr = "INIT";   break;
    }
 
    string cdMode = InpUseSmartCooldown ? "SmartCD:ON" : "FixedCD";
@@ -460,7 +476,7 @@ void UpdateSidePanel()
    int sw = AD_SIDE_W;
 
    // === ENGINE MONITOR ===
-   DashRectangle("SIDE_MON", sx, sy, sw, 220, AD_BG_DEEP, AD_PANEL_BORDER);
+   DashRectangle("SIDE_MON", sx, sy, sw, 220, AD_BG_DEEP, AD_SIDE_BORDER);
    DashLabel("SM_TITLE", sx + 10, sy + 5, "ENGINE MONITOR", AD_BIOLUM_DIM, 9, AD_FONT_SECTION);
 
    int ly = sy + 22;
@@ -560,7 +576,7 @@ void UpdateSidePanel()
 
    // === SIGNAL FEED ===
    int feedY = sy + 230;
-   DashRectangle("SIDE_FEED", sx, feedY, sw, 110, AD_BG_PANEL, AD_PANEL_BORDER);
+   DashRectangle("SIDE_FEED", sx, feedY, sw, 110, AD_BG_PANEL, AD_SIDE_BORDER);
    DashLabel("SF_TITLE", sx + 10, feedY + 5, "SIGNAL FEED", AD_AMBER_DIM, 9, AD_FONT_SECTION);
 
    int fy = feedY + 22;
@@ -583,6 +599,7 @@ void UpdateDashboard()
    int y = AD_DASH_Y;
    int w = AD_DASH_W;
 
+   DrawHeaderRow(x, y, w);       y += AD_H_HEADER + AD_GAP;
    DrawTitleBar(x, y, w);        y += AD_H_TOPBAR + AD_GAP;
    DrawSystemStatus(x, y, w);    y += AD_H_SYSSTATUS + AD_GAP;
    DrawEnginePanel(x, y, w);     y += AD_H_ENGINE + AD_GAP;
@@ -605,6 +622,7 @@ void CreateDashboard()
 
    // Calculate controls Y position for buttons
    int ctrlY = AD_DASH_Y;
+   ctrlY += AD_H_HEADER + AD_GAP;
    ctrlY += AD_H_TOPBAR + AD_GAP;
    ctrlY += AD_H_SYSSTATUS + AD_GAP;
    ctrlY += AD_H_ENGINE + AD_GAP;
