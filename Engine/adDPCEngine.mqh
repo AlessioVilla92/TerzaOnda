@@ -350,30 +350,13 @@ bool EngineCalculate(EngineSignal &sig)
    else
       sig.entryPrice = upper1 - triggerOffset;   // SELL STOP below upper band
 
-   // SL price (depends on SLMode — computed by framework, but suggest band opposite)
-   if(SLMode == SL_BAND_OPPOSITE)
-   {
-      if(direction > 0)
-         sig.slPrice = upper1;   // BUY SL at upper band (opposite)
-      else
-         sig.slPrice = lower1;   // SELL SL at lower band (opposite)
-   }
-   else if(SLMode == SL_ATR_MULTIPLE && atr1 > 0)
-   {
-      double slDist = SLValue * atr1;
-      if(direction > 0)
-         sig.slPrice = sig.entryPrice - slDist;
-      else
-         sig.slPrice = sig.entryPrice + slDist;
-   }
-   else if(SLMode == SL_FIXED_PIPS)
-   {
-      double slDist = PipsToPrice(SLValue);
-      if(direction > 0)
-         sig.slPrice = sig.entryPrice - slDist;
-      else
-         sig.slPrice = sig.entryPrice + slDist;
-   }
+   // [MOD] SL RIMOSSO — Il calcolo dello Stop Loss e' stato completamente disattivato.
+   // Prima qui c'era il blocco SL_BAND_OPPOSITE / SL_ATR_MULTIPLE / SL_FIXED_PIPS
+   // che conteneva un bug critico: piazzava lo SL dalla parte sbagliata
+   // (sopra l'entry per BUY, sotto l'entry per SELL), causando il rifiuto
+   // di TUTTI gli ordini pendenti da parte del broker (errore INVALID_STOPS).
+   // Ora sig.slPrice resta a 0 (dal Reset()), gli ordini vengono piazzati senza SL.
+   sig.slPrice = 0;
 
    // TP price (depends on TPMode)
    // Tutti i valori di banda (upper1, lower1, mid1) sono congelati al momento del segnale.

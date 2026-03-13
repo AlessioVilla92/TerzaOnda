@@ -98,20 +98,29 @@ int FindFreeCycleSlot()
 //+------------------------------------------------------------------+
 int CreateCycle(const EngineSignal &sig)
 {
+   string dirStr = sig.direction > 0 ? "BUY" : "SELL";
+
+   // ── DIAG: Log ingresso in CreateCycle ──
+   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG CreateCycle: %s | Entry=%s | TP=%s | Quality=%d",
+          dirStr, FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice), sig.quality));
+
    // Check max concurrent
-   if(CountActiveCycles() >= MaxConcurrentTrades)
+   int activeCycles = CountActiveCycles();
+   if(activeCycles >= MaxConcurrentTrades)
    {
-      AdLogI(LOG_CAT_CYCLE, StringFormat("Max concurrent trades reached: %d/%d",
-             CountActiveCycles(), MaxConcurrentTrades));
+      AdLogW(LOG_CAT_CYCLE, StringFormat("DIAG BLOCCATO: Max concurrent trades raggiunto: %d/%d — ordine NON creato",
+             activeCycles, MaxConcurrentTrades));
       return -1;
    }
+   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: Cicli attivi %d/%d — OK, procedo", activeCycles, MaxConcurrentTrades));
 
    int slot = FindFreeCycleSlot();
    if(slot < 0)
    {
-      AdLogW(LOG_CAT_CYCLE, "No free cycle slots!");
+      AdLogW(LOG_CAT_CYCLE, "DIAG BLOCCATO: Nessuno slot libero nel cycle array — ordine NON creato");
       return -1;
    }
+   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: Slot libero trovato: %d", slot));
 
    // Initialize cycle
    g_nextCycleID++;
@@ -128,9 +137,13 @@ int CreateCycle(const EngineSignal &sig)
    g_cycles[slot].quality         = sig.quality;
    g_cycles[slot].profit          = 0;
 
-   // Calculate lot size
-   double slDist = MathAbs(sig.entryPrice - sig.slPrice);
-   g_cycles[slot].lotSize = CalculateLotSize(slDist);
+   // [MOD] SL rimosso — CalculateLotSize(0) usa il LotSize fisso come fallback.
+   g_cycles[slot].lotSize = CalculateLotSize(0);
+   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: LotSize calcolato=%.4f (RiskMode=%s)", g_cycles[slot].lotSize, EnumToString(RiskMode)));
+
+   // ── DIAG: Log pre-OrderPlace ──
+   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: Invoco OrderPlace() — CycleID=#%d | %s | Lot=%.4f | Entry=%s | TP=%s",
+          g_nextCycleID, dirStr, g_cycles[slot].lotSize, FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice)));
 
    // Place order
    ulong ticket = OrderPlace(sig, g_cycles[slot].lotSize, g_nextCycleID);
@@ -144,7 +157,7 @@ int CreateCycle(const EngineSignal &sig)
          g_cycles[slot].state = CYCLE_ACTIVE;
 
       AdLogI(LOG_CAT_CYCLE, StringFormat("CYCLE #%d CREATED | %s %s | Ticket=%d | Lot=%.2f | Entry=%s | SL=%s | TP=%s",
-             g_nextCycleID, sig.direction > 0 ? "BUY" : "SELL",
+             g_nextCycleID, dirStr,
              sig.quality == PATTERN_TBS ? "TBS" : "TWS",
              ticket, g_cycles[slot].lotSize,
              FormatPrice(sig.entryPrice), FormatPrice(sig.slPrice), FormatPrice(sig.tpPrice)));
@@ -161,7 +174,8 @@ int CreateCycle(const EngineSignal &sig)
    else
    {
       g_cycles[slot].state = CYCLE_CLOSED;
-      AdLogW(LOG_CAT_CYCLE, StringFormat("CYCLE #%d FAILED — order not placed", g_nextCycleID));
+      AdLogW(LOG_CAT_CYCLE, StringFormat("CYCLE #%d FAILED — OrderPlace() ha ritornato 0 — ordine NON piazzato", g_nextCycleID));
+      AdLogW(LOG_CAT_CYCLE, "DIAG: Controlla i log [ORDER] sopra per il motivo specifico del fallimento");
       return -1;
    }
 }
@@ -309,7 +323,9 @@ void UpdatePending(const EngineSignal &sig)
 
       if(entryDiff > PipsToPrice(1.0) || tpDiff > PipsToPrice(1.0))
       {
-         if(ModifyPendingOrder(g_cycles[i].ticket, newEntry, g_cycles[i].slPrice, newTP))
+         // [MOD] SL rimosso: terzo parametro (sl) impostato a 0.
+         // Prima si passava g_cycles[i].slPrice, ora sempre 0 (nessun stop loss).
+         if(ModifyPendingOrder(g_cycles[i].ticket, newEntry, 0, newTP))
          {
             AdLogI(LOG_CAT_CYCLE, StringFormat("UPD #%d | Entry: %s->%s | TP: %s->%s",
                    g_cycles[i].cycleID,

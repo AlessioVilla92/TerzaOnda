@@ -70,30 +70,28 @@ void VirtualMonitor()
       if(g_cycles[i].state != CYCLE_ACTIVE) continue;
       if(g_cycles[i].ticket != 0) continue;  // Skip real trades
 
+      // [MOD] SL rimosso — solo monitoraggio TP per trade virtuali.
+      // Prima qui c'erano anche i check per SL hit:
+      //   BUY:  if(slPrice > 0 && bid <= slPrice) slHit = true;
+      //   SELL: if(slPrice > 0 && ask >= slPrice) slHit = true;
+      // Ora i trade virtuali si chiudono solo quando il TP viene raggiunto.
       bool tpHit = false;
-      bool slHit = false;
 
-      if(g_cycles[i].direction > 0)  // Virtual BUY
+      if(g_cycles[i].direction > 0)  // Virtual BUY: TP colpito quando bid >= tpPrice
       {
          if(g_cycles[i].tpPrice > 0 && bid >= g_cycles[i].tpPrice)
             tpHit = true;
-         if(g_cycles[i].slPrice > 0 && bid <= g_cycles[i].slPrice)
-            slHit = true;
       }
-      else  // Virtual SELL
+      else  // Virtual SELL: TP colpito quando ask <= tpPrice
       {
          if(g_cycles[i].tpPrice > 0 && ask <= g_cycles[i].tpPrice)
             tpHit = true;
-         if(g_cycles[i].slPrice > 0 && ask >= g_cycles[i].slPrice)
-            slHit = true;
       }
 
-      if(tpHit || slHit)
+      if(tpHit)
       {
-         // Calculate simulated profit
-         double exitPrice = tpHit ?
-            g_cycles[i].tpPrice :
-            g_cycles[i].slPrice;
+         // Calculate simulated profit (solo TP, niente SL)
+         double exitPrice = g_cycles[i].tpPrice;
 
          double priceDiff = (g_cycles[i].direction > 0) ?
             (exitPrice - g_cycles[i].entryPrice) :
@@ -115,7 +113,7 @@ void VirtualMonitor()
          g_sessionRealizedProfit += profit;
          g_dailyRealizedProfit   += profit;
 
-         string result = tpHit ? "TP HIT" : "SL HIT";
+         string result = "TP HIT";  // [MOD] SL rimosso, solo TP possibile
          AdLogI(LOG_CAT_VIRTUAL, StringFormat("VIRTUAL CLOSED #%d — %s | Profit=%.2f | Total=%.2f | W=%d L=%d",
                 g_cycles[i].cycleID, result, profit, g_virtualTotalProfit,
                 g_virtualWins, g_virtualLosses));

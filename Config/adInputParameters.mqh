@@ -70,9 +70,9 @@ input double           LimitOffsetPips      = 2.0;           // 📏 Limit Offse
 input double           StopOffsetPips       = 2.5;           // 📏 Stop Offset from trigger (pip, se STOP mode)
 input int              PendingExpiryBars    = 8;             // ⏱️ Expiry Pending (barre, 0=mai)
 
-input group "    🛑 STOP LOSS"
-input ENUM_SL_MODE     SLMode               = SL_BAND_OPPOSITE; // 📋 SL Mode ▼
-input double           SLValue              = 1.5;           // 📏 SL Value (ATR mult o pip, in base a SLMode)
+// [MOD] Rimosso gruppo "STOP LOSS" con i parametri SLMode (ENUM_SL_MODE) e SLValue (double).
+// Il calcolo SL era buggato (SL_BAND_OPPOSITE invertiva la direzione) e causava
+// il rifiuto di tutti gli ordini pendenti. SL ora disattivato: ordini senza stop loss.
 
 input group "    ✅ TAKE PROFIT"
 input ENUM_TP_MODE     TPMode               = TP_MIDLINE;    // 📋 TP Mode ▼

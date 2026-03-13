@@ -172,7 +172,11 @@ double NormalizeLotSize(double lot)
 //+------------------------------------------------------------------+
 double ValidateTakeProfit(double price, double tp, bool isBuy)
 {
-   if(tp == 0) return 0;
+   if(tp == 0)
+   {
+      AdLogI(LOG_CAT_BROKER, "DIAG ValidateTP: TP=0 — nessun Take Profit impostato");
+      return 0;
+   }
 
    double originalTP = tp;
    double minDistance = g_symbolStopsLevel * g_symbolPoint;
@@ -180,22 +184,41 @@ double ValidateTakeProfit(double price, double tp, bool isBuy)
       minDistance = 3 * g_pipSize;
    minDistance *= 1.1;
 
+   // ── DIAG: Log parametri validazione TP ──
+   AdLogI(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP: %s | RefPrice=%s | TP=%s | MinDist=%s (%.1fp) | StopsLevel=%d",
+          isBuy ? "BUY" : "SELL", DoubleToString(price, g_symbolDigits),
+          DoubleToString(tp, g_symbolDigits), DoubleToString(minDistance, g_symbolDigits),
+          PointsToPips(minDistance), (int)g_symbolStopsLevel));
+
    if(isBuy)
    {
       double minTP = price + minDistance;
-      if(tp < minTP) tp = minTP;
+      if(tp < minTP)
+      {
+         AdLogW(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP: BUY TP troppo vicino — %s < minTP(%s) — aggiusto a %s",
+                DoubleToString(tp, g_symbolDigits), DoubleToString(minTP, g_symbolDigits), DoubleToString(minTP, g_symbolDigits)));
+         tp = minTP;
+      }
    }
    else
    {
       double maxTP = price - minDistance;
-      if(tp > maxTP) tp = maxTP;
+      if(tp > maxTP)
+      {
+         AdLogW(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP: SELL TP troppo vicino — %s > maxTP(%s) — aggiusto a %s",
+                DoubleToString(tp, g_symbolDigits), DoubleToString(maxTP, g_symbolDigits), DoubleToString(maxTP, g_symbolDigits)));
+         tp = maxTP;
+      }
    }
 
    tp = NormalizeDouble(tp, g_symbolDigits);
 
    if(MathAbs(tp - originalTP) > g_symbolPoint)
-      AdLogW(LOG_CAT_BROKER, StringFormat("TP adjusted: %s -> %s",
+      AdLogW(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP RISULTATO: TP aggiustato %s -> %s",
          DoubleToString(originalTP, g_symbolDigits), DoubleToString(tp, g_symbolDigits)));
+   else
+      AdLogI(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP RISULTATO: TP OK = %s (nessun aggiustamento)",
+         DoubleToString(tp, g_symbolDigits)));
 
    return tp;
 }

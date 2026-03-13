@@ -415,6 +415,23 @@ void OnTick()
                 dirStr, sig.quality,
                 FormatPrice(sig.entryPrice), FormatPrice(sig.slPrice), FormatPrice(sig.tpPrice)));
 
+         // ── DIAG: Log diagnostico completo del trigger ──
+         double diagBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+         double diagAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+         AdLogI(LOG_CAT_TRIGGER, "════════════════════════════════════════════════════");
+         AdLogI(LOG_CAT_TRIGGER, StringFormat("TRIGGER %s %s RILEVATO", qStr, dirStr));
+         AdLogI(LOG_CAT_TRIGGER, StringFormat("  Direction=%d | Quality=%d (%s)", sig.direction, sig.quality, qStr));
+         AdLogI(LOG_CAT_TRIGGER, StringFormat("  Entry=%s | TP=%s | SL=%s", FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice), FormatPrice(sig.slPrice)));
+         AdLogI(LOG_CAT_TRIGGER, StringFormat("  Bands: Upper=%s | Mid=%s | Lower=%s", FormatPrice(sig.upperBand), FormatPrice(sig.midline), FormatPrice(sig.lowerBand)));
+         AdLogI(LOG_CAT_TRIGGER, StringFormat("  Mercato: Bid=%s | Ask=%s | Spread=%.1fp", FormatPrice(diagBid), FormatPrice(diagAsk), PointsToPips(diagAsk - diagBid)));
+         AdLogI(LOG_CAT_TRIGGER, StringFormat("  EntryMode=%s | Cicli attivi=%d/%d", EnumToString(EntryMode), CountActiveCycles(), MaxConcurrentTrades));
+         AdLogI(LOG_CAT_TRIGGER, StringFormat("  BarTime=%s | VirtualMode=%s", TimeToString(sig.barTime, TIME_DATE|TIME_MINUTES), VirtualMode ? "ON" : "OFF"));
+         AdLogI(LOG_CAT_TRIGGER, "════════════════════════════════════════════════════");
+
+         // Alert popup per il trigger
+         Alert(StringFormat("AcquaDulza TRIGGER %s %s | Entry=%s | TP=%s | %s",
+               qStr, dirStr, FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice), _Symbol));
+
          // Feed + history
          AddFeedItem(qStr + " " + dirStr + " · " + FormatPrice(sig.entryPrice), dirClr);
          AddSignalHistory(sig.direction, sig.entryPrice, sig.tpPrice, sig.quality, "OPEN");
@@ -426,25 +443,53 @@ void OnTick()
          // anche se il ciclo non viene creato (es. max cicli raggiunto)
          DrawTPAsterisk(sig.tpPrice, sig.barTime, sig.direction > 0);
 
+         // ── DIAG: Log TP diagnostico ──
+         AdLogI(LOG_CAT_TRIGGER, StringFormat("DIAG TP: Mode=%s | Value=%.2f | TP calcolato=%s",
+                EnumToString(TPMode), TPValue, FormatPrice(sig.tpPrice)));
+         if(sig.direction > 0 && sig.tpPrice <= sig.entryPrice)
+            AdLogW(LOG_CAT_TRIGGER, StringFormat("DIAG TP WARNING: BUY ma TP (%s) <= Entry (%s) — ordine sara' RIFIUTATO",
+                   FormatPrice(sig.tpPrice), FormatPrice(sig.entryPrice)));
+         if(sig.direction < 0 && sig.tpPrice >= sig.entryPrice)
+            AdLogW(LOG_CAT_TRIGGER, StringFormat("DIAG TP WARNING: SELL ma TP (%s) >= Entry (%s) — ordine sara' RIFIUTATO",
+                   FormatPrice(sig.tpPrice), FormatPrice(sig.entryPrice)));
+
          // Create cycle
          if(VirtualMode)
          {
+            AdLogI(LOG_CAT_TRIGGER, "DIAG: VirtualMode ON — creo trade virtuale (nessun ordine reale)");
             int vSlot = VirtualCreateTrade(sig);
             if(vSlot >= 0)
             {
                AdLogI(LOG_CAT_VIRTUAL, "Virtual trade created");
                DrawTPLine(g_nextCycleID, sig.tpPrice, sig.direction > 0);
             }
+            else
+               AdLogW(LOG_CAT_TRIGGER, "DIAG: VirtualCreateTrade FALLITO — vSlot < 0");
          }
          else
          {
+            AdLogI(LOG_CAT_TRIGGER, "DIAG: Invoco CreateCycle() per piazzare ordine reale...");
             int slot = CreateCycle(sig);
             if(slot >= 0)
             {
+               AdLogI(LOG_CAT_TRIGGER, StringFormat("DIAG: CreateCycle OK — slot=%d | CycleID=#%d | Ticket=%d",
+                      slot, g_cycles[slot].cycleID, g_cycles[slot].ticket));
+               AdLogI(LOG_CAT_TRIGGER, StringFormat("DIAG: Ordine PIAZZATO — %s Lot=%.2f | Entry=%s | TP=%s",
+                      dirStr, g_cycles[slot].lotSize, FormatPrice(g_cycles[slot].entryPrice), FormatPrice(g_cycles[slot].tpPrice)));
+               Alert(StringFormat("AcquaDulza ORDINE PIAZZATO #%d %s | Lot=%.2f | %s",
+                     g_cycles[slot].cycleID, dirStr, g_cycles[slot].lotSize, _Symbol));
+
                DrawTriggerArrow(g_cycles[slot].cycleID, sig.entryPrice,
                                sig.barTime, sig.direction > 0);
                DrawTPLine(g_cycles[slot].cycleID, sig.tpPrice, sig.direction > 0);
                DrawTPDot(g_cycles[slot].cycleID, sig.tpPrice, sig.barTime, sig.direction > 0);
+            }
+            else
+            {
+               AdLogW(LOG_CAT_TRIGGER, "DIAG: CreateCycle FALLITO — slot < 0 — NESSUN ORDINE PIAZZATO");
+               AdLogW(LOG_CAT_TRIGGER, "DIAG: Controlla i log [CYCLE] e [ORDER] sopra per il motivo del fallimento");
+               Alert(StringFormat("AcquaDulza ORDINE FALLITO %s %s — controlla log Experts | %s",
+                     qStr, dirStr, _Symbol));
             }
          }
       }

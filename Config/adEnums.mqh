@@ -58,15 +58,8 @@ enum ENUM_ENTRY_MODE
    ENTRY_STOP   = 2         // Stop (breakout/trigger)
 };
 
-//+------------------------------------------------------------------+
-//| SL MODE — Modalita' calcolo Stop Loss                            |
-//+------------------------------------------------------------------+
-enum ENUM_SL_MODE
-{
-   SL_BAND_OPPOSITE = 0,    // SL = banda opposta
-   SL_ATR_MULTIPLE  = 1,    // SL = N * ATR dalla entry
-   SL_FIXED_PIPS    = 2     // SL = N pips fissi
-};
+// [MOD] Rimossa ENUM_SL_MODE (SL_BAND_OPPOSITE=0, SL_ATR_MULTIPLE=1, SL_FIXED_PIPS=2).
+// Stop Loss completamente disattivato — gli ordini vengono piazzati senza SL.
 
 //+------------------------------------------------------------------+
 //| TP MODE — Modalita' calcolo Take Profit                          |
