@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adBrokerValidation.mqh      |
-//|           AcquaDulza EA v1.0.0 — Broker Validation               |
+//|           AcquaDulza EA v1.1.0 — Broker Validation               |
 //|                                                                  |
 //|  Load broker specs, validate inputs, normalize lots              |
 //+------------------------------------------------------------------+
@@ -151,10 +151,18 @@ double NormalizeLotSize(double lot)
 
    if(lot < g_symbolMinLot) lot = g_symbolMinLot;
 
-   lot = NormalizeDouble(lot, 2);
+   // Decimali dinamici da lotStep (crypto può avere 0.001 = 3 decimali)
+   int lotDecimals = 2;
+   if(g_symbolLotStep > 0)
+   {
+      double step = g_symbolLotStep;
+      lotDecimals = 0;
+      while(step < 1.0 && lotDecimals < 8) { step *= 10; lotDecimals++; }
+   }
+   lot = NormalizeDouble(lot, lotDecimals);
 
    if(MathAbs(lot - originalLot) > 0.001)
-      AdLogW(LOG_CAT_BROKER, StringFormat("Lot normalized: %.2f -> %.2f", originalLot, lot));
+      AdLogW(LOG_CAT_BROKER, StringFormat("Lot normalized: %.*f -> %.*f", lotDecimals, originalLot, lotDecimals, lot));
 
    return lot;
 }
@@ -168,8 +176,8 @@ double ValidateTakeProfit(double price, double tp, bool isBuy)
 
    double originalTP = tp;
    double minDistance = g_symbolStopsLevel * g_symbolPoint;
-   if(minDistance < g_symbolPoint * 10)
-      minDistance = g_symbolPoint * 30;
+   if(minDistance < g_pipSize)
+      minDistance = 3 * g_pipSize;
    minDistance *= 1.1;
 
    if(isBuy)
@@ -203,8 +211,8 @@ bool IsValidPendingPrice(double price, ENUM_ORDER_TYPE orderType)
    if(currentAsk <= 0 || currentBid <= 0) return true;
 
    double minDistance = g_symbolStopsLevel * g_symbolPoint;
-   if(minDistance < g_symbolPoint * 10)
-      minDistance = g_symbolPoint * 30;
+   if(minDistance < g_pipSize)
+      minDistance = 3 * g_pipSize;
 
    switch(orderType)
    {
@@ -228,11 +236,11 @@ double GetSafeOrderPrice(double desiredPrice, ENUM_ORDER_TYPE orderType)
       return NormalizeDouble(desiredPrice, g_symbolDigits);
 
    double minDistance = g_symbolStopsLevel * g_symbolPoint;
-   if(minDistance < g_symbolPoint * 10)
-      minDistance = g_symbolPoint * 30;
+   if(minDistance < g_pipSize)
+      minDistance = 3 * g_pipSize;
    minDistance *= 1.5;
 
-   double buffer = g_symbolPoint * 10;
+   double buffer = g_pipSize;
    double adaptivePrice = desiredPrice;
 
    switch(orderType)
@@ -264,7 +272,8 @@ double GetSafeOrderPrice(double desiredPrice, ENUM_ORDER_TYPE orderType)
 void SetupTradeObject()
 {
    g_trade.SetExpertMagicNumber(MagicNumber);
-   g_trade.SetDeviationInPoints(Slippage);
+   // Slippage: usa valore effettivo scalato per prodotto (in points)
+   g_trade.SetDeviationInPoints(g_inst_slippage);
 
    // Auto-detect filling mode
    long fillPolicy = SymbolInfoInteger(_Symbol, SYMBOL_FILLING_MODE);
@@ -275,6 +284,6 @@ void SetupTradeObject()
    else
       g_trade.SetTypeFilling(ORDER_FILLING_RETURN);
 
-   AdLogI(LOG_CAT_BROKER, StringFormat("Trade object: magic=%d slippage=%d",
-      MagicNumber, Slippage));
+   AdLogI(LOG_CAT_BROKER, StringFormat("Trade object: magic=%d slippage=%d (instrument-scaled)",
+      MagicNumber, g_inst_slippage));
 }

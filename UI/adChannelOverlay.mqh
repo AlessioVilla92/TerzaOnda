@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adChannelOverlay.mqh        |
-//|           AcquaDulza EA v1.0.0 — Channel Overlay                 |
+//|           AcquaDulza EA v1.1.0 — Channel Overlay                 |
 //|                                                                  |
 //|  Visualizzazione grafica del canale Donchian Predictive sul chart.|
 //|                                                                  |
@@ -518,6 +518,44 @@ void DrawTPDot(int cycleID, double tpPrice, datetime signalTime, bool isBuy)
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
    ObjectSetInteger(0, name, OBJPROP_BACK, false);     // Davanti alle candele
+}
+
+//+------------------------------------------------------------------+
+//| DrawTPAsterisk — Asterisco giallo al livello TP su ogni trigger  |
+//|                                                                  |
+//| SCOPO: Ogni volta che l'engine genera un segnale (trigger),      |
+//|        disegna un asterisco giallo (★ arrow code 171) al prezzo  |
+//|        TP previsto sulla candela del segnale. Visibile anche     |
+//|        se l'ordine non viene piazzato (es. filtro attivo).       |
+//|        Permette all'utente di vedere dove punta il TP di ogni    |
+//|        segnale generato dall'engine.                             |
+//|                                                                  |
+//| CHIAMATA DA: AcquaDulza.mq5 OnTick() subito dopo DrawSignalMarkers |
+//+------------------------------------------------------------------+
+void DrawTPAsterisk(double tpPrice, datetime signalTime, bool isBuy)
+{
+   // Usa timestamp + direzione per nome univoco (un asterisco per segnale)
+   string name = StringFormat("AD_TP_STAR_%s_%s",
+      isBuy ? "B" : "S",
+      TimeToString(signalTime, TIME_DATE|TIME_MINUTES));
+
+   if(ObjectFind(0, name) >= 0) return;  // Già disegnato per questo segnale
+
+   ObjectCreate(0, name, OBJ_ARROW, 0, signalTime, tpPrice);
+   ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 171);  // Asterisco (★)
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clrYellow); // Giallo fisso
+   ObjectSetInteger(0, name, OBJPROP_WIDTH, 2);
+   ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+   ObjectSetInteger(0, name, OBJPROP_BACK, false);      // Davanti alle candele
+
+   // Tooltip informativo: mostra direzione, prezzo TP e modalità
+   ObjectSetString(0, name, OBJPROP_TOOLTIP,
+      StringFormat("TP Target %s @ %s [%s]",
+         isBuy ? "BUY" : "SELL",
+         DoubleToString(tpPrice, _Digits),
+         EnumToString(TPMode)));
 }
 
 //+------------------------------------------------------------------+

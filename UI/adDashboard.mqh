@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDashboard.mqh         |
-//|           AcquaDulza EA v1.0.0 — Dashboard Display               |
+//|           AcquaDulza EA v1.1.0 — Dashboard Display               |
 //|                                                                  |
 //|  Ocean theme dashboard — Pragmatic approach.                     |
 //|  Layout: Header (logo+ver+engine) | TitleBar (pair+state)        |
@@ -150,7 +150,7 @@ void DrawSystemStatus(int x, int y, int w)
    DashLabel("SY_L4", col1, row2, "SPREAD", AD_TEXT_LO, 7);
    DashLabel("SY_V4", col1, row2 + 10,
              StringFormat("%.1f pip", spread),
-             spread > MaxSpreadPips ? AD_SELL : AD_BUY, 10);
+             spread > g_inst_maxSpread ? AD_SELL : AD_BUY, 10);
 
    DashLabel("SY_L5", col3, row2, "ATR(14)", AD_TEXT_LO, 7);
    DashLabel("SY_V5", col3, row2 + 10,
@@ -507,7 +507,7 @@ void UpdateSidePanel()
    DashLabel("SM_R04L", sx + 10, ly, "Spread", AD_TEXT_MID, 8);
    DashLabel("SM_R04V", valX, ly,
              StringFormat("%.1f pip", spread),
-             spread > MaxSpreadPips ? AD_SELL : AD_TEXT_SECONDARY, 8);
+             spread > g_inst_maxSpread ? AD_SELL : AD_TEXT_SECONDARY, 8);
    ly += lh;
 
    // 5. TF Preset

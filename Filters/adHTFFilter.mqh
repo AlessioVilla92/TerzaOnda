@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adHTFFilter.mqh         |
-//|           AcquaDulza EA v1.0.0 — HTF Direction Filter            |
+//|           AcquaDulza EA v1.1.0 — HTF Direction Filter            |
 //|                                                                  |
 //|  Donchian-based higher timeframe filter.                         |
 //|  Blocks signals against HTF trend direction.                     |

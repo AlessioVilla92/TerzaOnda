@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDPCEngine.mqh         |
-//|           AcquaDulza EA v1.0.0 — DPC Engine Orchestrator         |
+//|           AcquaDulza EA v1.1.0 — DPC Engine Orchestrator         |
 //|                                                                  |
 //|  Implements the 3 contract functions from adEngineInterface.mqh: |
 //|    EngineInit()      — Create handles, init state                |
@@ -184,8 +184,10 @@ bool EngineCalculate(EngineSignal &sig)
    double open1  = iOpen(_Symbol, PERIOD_CURRENT, 1);
    double close1 = iClose(_Symbol, PERIOD_CURRENT, 1);
 
-   bool bearBase = (high1 >= upper1);   // Price touches upper -> SELL candidate
-   bool bullBase = (low1 <= lower1);    // Price touches lower -> BUY candidate
+   // BAR_CLOSE: Turtle Soup rejection — touch band + close inside channel
+   // Aligned with DPC indicator v7.19 Section 5 (lines 3123-3124)
+   bool bearBase = (high1 >= upper1) && (close1 < upper1);   // Wick/body touches upper, closes INSIDE → SELL
+   bool bullBase = (low1  <= lower1) && (close1 > lower1);   // Wick/body touches lower, closes INSIDE → BUY
 
    // Anti-ambiguity: both bands touched simultaneously
    if(bearBase && bullBase)
@@ -341,8 +343,8 @@ bool EngineCalculate(EngineSignal &sig)
    // Band level (the band that was touched)
    sig.bandLevel = (direction > 0) ? lower1 : upper1;
 
-   // Entry price (band +/- offset using StopOffsetPips)
-   double triggerOffset = PipsToPrice(StopOffsetPips);
+   // Entry price (band +/- offset, scalato per classe strumento)
+   double triggerOffset = PipsToPrice(g_inst_stopOffset);
    if(direction > 0)
       sig.entryPrice = lower1 + triggerOffset;   // BUY STOP above lower band
    else
@@ -374,12 +376,36 @@ bool EngineCalculate(EngineSignal &sig)
    }
 
    // TP price (depends on TPMode)
+   // Tutti i valori di banda (upper1, lower1, mid1) sono congelati al momento del segnale.
+   // Per BUY (entry ≈ lower band): banda opposta = upper, per SELL: banda opposta = lower.
    if(TPMode == TP_MIDLINE)
    {
+      // TP alla midline del canale Donchian — strategia mean reversion classica
       sig.tpPrice = mid1;
+   }
+   else if(TPMode == TP_OPPOSITE_BAND)
+   {
+      // TP alla banda opposta del canale — target full-range
+      // BUY: entry vicino a lower → TP = upper band (massimo del canale)
+      // SELL: entry vicino a upper → TP = lower band (minimo del canale)
+      if(direction > 0)
+         sig.tpPrice = upper1;
+      else
+         sig.tpPrice = lower1;
+   }
+   else if(TPMode == TP_150_PERCENT)
+   {
+      // TP a metà strada tra midline e banda opposta — 150% della distanza entry→midline
+      // BUY: TP = (midline + upper) / 2 → oltre la midline ma non fino alla banda
+      // SELL: TP = (midline + lower) / 2 → oltre la midline ma non fino alla banda
+      if(direction > 0)
+         sig.tpPrice = (mid1 + upper1) * 0.5;
+      else
+         sig.tpPrice = (mid1 + lower1) * 0.5;
    }
    else if(TPMode == TP_ATR_MULTIPLE && atr1 > 0)
    {
+      // TP basato su ATR — distanza dal prezzo di entry proporzionale alla volatilità
       double tpDist = TPValue * atr1;
       if(direction > 0)
          sig.tpPrice = sig.entryPrice + tpDist;
@@ -388,6 +414,7 @@ bool EngineCalculate(EngineSignal &sig)
    }
    else if(TPMode == TP_FIXED_PIPS)
    {
+      // TP a distanza fissa in pip — indipendente dalla volatilità o dalla larghezza canale
       double tpDist = PipsToPrice(TPValue);
       if(direction > 0)
          sig.tpPrice = sig.entryPrice + tpDist;

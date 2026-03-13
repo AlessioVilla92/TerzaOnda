@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adGlobalVariables.mqh       |
-//|           AcquaDulza EA v1.0.0 — Global Variables                |
+//|           AcquaDulza EA v1.1.0 — Global Variables                |
 //|                                                                  |
 //|  Stato macchina + array cicli + tracking + trade object          |
 //|  NO variabili engine-specifiche (vivono in Engine/)              |
@@ -31,6 +31,20 @@ double g_symbolLotStep     = 0;
 long   g_symbolSpreadPoints = 0;
 double g_symbolPoint       = 0;
 int    g_symbolDigits      = 0;
+
+//+------------------------------------------------------------------+
+//| INSTRUMENT CLASSIFICATION                                        |
+//| Settati da InstrumentPresetsInit() in adInstrumentConfig.mqh     |
+//+------------------------------------------------------------------+
+ENUM_INSTRUMENT_CLASS g_instrumentClass = INSTRUMENT_AUTO;
+double g_pipSize           = 0.0001;  // Pip size in price (forex default)
+
+//--- Effective parameters (auto-scaled per prodotto, override degli input) ---
+double g_inst_maxSpread    = 3.0;     // MaxSpreadPips effettivo
+int    g_inst_slippage     = 3;       // Slippage effettivo (in points)
+double g_inst_stopOffset   = 2.5;     // StopOffsetPips effettivo
+double g_inst_limitOffset  = 2.0;     // LimitOffsetPips effettivo
+double g_inst_widthFactor  = 1.0;     // Fattore moltiplicativo per g_dpc_minWidth
 
 //+------------------------------------------------------------------+
 //| ATR CACHE                                                        |
@@ -180,7 +194,7 @@ void CheckDailyReset()
          g_dailyRealizedProfit = 0;
          g_dailyWins           = 0;
          g_dailyLosses         = 0;
-         Print("[SYSTEM] Daily counters reset");
+         AdLogI(LOG_CAT_SYSTEM, "Daily counters reset (cycles/profit/wins/losses)");
       }
    }
    g_dailyCyclesDate = TimeCurrent();

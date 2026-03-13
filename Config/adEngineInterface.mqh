@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adEngineInterface.mqh       |
-//|           AcquaDulza EA v1.0.0 — Engine Contract                 |
+//|           AcquaDulza EA v1.1.0 — Engine Contract                 |
 //|                                                                  |
 //|  CONTRATTO STABILE — QUESTO FILE NON CAMBIA MAI                  |
 //|                                                                  |

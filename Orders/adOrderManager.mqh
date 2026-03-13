@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adOrderManager.mqh        |
-//|           AcquaDulza EA v1.0.0 — Order Manager                   |
+//|           AcquaDulza EA v1.1.0 — Order Manager                   |
 //|                                                                  |
 //|  3 entry modes: MARKET, LIMIT, STOP                              |
 //|  Single magic number. Retry logic.                               |
@@ -33,8 +33,17 @@ string GetOrderTypeString(ENUM_ORDER_TYPE orderType)
 bool RefreshRates()
 {
    MqlTick tick;
-   if(!SymbolInfoTick(_Symbol, tick)) return false;
-   return (tick.ask > 0 && tick.bid > 0);
+   if(!SymbolInfoTick(_Symbol, tick))
+   {
+      AdLogW(LOG_CAT_ORDER, StringFormat("RefreshRates: SymbolInfoTick failed err=%d", GetLastError()));
+      return false;
+   }
+   if(tick.ask <= 0 || tick.bid <= 0)
+   {
+      AdLogW(LOG_CAT_ORDER, StringFormat("RefreshRates: invalid tick data ask=%.5f bid=%.5f", tick.ask, tick.bid));
+      return false;
+   }
+   return true;
 }
 
 //+------------------------------------------------------------------+
@@ -45,6 +54,14 @@ ulong OrderPlaceMarket(int direction, double lots, double sl, double tp, string 
    lots = NormalizeLotSize(lots);
    sl   = NormalizeDouble(sl, (int)g_symbolDigits);
    tp   = NormalizeDouble(tp, (int)g_symbolDigits);
+
+   // Validazione broker: garantisce che il TP rispetti SYMBOL_TRADE_STOPS_LEVEL.
+   // Per ordini market il prezzo di riferimento è Ask (BUY) o Bid (SELL),
+   // perché il fill avverrà al prezzo corrente di mercato.
+   // Se il TP è troppo vicino, viene spostato alla distanza minima consentita.
+   double refPrice = (direction > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
+                                      : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   tp = ValidateTakeProfit(refPrice, tp, direction > 0);
 
    g_trade.SetExpertMagicNumber(MagicNumber);
 
@@ -95,6 +112,14 @@ ulong OrderPlacePending(ENUM_ORDER_TYPE orderType, double lots, double price,
    sl    = NormalizeDouble(sl, (int)g_symbolDigits);
    tp    = NormalizeDouble(tp, (int)g_symbolDigits);
    lots  = NormalizeLotSize(lots);
+
+   // Validazione broker: garantisce che il TP rispetti SYMBOL_TRADE_STOPS_LEVEL.
+   // Per ordini pending il prezzo di riferimento è il prezzo dell'ordine stesso,
+   // perché il fill avverrà a quel livello (non al prezzo corrente di mercato).
+   // BUY_LIMIT e BUY_STOP sono BUY → TP deve stare sopra il prezzo.
+   // SELL_LIMIT e SELL_STOP sono SELL → TP deve stare sotto il prezzo.
+   bool isBuyOrder = (orderType == ORDER_TYPE_BUY_LIMIT || orderType == ORDER_TYPE_BUY_STOP);
+   tp = ValidateTakeProfit(price, tp, isBuyOrder);
 
    // Broker order limit check
    int currentOrders = OrdersTotal() + PositionsTotal();
@@ -201,7 +226,8 @@ ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
 
       case ENTRY_LIMIT:
       {
-         double limitOffset = PipsToPrice(LimitOffsetPips);
+         // Offset limit order, scalato per classe strumento
+         double limitOffset = PipsToPrice(g_inst_limitOffset);
          double limitPrice = 0;
          ENUM_ORDER_TYPE type;
 
@@ -225,9 +251,10 @@ ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
 
          // BUY STOP: must be above Ask + min distance
          // SELL STOP: must be below Bid - min distance
+         // Min distance: usa g_pipSize per scaling universale multi-prodotto
          double minDistance = g_symbolStopsLevel * g_symbolPoint;
-         if(minDistance < g_symbolPoint * 10)
-            minDistance = g_symbolPoint * 30;  // Min 3 pips
+         if(minDistance < g_pipSize)
+            minDistance = 3 * g_pipSize;  // Min 3 pip (scalato per strumento)
 
          if(sig.direction > 0)
          {
@@ -294,7 +321,7 @@ bool ClosePosition(ulong ticket)
    int retries = 0;
    while(retries < MaxRetries)
    {
-      if(g_trade.PositionClose(ticket, Slippage)) return true;
+      if(g_trade.PositionClose(ticket, g_inst_slippage)) return true;
 
       AdLogW(LOG_CAT_ORDER, StringFormat("Close failed #%d: %s, retry %d",
              ticket, g_trade.ResultRetcodeDescription(), retries + 1));
@@ -363,6 +390,13 @@ bool ModifyPendingOrder(ulong ticket, double newPrice, double newSL, double newT
    newPrice = NormalizeDouble(newPrice, (int)g_symbolDigits);
    newSL    = NormalizeDouble(newSL, (int)g_symbolDigits);
    newTP    = NormalizeDouble(newTP, (int)g_symbolDigits);
+
+   // Validazione broker: garantisce che il nuovo TP rispetti SYMBOL_TRADE_STOPS_LEVEL.
+   // Legge il tipo d'ordine corrente (già selezionato con OrderSelect sopra)
+   // per determinare se è un BUY o SELL e validare la direzione del TP.
+   ENUM_ORDER_TYPE currentType = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+   bool isBuyMod = (currentType == ORDER_TYPE_BUY_LIMIT || currentType == ORDER_TYPE_BUY_STOP);
+   newTP = ValidateTakeProfit(newPrice, newTP, isBuyMod);
 
    g_trade.SetExpertMagicNumber(MagicNumber);
    if(g_trade.OrderModify(ticket, newPrice, newSL, newTP, ORDER_TIME_GTC, 0))

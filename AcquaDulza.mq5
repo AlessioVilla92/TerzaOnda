@@ -3,12 +3,12 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.0.0                                                  |
+//|  Version: 1.1.0                                                  |
 //|  Engine: DPC (Donchian Predictive Channel) — swappable           |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.00"
-#property description "AcquaDulza EA v1.0.0 — Reusable Trading Framework"
+#property version   "1.10"
+#property description "AcquaDulza EA v1.1.0 — Reusable Trading Framework"
 #property description "Engine: DPC v7.19 (Donchian Predictive Channel)"
 #property description "Anti-repaint: bar[1] signals only"
 #property strict
@@ -25,6 +25,7 @@
 // === Layer 1: Core + Utilities ===
 #include "Core/adGlobalVariables.mqh"
 #include "Utilities/adHelpers.mqh"
+#include "Config/adInstrumentConfig.mqh"    // Multi-prodotto: detect + preset strumento
 #include "Core/adBrokerValidation.mqh"
 #include "Core/adSessionManager.mqh"
 
@@ -182,7 +183,12 @@ int OnInit()
       return INIT_SUCCEEDED;
    }
 
-   // 2. Trade object
+   // 1b. Instrument classification: detect/apply pip scaling + preset parametri
+   //     DEVE girare dopo LoadBrokerSpecifications (usa g_symbolPoint, g_symbolDigits)
+   //     e PRIMA di SetupTradeObject (che usa g_inst_slippage)
+   InstrumentPresetsInit();
+
+   // 2. Trade object (usa g_inst_slippage per SetDeviationInPoints)
    SetupTradeObject();
 
    // 3. Validate inputs
@@ -415,6 +421,10 @@ void OnTick()
 
          // Visual markers
          DrawSignalMarkers(sig);
+
+         // Asterisco giallo al livello TP — visibile su OGNI trigger,
+         // anche se il ciclo non viene creato (es. max cicli raggiunto)
+         DrawTPAsterisk(sig.tpPrice, sig.barTime, sig.direction > 0);
 
          // Create cycle
          if(VirtualMode)

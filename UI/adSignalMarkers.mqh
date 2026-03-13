@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                       adSignalMarkers.mqh        |
-//|           AcquaDulza EA v1.0.0 — Signal Markers                  |
+//|           AcquaDulza EA v1.1.0 — Signal Markers                  |
 //|                                                                  |
 //|  Replica indicatore DonchianPredictiveChannel.mq5:               |
 //|  TBS arrows (bright lime/red) + TWS arrows (dark green/red)      |
@@ -37,8 +37,8 @@ void DrawSignalArrow(const EngineSignal &sig)
    int arrowCode = isBuy ? 233 : 234;
    color clr = GetSignalArrowColor(isBuy, sig.quality);
 
-   // Arrow placement: band level with ATR offset (like indicator)
-   double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] * g_symbolPoint * 10 : 0;
+   // Arrow placement: band level with ATR offset (usa g_pipSize per multi-prodotto)
+   double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] * g_pipSize : 0;
    double offset = atr * AD_ARROW_OFFSET;
    double bandPrice = isBuy ? sig.lowerBand : sig.upperBand;
    if(bandPrice <= 0) bandPrice = sig.entryPrice;
@@ -81,8 +81,8 @@ void DrawSignalLabel(const EngineSignal &sig)
    string text = StringFormat("TRIGGER %s [%s]", isBuy ? "BUY" : "SELL", patternName);
    color clr = GetSignalArrowColor(isBuy, sig.quality);
 
-   // Place near arrow
-   double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] * g_symbolPoint * 10 : 0;
+   // Place near arrow (usa g_pipSize per multi-prodotto)
+   double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] * g_pipSize : 0;
    double offset = atr * (AD_ARROW_OFFSET + 0.5);
    double bandPrice = isBuy ? sig.lowerBand : sig.upperBand;
    if(bandPrice <= 0) bandPrice = sig.entryPrice;
@@ -218,8 +218,9 @@ void ScanHistoricalSignals()
       double close1 = iClose(_Symbol, PERIOD_CURRENT, i);
       datetime barTime = iTime(_Symbol, PERIOD_CURRENT, i);
 
-      bool bearBase = (high1 >= upper);
-      bool bullBase = (low1 <= lower);
+      // Turtle Soup rejection: touch band + close inside channel (aligned with engine)
+      bool bearBase = (high1 >= upper) && (close1 < upper);
+      bool bullBase = (low1 <= lower)  && (close1 > lower);
 
       // Anti-ambiguity
       if(bearBase && bullBase) continue;

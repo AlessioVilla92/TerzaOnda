@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adSessionManager.mqh        |
-//|           AcquaDulza EA v1.0.0 — Session Manager                 |
+//|           AcquaDulza EA v1.1.0 — Session Manager                 |
 //|                                                                  |
 //|  Session filter + ParseTimeToMinutes + IsInBlockedTime           |
 //|  Semplificato: solo un magic number, no hedge logic              |
@@ -140,11 +140,21 @@ void HandleSessionEnd()
 
       double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
       double price  = PositionGetDouble(POSITION_PRICE_CURRENT);
-      if(g_trade.PositionClose(ticket))
+      bool closed = false;
+      for(int r = 0; r < MaxRetries; r++)
+      {
+         if(g_trade.PositionClose(ticket)) { closed = true; break; }
+         AdLogW(LOG_CAT_SESSION, StringFormat("PositionClose #%d failed (retry %d/%d): %s",
+                ticket, r + 1, MaxRetries, g_trade.ResultRetcodeDescription()));
+         if(r < MaxRetries - 1) Sleep(RetryDelayMs);
+      }
+      if(closed)
       {
          closedPositions++;
          Log_PositionClosed(ticket, "SESSION_END", profit, price);
       }
+      else
+         AdLogE(LOG_CAT_SESSION, StringFormat("Failed to close position #%d after %d retries", ticket, MaxRetries));
    }
 
    // Delete all pending orders with our magic
@@ -155,11 +165,21 @@ void HandleSessionEnd()
       if(OrderGetInteger(ORDER_MAGIC) != MagicNumber) continue;
       if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
 
-      if(g_trade.OrderDelete(ticket))
+      bool deleted = false;
+      for(int r = 0; r < MaxRetries; r++)
+      {
+         if(g_trade.OrderDelete(ticket)) { deleted = true; break; }
+         AdLogW(LOG_CAT_SESSION, StringFormat("OrderDelete #%d failed (retry %d/%d): %s",
+                ticket, r + 1, MaxRetries, g_trade.ResultRetcodeDescription()));
+         if(r < MaxRetries - 1) Sleep(RetryDelayMs);
+      }
+      if(deleted)
       {
          deletedOrders++;
          Log_OrderCancelled(ticket, "SESSION_END");
       }
+      else
+         AdLogE(LOG_CAT_SESSION, StringFormat("Failed to delete pending order #%d after %d retries", ticket, MaxRetries));
    }
 
    if(closedPositions > 0 || deletedOrders > 0)

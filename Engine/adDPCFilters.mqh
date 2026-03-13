@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                         adDPCFilters.mqh         |
-//|           AcquaDulza EA v1.0.0 — DPC Quality Filters             |
+//|           AcquaDulza EA v1.1.0 — DPC Quality Filters             |
 //|                                                                  |
 //|  Flatness + TrendContext + LevelAge + ChannelWidth + MA Filter   |
 //+------------------------------------------------------------------+
@@ -151,23 +151,28 @@ bool DPCCheckChannelWidth(double upper, double lower)
 
 //+------------------------------------------------------------------+
 //| CheckMAFilter — MA direction filter                              |
-//| BUG FIX from DPC0404: was dead code `if(false &&`               |
-//| Now properly checks close vs MA based on InpMAFilterMode         |
+//| Aligned with DPC indicator v7.19 (lines 3509-3520)               |
+//|                                                                  |
+//| CLASSIC:  trend-following — SELL se close < MA, BUY se close > MA|
+//| INVERTED: mean-reversion Soup — SELL se close > MA (overextended)|
+//|           BUY se close < MA (oversold) ← DEFAULT in DPC          |
 //+------------------------------------------------------------------+
 bool DPCCheckMAFilter(double close1, double ma1, int direction)
 {
    if(InpMAFilterMode == MA_FILTER_DISABLED) return true;
    if(ma1 <= 0) return true;
 
-   if(direction > 0)  // BUY
+   if(InpMAFilterMode == MA_FILTER_CLASSIC)
    {
-      if(InpMAFilterMode == MA_FILTER_ABOVE || InpMAFilterMode == MA_FILTER_BOTH)
-         return (close1 > ma1);
+      // Trend-following: SELL sotto MA, BUY sopra MA
+      if(direction > 0)  return (close1 > ma1);  // BUY only above MA
+      if(direction < 0)  return (close1 < ma1);  // SELL only below MA
    }
-   else if(direction < 0)  // SELL
+   else if(InpMAFilterMode == MA_FILTER_INVERTED)
    {
-      if(InpMAFilterMode == MA_FILTER_BELOW || InpMAFilterMode == MA_FILTER_BOTH)
-         return (close1 < ma1);
+      // Mean-reversion Soup: SELL quando overextended SOPRA MA, BUY quando SOTTO MA
+      if(direction > 0)  return (close1 < ma1);  // BUY when below MA (oversold)
+      if(direction < 0)  return (close1 > ma1);  // SELL when above MA (overextended)
    }
 
    return true;
@@ -175,23 +180,24 @@ bool DPCCheckMAFilter(double close1, double ma1, int direction)
 
 //+------------------------------------------------------------------+
 //| ClassifySignal — TBS vs TWS pattern                              |
-//| TBS: body breaks band (quality=3)                                |
-//| TWS: only wick breaks band (quality=1)                           |
+//| Aligned with DPC indicator v7.19 (lines 3636-3642, 3769-3775)   |
+//| TBS: BODY penetrates band (quality=3) — MathMax/MathMin logic   |
+//| TWS: only WICK penetrates band (quality=1)                       |
 //+------------------------------------------------------------------+
 int DPCClassifySignal(int direction, double open1, double close1, double upper, double lower)
 {
    if(direction > 0) // BUY — lower band touched
    {
-      // TBS: close <= lower (body breaks below)
-      if(close1 <= lower) return PATTERN_TBS;
-      // TWS: only wick broke (low <= lower but close > lower)
+      // TBS: body LOW (min of open/close) breaks below lower band
+      if(MathMin(open1, close1) < lower) return PATTERN_TBS;
+      // TWS: only wick broke (low <= lower but body stayed inside)
       return PATTERN_TWS;
    }
    else if(direction < 0) // SELL — upper band touched
    {
-      // TBS: close >= upper (body breaks above)
-      if(close1 >= upper) return PATTERN_TBS;
-      // TWS: only wick broke
+      // TBS: body HIGH (max of open/close) breaks above upper band
+      if(MathMax(open1, close1) > upper) return PATTERN_TBS;
+      // TWS: only wick broke (high >= upper but body stayed inside)
       return PATTERN_TWS;
    }
    return PATTERN_NONE;

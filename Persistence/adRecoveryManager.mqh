@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                    adRecoveryManager.mqh         |
-//|           AcquaDulza EA v1.0.0 — Recovery Manager                |
+//|           AcquaDulza EA v1.1.0 — Recovery Manager                |
 //|                                                                  |
 //|  Broker scan recovery: reconstruct cycles from positions/orders  |
 //|  Single magic number, no soup/breakout/hedge                     |

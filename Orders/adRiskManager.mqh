@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                         adRiskManager.mqh        |
-//|           AcquaDulza EA v1.0.0 — Risk Manager                    |
+//|           AcquaDulza EA v1.1.0 — Risk Manager                    |
 //|                                                                  |
 //|  3 lot sizing modes: FIXED_LOT, RISK_PCT, FIXED_CASH            |
 //|  Circuit breaker, daily loss limit, spread check                 |
@@ -50,6 +50,9 @@ double CalculateLotSize(double slDistancePrice)
 
       if(tickValue > 0 && tickSize > 0)
          lots = (riskAmt * tickSize) / (slDistancePrice * tickValue);
+      else
+         AdLogW(LOG_CAT_RISK, StringFormat("CalculateLotSize: invalid tick data (tickVal=%.5f tickSize=%.5f) — using fixed lot %.2f",
+            tickValue, tickSize, lots));
    }
    else if(RiskMode == RISK_FIXED_CASH && slDistancePrice > 0)
    {
@@ -59,10 +62,16 @@ double CalculateLotSize(double slDistancePrice)
 
       if(tickValue > 0 && tickSize > 0)
          lots = (RiskCashPerTrade * tickSize) / (slDistancePrice * tickValue);
+      else
+         AdLogW(LOG_CAT_RISK, StringFormat("CalculateLotSize: invalid tick data (tickVal=%.5f tickSize=%.5f) — using fixed lot %.2f",
+            tickValue, tickSize, lots));
    }
    // RISK_FIXED_LOT: use LotSize directly
 
-   return NormalizeLotSize(lots);
+   double finalLot = NormalizeLotSize(lots);
+   AdLogI(LOG_CAT_RISK, StringFormat("LotSize: mode=%s raw=%.4f final=%.4f slDist=%.5f",
+      EnumToString(RiskMode), lots, finalLot, slDistancePrice));
+   return finalLot;
 }
 
 //+------------------------------------------------------------------+
@@ -94,11 +103,11 @@ bool PerformRiskChecks()
       }
    }
 
-   // 3. Spread check
+   // 3. Spread check (usa g_inst_maxSpread, scalato per classe strumento)
    double currentSpread = GetSpreadPips();
-   if(currentSpread > MaxSpreadPips)
+   if(currentSpread > g_inst_maxSpread)
    {
-      AdLogI(LOG_CAT_RISK, StringFormat("SPREAD BLOCKED — %.1fp > MAX %.1fp", currentSpread, MaxSpreadPips));
+      AdLogI(LOG_CAT_RISK, StringFormat("SPREAD BLOCKED — %.1fp > MAX %.1fp", currentSpread, g_inst_maxSpread));
       return false;
    }
 
@@ -147,7 +156,11 @@ double CalculateMarginRequired(double lots, ENUM_ORDER_TYPE orderType)
 {
    double margin = 0;
    if(!OrderCalcMargin(orderType, _Symbol, lots, SymbolInfoDouble(_Symbol, SYMBOL_ASK), margin))
+   {
+      AdLogE(LOG_CAT_RISK, StringFormat("OrderCalcMargin failed: lots=%.4f type=%s err=%d",
+         lots, EnumToString(orderType), GetLastError()));
       return -1;
+   }
    return margin;
 }
 

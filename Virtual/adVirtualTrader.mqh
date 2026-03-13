@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                       adVirtualTrader.mqh        |
-//|           AcquaDulza EA v1.0.0 — Virtual (Paper) Trader          |
+//|           AcquaDulza EA v1.1.0 — Virtual (Paper) Trader          |
 //|                                                                  |
 //|  Simulates trade cycles without broker orders.                   |
 //|  Uses same CycleRecord structure for consistency.                |

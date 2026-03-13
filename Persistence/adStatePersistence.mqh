@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                    adStatePersistence.mqh        |
-//|           AcquaDulza EA v1.0.0 — State Persistence               |
+//|           AcquaDulza EA v1.1.0 — State Persistence               |
 //|                                                                  |
 //|  Auto-save & restore CycleRecord array via GlobalVariables       |
 //|  Simplified: single magic, no soup/breakout/hedge                |

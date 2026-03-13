@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                           adDPCBands.mqh         |
-//|           AcquaDulza EA v1.0.0 — DPC Band Calculation            |
+//|           AcquaDulza EA v1.1.0 — DPC Band Calculation            |
 //|                                                                  |
 //|  Calcolo Donchian bands + EMA ATR. Math puro.                    |
 //+------------------------------------------------------------------+
@@ -29,6 +29,8 @@ void DPCComputeBands(int barShift, int lookback, double &upper, double &lower, d
 
    if(highestBar < 0 || lowestBar < 0)
    {
+      AdLogW(LOG_CAT_DPC, StringFormat("ComputeBands failed: iHighest=%d iLowest=%d (bar=%d lookback=%d)",
+         highestBar, lowestBar, barShift, lookback));
       upper = 0;
       lower = 0;
       mid   = 0;
@@ -45,13 +47,21 @@ void DPCComputeBands(int barShift, int lookback, double &upper, double &lower, d
 //+------------------------------------------------------------------+
 double DPCGetATR(int barShift)
 {
-   if(g_dpcATRHandle == INVALID_HANDLE) return 0;
+   if(g_dpcATRHandle == INVALID_HANDLE)
+   {
+      AdLogW(LOG_CAT_DPC, "DPCGetATR: ATR handle invalid");
+      return 0;
+   }
 
    double atrBuf[];
    ArrayResize(atrBuf, 1);
    ArraySetAsSeries(atrBuf, true);
 
-   if(CopyBuffer(g_dpcATRHandle, 0, barShift, 1, atrBuf) < 1) return 0;
+   if(CopyBuffer(g_dpcATRHandle, 0, barShift, 1, atrBuf) < 1)
+   {
+      AdLogW(LOG_CAT_DPC, StringFormat("DPCGetATR: CopyBuffer failed (bar=%d)", barShift));
+      return 0;
+   }
    return atrBuf[0];
 }
 
@@ -111,7 +121,12 @@ double DPCGetMAValue(int barShift)
       int copiedHalf = CopyBuffer(g_dpcHMAHalfHandle, 0, barShift, neededBars, halfBuf);
       int copiedFull = CopyBuffer(g_dpcHMAFullHandle, 0, barShift, neededBars, fullBuf);
 
-      if(copiedHalf < neededBars || copiedFull < neededBars) return 0;
+      if(copiedHalf < neededBars || copiedFull < neededBars)
+      {
+         AdLogW(LOG_CAT_DPC, StringFormat("DPCGetMAValue HMA: CopyBuffer insufficient (half=%d full=%d need=%d)",
+            copiedHalf, copiedFull, neededBars));
+         return 0;
+      }
 
       double interBuf[];
       ArrayResize(interBuf, neededBars);
@@ -122,13 +137,21 @@ double DPCGetMAValue(int barShift)
    }
    else
    {
-      if(g_dpcMAHandle == INVALID_HANDLE) return 0;
+      if(g_dpcMAHandle == INVALID_HANDLE)
+      {
+         AdLogW(LOG_CAT_DPC, "DPCGetMAValue: MA handle invalid");
+         return 0;
+      }
 
       double maBuf[];
       ArrayResize(maBuf, 1);
       ArraySetAsSeries(maBuf, true);
 
-      if(CopyBuffer(g_dpcMAHandle, 0, barShift, 1, maBuf) < 1) return 0;
+      if(CopyBuffer(g_dpcMAHandle, 0, barShift, 1, maBuf) < 1)
+      {
+         AdLogW(LOG_CAT_DPC, StringFormat("DPCGetMAValue: CopyBuffer failed (bar=%d)", barShift));
+         return 0;
+      }
       return maBuf[0];
    }
 }
@@ -206,4 +229,5 @@ void DPCReleaseHandles()
    if(g_dpcMAHandle != INVALID_HANDLE)      { IndicatorRelease(g_dpcMAHandle);      g_dpcMAHandle = INVALID_HANDLE; }
    if(g_dpcHMAHalfHandle != INVALID_HANDLE) { IndicatorRelease(g_dpcHMAHalfHandle); g_dpcHMAHalfHandle = INVALID_HANDLE; }
    if(g_dpcHMAFullHandle != INVALID_HANDLE) { IndicatorRelease(g_dpcHMAFullHandle); g_dpcHMAFullHandle = INVALID_HANDLE; }
+   AdLogI(LOG_CAT_ENGINE, "DPC indicator handles released");
 }

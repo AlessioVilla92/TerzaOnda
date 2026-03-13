@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adATRCalculator.mqh       |
-//|           AcquaDulza EA v1.0.0 — ATR Calculator Module           |
+//|           AcquaDulza EA v1.1.0 — ATR Calculator Module           |
 //|                                                                  |
 //|  ATR indicator for volatility monitoring                         |
 //|  Unified cache system for dashboard + engine                     |
@@ -14,15 +14,28 @@
 //+------------------------------------------------------------------+
 double GetATRPips()
 {
-   if(g_atrHandle == INVALID_HANDLE) return 10.0;
+   if(g_atrHandle == INVALID_HANDLE)
+   {
+      AdLogW(LOG_CAT_ATR, "GetATRPips: handle invalid — fallback 10.0");
+      return 10.0;
+   }
 
    int calculated = BarsCalculated(g_atrHandle);
-   if(calculated < InpATR_Period + 1) return 10.0;
+   if(calculated < InpATR_Period + 1)
+   {
+      AdLogW(LOG_CAT_ATR, StringFormat("GetATRPips: insufficient bars (%d < %d) — fallback 10.0",
+         calculated, InpATR_Period + 1));
+      return 10.0;
+   }
 
    double atrBuffer[];
    ArraySetAsSeries(atrBuffer, true);
 
-   if(CopyBuffer(g_atrHandle, 0, 0, 1, atrBuffer) <= 0) return 10.0;
+   if(CopyBuffer(g_atrHandle, 0, 0, 1, atrBuffer) <= 0)
+   {
+      AdLogW(LOG_CAT_ATR, "GetATRPips: CopyBuffer failed — fallback 10.0");
+      return 10.0;
+   }
 
    return PointsToPips(atrBuffer[0]);
 }
@@ -57,6 +70,7 @@ void ReleaseATRHandle()
    {
       IndicatorRelease(g_atrHandle);
       g_atrHandle = INVALID_HANDLE;
+      AdLogI(LOG_CAT_ATR, "ATR handle released");
    }
 }
 

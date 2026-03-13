@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adCycleManager.mqh        |
-//|           AcquaDulza EA v1.0.0 — Cycle Manager                   |
+//|           AcquaDulza EA v1.1.0 — Cycle Manager                   |
 //|                                                                  |
 //|  Manages trade cycles: create, monitor, expire, detect fills     |
 //|  Absorbed from carnTriggerSystem + Carneval.mq5 cycle logic      |
@@ -27,7 +27,10 @@ double GetClosedPositionProfit(ulong posTicket)
 {
    // Search in deal history
    datetime from = TimeCurrent() - 86400 * 7;  // Last 7 days
-   HistorySelect(from, TimeCurrent());
+   if(!HistorySelect(from, TimeCurrent()))
+   {
+      AdLogW(LOG_CAT_CYCLE, StringFormat("GetClosedPositionProfit: HistorySelect failed for ticket=%d", posTicket));
+   }
 
    double totalProfit = 0;
    for(int i = HistoryDealsTotal() - 1; i >= 0; i--)

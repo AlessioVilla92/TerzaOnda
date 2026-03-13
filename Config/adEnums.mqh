@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                                adEnums.mqh       |
-//|           AcquaDulza EA v1.0.0 — Enumerations & Structs          |
+//|           AcquaDulza EA v1.1.0 — Enumerations & Structs          |
 //|                                                                  |
 //|  Enum FRAMEWORK (stabili, non cambiano con engine swap)          |
 //|  + struct CycleRecord                                            |
@@ -70,12 +70,43 @@ enum ENUM_SL_MODE
 
 //+------------------------------------------------------------------+
 //| TP MODE — Modalita' calcolo Take Profit                          |
+//|                                                                  |
+//| 5 modalità disponibili, le prime 3 basate sul canale Donchian:   |
+//|                                                                  |
+//|  MIDLINE:        TP alla midline (centro canale). Strategia      |
+//|                  mean-reversion classica. Distanza = metà canale.|
+//|                                                                  |
+//|  OPPOSITE_BAND:  TP alla banda opposta del canale, congelata al  |
+//|                  momento dell'entry. Per BUY (entry ≈ lower) il  |
+//|                  target è upper. Per SELL (entry ≈ upper) il     |
+//|                  target è lower. Massimo range del canale.       |
+//|                                                                  |
+//|  150_PERCENT:    TP a metà tra midline e banda opposta.          |
+//|                  Per BUY: TP = (midline + upper) / 2             |
+//|                  Per SELL: TP = (midline + lower) / 2            |
+//|                  Equivale al 150% della distanza entry→midline.  |
+//|                  Compromesso tra midline (conservativo) e         |
+//|                  opposite band (aggressivo).                     |
+//|                                                                  |
+//|  ATR_MULTIPLE:   TP = entry ± (TPValue × ATR). Distanza basata  |
+//|                  sulla volatilità corrente. Usa il parametro     |
+//|                  TPValue come moltiplicatore.                    |
+//|                                                                  |
+//|  FIXED_PIPS:     TP = entry ± TPValue pips. Distanza fissa       |
+//|                  indipendente da canale e volatilità. Usa il     |
+//|                  parametro TPValue come distanza in pip.         |
+//|                                                                  |
+//| NOTA: I valori di banda (upper/lower/mid) sono congelati al      |
+//|       momento del segnale. Se le bande si muovono dopo l'entry,  |
+//|       il TP resta fisso al livello calcolato.                    |
 //+------------------------------------------------------------------+
 enum ENUM_TP_MODE
 {
-   TP_MIDLINE       = 0,    // TP alla midline
-   TP_ATR_MULTIPLE  = 1,    // TP = N * ATR dalla entry
-   TP_FIXED_PIPS    = 2     // TP = N pips fissi
+   TP_MIDLINE         = 0,  // Midline — TP alla midline del canale
+   TP_OPPOSITE_BAND   = 1,  // Opposite Band — TP alla banda opposta (fissata all'entry)
+   TP_150_PERCENT     = 2,  // 150% — TP a metà tra midline e banda opposta
+   TP_ATR_MULTIPLE    = 3,  // ATR Multiple — TP = N * ATR dalla entry
+   TP_FIXED_PIPS      = 4   // Fixed Pips — TP = N pips fissi dalla entry
 };
 
 //+------------------------------------------------------------------+
@@ -86,6 +117,30 @@ enum ENUM_LOG_LEVEL
    LOG_INFO,                // Info — standard
    LOG_WARNING,             // Warning — avvisi
    LOG_ERROR                // Error — errori
+};
+
+//+------------------------------------------------------------------+
+//| INSTRUMENT CLASS — Classificazione prodotto CFD                  |
+//|                                                                  |
+//| Ogni classe definisce:                                           |
+//|  - pipSize: cosa è "1 pip" per quel prodotto (in unità prezzo)  |
+//|  - Preset: spread max, min width, slippage, offset adeguati      |
+//|                                                                  |
+//| AUTO rileva automaticamente dal nome simbolo.                    |
+//| CUSTOM usa i valori input dell'utente senza override.            |
+//+------------------------------------------------------------------+
+enum ENUM_INSTRUMENT_CLASS
+{
+   INSTRUMENT_AUTO        = 0,   // Auto-Detect (rileva dal simbolo)
+   INSTRUMENT_FOREX       = 1,   // Forex Major (EURUSD, GBPUSD, AUDUSD...)
+   INSTRUMENT_FOREX_JPY   = 2,   // Forex JPY (USDJPY, EURJPY...)
+   INSTRUMENT_CRYPTO      = 3,   // Crypto (BTCUSD, ETHUSD...)
+   INSTRUMENT_INDEX_US    = 4,   // Indici US (US30, US500, NAS100...)
+   INSTRUMENT_INDEX_EU    = 5,   // Indici EU (DAX40, FTMIB, STOXX50...)
+   INSTRUMENT_GOLD        = 6,   // Gold (XAUUSD)
+   INSTRUMENT_SILVER      = 7,   // Silver (XAGUSD)
+   INSTRUMENT_OIL         = 8,   // Oil (WTI, BRENT...)
+   INSTRUMENT_CUSTOM      = 9    // Custom (valori manuali)
 };
 
 //+------------------------------------------------------------------+
@@ -124,13 +179,14 @@ enum ENUM_TF_PRESET
 
 //+------------------------------------------------------------------+
 //| DPC MA FILTER MODE — Direzione filtro MA                         |
+//| Aligned with DPC indicator v7.19 (lines 377-381)                 |
+//| INVERTED = default Turtle Soup (mean-reversion)                  |
 //+------------------------------------------------------------------+
 enum ENUM_MA_FILTER_MODE
 {
    MA_FILTER_DISABLED = 0,  // Disabilitato
-   MA_FILTER_ABOVE    = 1,  // BUY solo se close > MA
-   MA_FILTER_BELOW    = 2,  // SELL solo se close < MA
-   MA_FILTER_BOTH     = 3   // Entrambi
+   MA_FILTER_CLASSIC  = 1,  // Classico (BUY se close > MA — trend following)
+   MA_FILTER_INVERTED = 2   // Invertito (BUY se close < MA — mean reversion Soup)
 };
 
 //+------------------------------------------------------------------+
@@ -238,4 +294,4 @@ struct DashboardData
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
 const string EA_NAME            = "AcquaDulza";
-const string EA_VERSION         = "1.0.0";
+const string EA_VERSION         = "1.1.0";

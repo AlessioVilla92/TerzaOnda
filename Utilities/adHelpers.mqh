@@ -1,35 +1,39 @@
 //+------------------------------------------------------------------+
 //|                                              adHelpers.mqh       |
-//|           AcquaDulza EA v1.0.0 — Helper Functions                |
+//|           AcquaDulza EA v1.1.0 — Helper Functions                |
 //|                                                                  |
 //|  Utility: price conversion, logging, formatting, account info    |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
 //+------------------------------------------------------------------+
-//| PRICE CONVERSION                                                 |
+//| PRICE CONVERSION — Universale multi-prodotto                     |
+//|                                                                  |
+//| Usa g_pipSize (settato da InstrumentPresetsInit) per definire     |
+//| cosa è "1 pip" per ogni classe di strumento:                      |
+//|   Forex 5d: g_pipSize=0.0001  | Crypto: g_pipSize=1.0            |
+//|   Gold:     g_pipSize=0.10    | Indici: g_pipSize=1.0             |
+//|                                                                  |
+//| Tutte le funzioni pip dell'EA passano da qui — choke point unico.|
 //+------------------------------------------------------------------+
 
+//--- Converte una distanza prezzo in pip
 double PointsToPips(double points)
 {
-   if(g_symbolPoint <= 0) return 0;
-   if(g_symbolDigits == 3 || g_symbolDigits == 5)
-      return points / (10 * g_symbolPoint);
-   else
-      return points / g_symbolPoint;
+   if(g_pipSize <= 0) return 0;
+   return points / g_pipSize;
 }
 
+//--- Converte pip in distanza prezzo (points)
 double PipsToPoints(double pips)
 {
-   if(g_symbolDigits == 3 || g_symbolDigits == 5)
-      return pips * 10 * g_symbolPoint;
-   else
-      return pips * g_symbolPoint;
+   return pips * g_pipSize;
 }
 
+//--- Alias: converte pip in delta prezzo (per SL/TP/offset)
 double PipsToPrice(double pips)
 {
-   return PipsToPoints(pips);
+   return pips * g_pipSize;
 }
 
 //+------------------------------------------------------------------+
