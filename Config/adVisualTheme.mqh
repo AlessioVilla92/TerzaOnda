@@ -23,6 +23,7 @@
 //+------------------------------------------------------------------+
 #define AD_BORDER          C'30,61,92'       // #1e3d5c — bordo pannello
 #define AD_BORDER_GLOW     C'42,85,128'      // #2a5580 — bordo attivo / hover
+#define AD_BORDER_FRAME    C'120,140,160'    // #788ca0 — cornice perimetrale dashboard
 
 // Alias dashboard
 #define AD_PANEL_BG        AD_BG_PANEL

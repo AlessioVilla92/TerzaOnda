@@ -599,6 +599,15 @@ void UpdateDashboard()
    int y = AD_DASH_Y;
    int w = AD_DASH_W;
 
+   // Altezza totale dashboard: somma pannelli + 9 gap
+   int totalH = AD_H_HEADER + AD_H_TOPBAR + AD_H_SYSSTATUS + AD_H_ENGINE
+              + AD_H_FILTERS + AD_H_LASTSIG + AD_H_CYCLES + AD_H_PL
+              + AD_H_CONTROLS + AD_H_STATUSBAR + (9 * AD_GAP);
+
+   // Bordino perimetrale grigio chiaro — esattamente al bordo della dashboard
+   DashRectangle("BORDER_FRAME", x - 1, y - 1, w + 2, totalH + 2,
+                  C'0,0,0', AD_BORDER_FRAME);
+
    DrawHeaderRow(x, y, w);       y += AD_H_HEADER + AD_GAP;
    DrawTitleBar(x, y, w);        y += AD_H_TOPBAR + AD_GAP;
    DrawSystemStatus(x, y, w);    y += AD_H_SYSSTATUS + AD_GAP;
