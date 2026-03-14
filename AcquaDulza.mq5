@@ -3,12 +3,12 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.1.0                                                  |
+//|  Version: 1.2.0                                                  |
 //|  Engine: DPC (Donchian Predictive Channel) — swappable           |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.10"
-#property description "AcquaDulza EA v1.1.0 — Reusable Trading Framework"
+#property version   "1.20"
+#property description "AcquaDulza EA v1.2.0 — Reusable Trading Framework"
 #property description "Engine: DPC v7.19 (Donchian Predictive Channel)"
 #property description "Anti-repaint: bar[1] signals only"
 #property strict

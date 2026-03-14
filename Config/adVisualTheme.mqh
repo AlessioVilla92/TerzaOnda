@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adVisualTheme.mqh       |
-//|           AcquaDulza EA v1.1.0 — Palette "Deep Ocean"            |
+//|           AcquaDulza EA v1.2.0 — Palette "Deep Ocean"            |
 //|                                                                  |
 //|  Colori hardcodati — editabili SOLO via codice sorgente          |
 //|  NON visibili nelle impostazioni EA                              |
@@ -23,7 +23,7 @@
 //+------------------------------------------------------------------+
 #define AD_BORDER          C'30,61,92'       // #1e3d5c — bordo pannello
 #define AD_BORDER_GLOW     C'42,85,128'      // #2a5580 — bordo attivo / hover
-#define AD_BORDER_FRAME    C'120,140,160'    // #788ca0 — cornice perimetrale dashboard
+#define AD_BORDER_FRAME    C'0,190,230'      // #00bee6 — cornice acqua perimetrale dashboard
 
 // Alias dashboard
 #define AD_PANEL_BG        AD_BG_PANEL

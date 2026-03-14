@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                       adSignalMarkers.mqh        |
-//|           AcquaDulza EA v1.1.0 — Signal Markers                  |
+//|           AcquaDulza EA v1.2.0 — Signal Markers                  |
 //|                                                                  |
 //|  Replica indicatore DonchianPredictiveChannel.mq5:               |
 //|  TBS arrows (bright lime/red) + TWS arrows (dark green/red)      |
@@ -175,9 +175,26 @@ void DrawSignalMarkers(const EngineSignal &sig)
 }
 
 //+------------------------------------------------------------------+
-//| ScanHistoricalSignals — Backtest-style scan: draws arrows/labels |
-//|  for all past signals within OverlayDepth bars.                  |
-//|  Uses DPCComputeBands + DPCClassifySignal (same as indicator).   |
+//| ScanHistoricalSignals — Scansione storica segnali allineata      |
+//|                         con EngineCalculate()                     |
+//|                                                                  |
+//| [MOD] RISCRITTA per allineare le frecce storiche ai trigger      |
+//| reali dell'engine. Prima usava solo la condizione base Turtle    |
+//| Soup (touch banda + close inside) SENZA alcun filtro avanzato.   |
+//| Ora applica la stessa pipeline completa di EngineCalculate():    |
+//|   1. Condizione base Turtle Soup (touch banda + close inside)    |
+//|   2. Anti-ambiguita' (skip se entrambe le bande toccate)         |
+//|   3. Filtro Flatness  — banda stabile (non in espansione)        |
+//|   4. Filtro LevelAge  — banda allo stesso livello per N barre   |
+//|   5. Filtro Width     — canale largo almeno g_dpc_minWidth pip   |
+//|   6. Filtro TrendCtx  — blocca segnali contro-trend forte       |
+//|   7. Filtro TimeFilter — blocca in finestra oraria bloccata      |
+//|   8. Filtro MA         — direzionale su media mobile             |
+//|   9. SmartCooldown    — stato midline touch + spacing barre      |
+//|  10. Classifica TBS/TWS + filtro TWS                             |
+//|                                                                  |
+//| Risultato: le frecce nel grafico corrispondono esattamente ai    |
+//| segnali che l'engine avrebbe generato in tempo reale.            |
 //+------------------------------------------------------------------+
 void ScanHistoricalSignals()
 {
@@ -193,69 +210,289 @@ void ScanHistoricalSignals()
    }
    depth = MathMin(depth, totalBars - 2);
 
-   // Cleanup old historical markers
+   // Pulizia vecchi marker storici
    ObjectsDeleteAll(0, "AD_HSIG_");
    ObjectsDeleteAll(0, "AD_HDOT_");
    ObjectsDeleteAll(0, "AD_HLBL_");
 
-   // Simple cooldown tracking: last signal bar index per direction
-   int lastBuyBar  = -999;
-   int lastSellBar = -999;
-   int minSpacing  = MathMax(2, dcLen / 4);  // minimum bars between same-dir signals
+   // ── SmartCooldown state machine (replica di adDPCCooldown.mqh) ──
+   // Simuliamo lo stato del cooldown barra per barra, come fa l'engine
+   // in tempo reale. Variabili locali per non interferire con lo stato globale.
+   int    hsLastSignalBarIdx   = 0;      // indice barra dell'ultimo segnale emesso
+   int    hsLastDirection      = 0;      // +1=BUY, -1=SELL, 0=nessuno
+   bool   hsMidlineTouched     = false;  // prezzo ha toccato la midline dopo l'ultimo segnale
+   int    hsMidlineTouchBarIdx = 0;      // indice barra del tocco midline
+   bool   hsWaitingForMidTouch = false;  // in attesa di midline touch
 
    int signalCount = 0;
+   int filteredCount = 0;  // contatore segnali base filtrati (per log diagnostico)
+
+   // Loop da barra più vecchia (depth) a più recente (1)
    for(int i = depth; i >= 1; i--)
    {
-      if(i >= totalBars - dcLen) continue;  // need lookback
+      // ── Lookback guard: servono dcLen barre di storia ──
+      if(i >= totalBars - dcLen) continue;
 
+      // ── Calcolo bande Donchian per barra [i] ──
       double upper, lower, mid;
       DPCComputeBands(i, dcLen, upper, lower, mid);
       if(upper <= 0 || lower <= 0) continue;
 
+      // ── Dati OHLC della barra [i] ──
       double high1  = iHigh(_Symbol, PERIOD_CURRENT, i);
       double low1   = iLow(_Symbol, PERIOD_CURRENT, i);
       double open1  = iOpen(_Symbol, PERIOD_CURRENT, i);
       double close1 = iClose(_Symbol, PERIOD_CURRENT, i);
       datetime barTime = iTime(_Symbol, PERIOD_CURRENT, i);
 
-      // Turtle Soup rejection: touch band + close inside channel (aligned with engine)
+      // ── currentBarIdx: indice assoluto della barra (per SmartCooldown) ──
+      int currentBarIdx = totalBars - 1 - i;
+
+      // ── SmartCooldown: aggiorna stato midline touch ad ogni barra ──
+      // Replica la logica di DPCCheckMidlineTouch() di adDPCCooldown.mqh.
+      // Dopo un segnale, monitora se il prezzo ha raggiunto la midline
+      // (high >= mid dopo BUY, low <= mid dopo SELL). Quando la midline
+      // viene toccata, sblocca i segnali nella stessa direzione.
+      if(hsWaitingForMidTouch && hsLastDirection != 0 && mid > 0)
+      {
+         bool midCrossed = false;
+         if(hsLastDirection == +1 && high1 >= mid)
+            midCrossed = true;
+         else if(hsLastDirection == -1 && low1 <= mid)
+            midCrossed = true;
+
+         if(midCrossed)
+         {
+            hsMidlineTouched     = true;
+            hsMidlineTouchBarIdx = currentBarIdx;
+            hsWaitingForMidTouch = false;
+         }
+      }
+
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 1: Condizione base Turtle Soup ═══════════════════
+      // ══════════════════════════════════════════════════════════
+      // Identica a EngineCalculate() linee 189-190:
+      // SELL (bearBase): wick/body tocca upper band, close DENTRO il canale
+      // BUY  (bullBase): wick/body tocca lower band, close DENTRO il canale
       bool bearBase = (high1 >= upper) && (close1 < upper);
       bool bullBase = (low1 <= lower)  && (close1 > lower);
 
-      // Anti-ambiguity
+      // ── Anti-ambiguita': entrambe le bande toccate → skip ──
       if(bearBase && bullBase) continue;
-
       if(!bearBase && !bullBase) continue;
 
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 2: Filtro Flatness (banda stabile) ═══════════════
+      // ══════════════════════════════════════════════════════════
+      // Replica DPCCheckFlatness_Sell/Buy() di adDPCFilters.mqh.
+      // Blocca il segnale se la banda toccata si e' espansa oltre
+      // flatTolerance (= g_dpc_flatTol * ATR) nelle ultime g_dpc_flatLook barre.
+      // Una banda in espansione indica un breakout in corso, non un rejection.
+      if(InpUseBandFlatness)
+      {
+         double atr_i = DPCGetATR(i);
+         if(atr_i > 0)
+         {
+            if(bearBase)
+            {
+               // Controlla se la upper band si e' espansa verso l'alto
+               if(!DPCCheckFlatness_Sell(i, atr_i)) bearBase = false;
+            }
+            if(bullBase)
+            {
+               // Controlla se la lower band si e' espansa verso il basso
+               if(!DPCCheckFlatness_Buy(i, atr_i)) bullBase = false;
+            }
+         }
+      }
+      if(!bearBase && !bullBase) { filteredCount++; continue; }
+
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 3: Filtro LevelAge (banda matura) ════════════════
+      // ══════════════════════════════════════════════════════════
+      // Replica DPCCheckLevelAge_Sell/Buy() di adDPCFilters.mqh.
+      // Richiede che la banda toccata sia allo stesso prezzo esatto
+      // (±2 points) per almeno InpMinLevelAge barre consecutive.
+      // Una banda "giovane" (appena formata da un nuovo max/min)
+      // non e' un livello affidabile per il pattern Turtle Soup.
+      if(InpUseLevelAge)
+      {
+         if(bearBase)
+         {
+            if(!DPCCheckLevelAge_Sell(i)) bearBase = false;
+         }
+         if(bullBase)
+         {
+            if(!DPCCheckLevelAge_Buy(i)) bullBase = false;
+         }
+      }
+      if(!bearBase && !bullBase) { filteredCount++; continue; }
+
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 4: Filtro Width (larghezza canale) ═══════════════
+      // ══════════════════════════════════════════════════════════
+      // Replica DPCCheckChannelWidth() di adDPCFilters.mqh.
+      // Il canale deve essere largo almeno g_dpc_minWidth pips
+      // (scalato per strumento e timeframe tramite preset).
+      // Un canale troppo stretto genera segnali inaffidabili.
+      if(InpUseWidthFilter)
+      {
+         if(!DPCCheckChannelWidth(upper, lower))
+         {
+            filteredCount++;
+            continue;
+         }
+      }
+
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 5: Filtro TrendContext (trend macro) ═════════════
+      // ══════════════════════════════════════════════════════════
+      // Replica DPCCheckTrendContext_Sell/Buy() di adDPCFilters.mqh.
+      // Blocca segnali contro-trend: se la midline si e' spostata
+      // oltre InpTrendContextMult * ATR in un periodo dcLen.
+      // Attualmente OFF di default (InpUseTrendContext = false).
+      if(InpUseTrendContext)
+      {
+         double atr_i = DPCGetATR(i);
+         if(atr_i > 0)
+         {
+            if(bearBase)
+            {
+               if(!DPCCheckTrendContext_Sell(i, atr_i)) bearBase = false;
+            }
+            if(bullBase)
+            {
+               if(!DPCCheckTrendContext_Buy(i, atr_i)) bullBase = false;
+            }
+         }
+      }
+      if(!bearBase && !bullBase) { filteredCount++; continue; }
+
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 6: Filtro Time (finestra oraria bloccata) ════════
+      // ══════════════════════════════════════════════════════════
+      // Replica IsInBlockedTime() di adSessionManager.mqh.
+      // Per lo scan storico usiamo l'ora della barra (non TimeCurrent).
+      // Attualmente OFF di default (InpUseTimeFilter = false).
+      if(InpUseTimeFilter)
+      {
+         MqlDateTime barDT;
+         TimeToStruct(barTime, barDT);
+         int barMinutes = barDT.hour * 60 + barDT.min;
+         if(g_dpcTimeBlockStartMin < g_dpcTimeBlockEndMin)
+         {
+            if(barMinutes >= g_dpcTimeBlockStartMin && barMinutes < g_dpcTimeBlockEndMin)
+            { filteredCount++; continue; }
+         }
+         else if(g_dpcTimeBlockStartMin > g_dpcTimeBlockEndMin)
+         {
+            if(barMinutes >= g_dpcTimeBlockStartMin || barMinutes < g_dpcTimeBlockEndMin)
+            { filteredCount++; continue; }
+         }
+      }
+
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 7: Filtro MA (direzione media mobile) ════════════
+      // ══════════════════════════════════════════════════════════
+      // Replica DPCCheckMAFilter() di adDPCFilters.mqh.
+      // Filtra in base alla posizione del close rispetto alla MA.
+      // CLASSIC: trend-following (SELL solo sotto MA, BUY solo sopra).
+      // INVERTED: mean-reversion Soup (SELL sopra MA, BUY sotto MA).
+      if(InpMAFilterMode != MA_FILTER_DISABLED)
+      {
+         double ma_i = DPCGetMAValue(i);
+         if(ma_i > 0)
+         {
+            if(bearBase)
+            {
+               if(!DPCCheckMAFilter(close1, ma_i, -1)) bearBase = false;
+            }
+            if(bullBase)
+            {
+               if(!DPCCheckMAFilter(close1, ma_i, +1)) bullBase = false;
+            }
+         }
+      }
+      if(!bearBase && !bullBase) { filteredCount++; continue; }
+
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 8: SmartCooldown (frequenza segnali) ═════════════
+      // ══════════════════════════════════════════════════════════
+      // Replica DPCCheckSmartCooldown_Sell/Buy() di adDPCCooldown.mqh.
+      // Controlla il tempo minimo tra segnali:
+      //   - SmartCooldown OFF: cooldown fisso di dcLen barre
+      //   - SmartCooldown ON, primo segnale: sempre accettato
+      //   - SmartCooldown ON, stessa direzione: richiede midline touch
+      //     + g_dpc_nSame barre dopo il touch
+      //   - SmartCooldown ON, direzione opposta: solo g_dpc_nOpp barre
       int direction = bullBase ? +1 : -1;
+      bool cooldownOK = false;
 
-      // Simple cooldown: skip if too close to last same-dir signal
-      if(direction > 0 && lastBuyBar > 0 && (lastBuyBar - i) < minSpacing) continue;
-      if(direction < 0 && lastSellBar > 0 && (lastSellBar - i) < minSpacing) continue;
+      if(!InpUseSmartCooldown)
+      {
+         // Cooldown fisso: almeno dcLen barre dall'ultimo segnale
+         cooldownOK = (currentBarIdx - hsLastSignalBarIdx >= dcLen);
+      }
+      else if(hsLastDirection == 0)
+      {
+         // Primo segnale in assoluto: sempre accettato
+         cooldownOK = true;
+      }
+      else if(direction == hsLastDirection)
+      {
+         // Stessa direzione (es. SELL dopo SELL):
+         // richiede midline touch + g_dpc_nSame barre dopo il touch
+         if(InpRequireMidTouch)
+            cooldownOK = hsMidlineTouched &&
+                         (currentBarIdx - hsMidlineTouchBarIdx >= g_dpc_nSame);
+         else
+            cooldownOK = (currentBarIdx - hsLastSignalBarIdx >= g_dpc_nSame);
+      }
+      else
+      {
+         // Direzione opposta (es. SELL dopo BUY):
+         // solo minimum barre
+         cooldownOK = (currentBarIdx - hsLastSignalBarIdx >= g_dpc_nOpp);
+      }
 
-      // Classify TBS/TWS
+      if(!cooldownOK) { filteredCount++; continue; }
+
+      // ══════════════════════════════════════════════════════════
+      // ══ STEP 9: Classifica TBS/TWS + filtro TWS ═══════════════
+      // ══════════════════════════════════════════════════════════
+      // Replica DPCClassifySignal() di adDPCFilters.mqh.
+      // TBS (Turtle Breakout Soup): body penetra la banda — segnale forte
+      // TWS (Turtle Wick Soup): solo wick penetra — segnale debole
+      // Se InpShowTWSSignals e' false, i TWS vengono scartati.
       int quality = DPCClassifySignal(direction, open1, close1, upper, lower);
 
-      // Skip TWS if disabled
-      if(!InpShowTWSSignals && quality == PATTERN_TWS) continue;
+      if(!InpShowTWSSignals && quality == PATTERN_TWS) { filteredCount++; continue; }
 
-      // Update cooldown
-      if(direction > 0) lastBuyBar = i;
-      else              lastSellBar = i;
+      // ══════════════════════════════════════════════════════════
+      // ══ SEGNALE CONFERMATO — aggiorna SmartCooldown + disegna ═
+      // ══════════════════════════════════════════════════════════
+      // Aggiorna lo stato del cooldown (replica DPCUpdateCooldownState).
+      // Resetta il flag midline touch, registra direzione e indice barra.
+      hsLastSignalBarIdx   = currentBarIdx;
+      hsLastDirection      = direction;
+      hsMidlineTouched     = false;
+      hsMidlineTouchBarIdx = 0;
+      hsWaitingForMidTouch = true;
 
-      // === DRAW HISTORICAL MARKERS ===
+      // === DISEGNO MARKER STORICI ===
       bool isBuy = (direction > 0);
       color clr = GetSignalArrowColor(isBuy, quality);
       string patternName = (quality >= PATTERN_TBS) ? "TBS" : "TWS";
       string timeStr = TimeToString(barTime, TIME_DATE|TIME_MINUTES);
       double bandPrice = isBuy ? lower : upper;
 
-      // ATR for offset
+      // ATR per offset verticale della freccia
       double atr = DPCGetATR(i);
       double atrPrice = (atr > 0) ? atr : 0;
       double offset = atrPrice * AD_ARROW_OFFSET;
 
-      // Arrow
+      // Freccia direzionale (su=BUY, giu'=SELL)
       {
          string name = StringFormat("AD_HSIG_%s_%d_%s",
                        isBuy ? "BUY" : "SELL", quality, timeStr);
@@ -279,7 +516,7 @@ void ScanHistoricalSignals()
                           DoubleToString(mid, _Digits)));
       }
 
-      // Entry dot at band
+      // Punto d'ingresso (cerchio pieno) sulla banda
       {
          string name = StringFormat("AD_HDOT_%s_%s",
                        isBuy ? "BUY" : "SELL", timeStr);
@@ -293,7 +530,7 @@ void ScanHistoricalSignals()
          ObjectSetInteger(0, name, OBJPROP_HIDDEN, false);
       }
 
-      // Text label "TRIGGER BUY [TBS]"
+      // Etichetta testo "TRIGGER BUY [TBS]"
       {
          string name = StringFormat("AD_HLBL_%s_%s",
                        isBuy ? "BUY" : "SELL", timeStr);
@@ -314,7 +551,9 @@ void ScanHistoricalSignals()
       signalCount++;
    }
 
-   AdLogI(LOG_CAT_UI, StringFormat("ScanHistoricalSignals: depth=%d, found=%d signals", depth, signalCount));
+   // Log con conteggio segnali trovati e filtrati
+   AdLogI(LOG_CAT_UI, StringFormat("ScanHistoricalSignals: depth=%d, found=%d signals (filtered=%d base signals)",
+          depth, signalCount, filteredCount));
 }
 
 //+------------------------------------------------------------------+

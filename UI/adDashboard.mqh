@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDashboard.mqh         |
-//|           AcquaDulza EA v1.1.0 — Dashboard Display               |
+//|           AcquaDulza EA v1.2.0 — Dashboard Display               |
 //|                                                                  |
 //|  Ocean theme dashboard — Pragmatic approach.                     |
 //|  Layout: Header (logo+ver+engine) | TitleBar (pair+state)        |
@@ -604,9 +604,42 @@ void UpdateDashboard()
               + AD_H_FILTERS + AD_H_LASTSIG + AD_H_CYCLES + AD_H_PL
               + AD_H_CONTROLS + AD_H_STATUSBAR + (9 * AD_GAP);
 
-   // Bordino perimetrale grigio chiaro — esattamente al bordo della dashboard
-   DashRectangle("BORDER_FRAME", x - 1, y - 1, w + 2, totalH + 2,
-                  C'0,0,0', AD_BORDER_FRAME);
+   // ── Cornice perimetrale acqua con titolo "ACQUADULZA" ──
+   // Frame esteso: area titolo sopra (20px) + area sottotitolo sotto (16px)
+   // Doppio rettangolo: glow esterno (acqua dim) + cornice interna (acqua brillante)
+   int fm = 4;    // margine cornice (px tra bordo e pannelli)
+   int ftH = 20;  // area titolo superiore
+   int fbH = 16;  // area titolo inferiore
+   int frameX = x - fm;
+   int frameY = y - ftH - fm;
+   int frameW = w + 2 * fm;
+   int frameH = totalH + ftH + fbH + 2 * fm;
+
+   // Glow esterno (alone acqua dim)
+   DashRectangle("FRAME_GLOW", frameX - 1, frameY - 1,
+                 frameW + 2, frameH + 2, C'0,0,0', AD_BIOLUM_DIM);
+
+   // Cornice principale (bordo acqua brillante, sfondo deep per area titolo)
+   DashRectangle("BORDER_FRAME", frameX, frameY,
+                 frameW, frameH, AD_BG_DEEP, AD_BORDER_FRAME);
+   ObjectSetInteger(0, "AD_BORDER_FRAME", OBJPROP_ZORDER, AD_Z_RECT + 1);
+
+   // Barra decorativa orizzontale (─────)
+   string hBar = "";
+   for(int b = 0; b < 6; b++) hBar += ShortToString(0x2500);
+
+   // Titolo superiore centrato "────── ACQUADULZA ──────"
+   DashLabel("FRAME_TITLE", x + w / 2, frameY + 3,
+             hBar + " ACQUADULZA " + hBar, AD_BORDER_FRAME, 11, AD_FONT_TITLE);
+   ObjectSetInteger(0, "AD_DASH_FRAME_TITLE", OBJPROP_ANCHOR, ANCHOR_UPPER);
+   ObjectSetInteger(0, "AD_DASH_FRAME_TITLE", OBJPROP_ZORDER, AD_Z_LABEL + 1000);
+
+   // Titolo inferiore centrato "────── v1.1.0 · DPC Engine ──────"
+   DashLabel("FRAME_BOTTOM", x + w / 2, y + totalH + fm + 1,
+             hBar + " v" + EA_VERSION + " " + ShortToString(0x00B7) + " DPC Engine " + hBar,
+             AD_BORDER_FRAME, 8, AD_FONT_SECTION);
+   ObjectSetInteger(0, "AD_DASH_FRAME_BOTTOM", OBJPROP_ANCHOR, ANCHOR_UPPER);
+   ObjectSetInteger(0, "AD_DASH_FRAME_BOTTOM", OBJPROP_ZORDER, AD_Z_LABEL + 1000);
 
    DrawHeaderRow(x, y, w);       y += AD_H_HEADER + AD_GAP;
    DrawTitleBar(x, y, w);        y += AD_H_TOPBAR + AD_GAP;
