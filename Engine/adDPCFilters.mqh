@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                         adDPCFilters.mqh         |
-//|           AcquaDulza EA v1.1.0 — DPC Quality Filters             |
+//|           AcquaDulza EA v1.2.1 — DPC Quality Filters             |
 //|                                                                  |
 //|  Flatness + TrendContext + LevelAge + ChannelWidth + MA Filter   |
 //+------------------------------------------------------------------+
@@ -101,17 +101,35 @@ bool DPCCheckLevelAge_Sell(int barShift)
    double uC, lC, mC;
    DPCComputeBands(barShift, g_dpc_dcLen, uC, lC, mC);
 
+   // Tolleranza: crypto usa g_pipSize (es. $2 per BTCUSD), altri strumenti usano _Point
+   double levelTol = (g_instrumentClass == INSTRUMENT_CRYPTO) ? (2 * g_pipSize) : (2 * _Point);
+
+   AdLogI(LOG_CAT_FILTER, StringFormat(
+      "DIAG LevelAge SELL: bar=%d | upper=%.2f | tolerance=%.5f (%s) | minAge=%d",
+      barShift, uC, levelTol,
+      (g_instrumentClass == INSTRUMENT_CRYPTO) ? "crypto/pipSize" : "point",
+      minAge));
+
    int flatBars = 0;
+   double firstDelta = -1;
    for(int k = 1; k < g_dpc_dcLen && (barShift + k) < totalBars; k++)
    {
       double uK, lK, mK;
       DPCComputeBands(barShift + k, g_dpc_dcLen, uK, lK, mK);
 
-      if(MathAbs(uK - uC) <= 2 * _Point)
+      if(k == 1) firstDelta = MathAbs(uK - uC);
+
+      if(MathAbs(uK - uC) <= levelTol)
          flatBars++;
       else
          break;
    }
+
+   if(flatBars < minAge)
+      AdLogI(LOG_CAT_FILTER, StringFormat(
+         "DIAG LevelAge SELL BLOCKED: flatBars=%d < minAge=%d | firstDelta=%.5f vs tol=%.5f",
+         flatBars, minAge, firstDelta, levelTol));
+
    return (flatBars >= minAge);
 }
 
@@ -126,17 +144,35 @@ bool DPCCheckLevelAge_Buy(int barShift)
    double uC, lC, mC;
    DPCComputeBands(barShift, g_dpc_dcLen, uC, lC, mC);
 
+   // Tolleranza: crypto usa g_pipSize (es. $2 per BTCUSD), altri strumenti usano _Point
+   double levelTol = (g_instrumentClass == INSTRUMENT_CRYPTO) ? (2 * g_pipSize) : (2 * _Point);
+
+   AdLogI(LOG_CAT_FILTER, StringFormat(
+      "DIAG LevelAge BUY: bar=%d | lower=%.2f | tolerance=%.5f (%s) | minAge=%d",
+      barShift, lC, levelTol,
+      (g_instrumentClass == INSTRUMENT_CRYPTO) ? "crypto/pipSize" : "point",
+      minAge));
+
    int flatBars = 0;
+   double firstDelta = -1;
    for(int k = 1; k < g_dpc_dcLen && (barShift + k) < totalBars; k++)
    {
       double uK, lK, mK;
       DPCComputeBands(barShift + k, g_dpc_dcLen, uK, lK, mK);
 
-      if(MathAbs(lK - lC) <= 2 * _Point)
+      if(k == 1) firstDelta = MathAbs(lK - lC);
+
+      if(MathAbs(lK - lC) <= levelTol)
          flatBars++;
       else
          break;
    }
+
+   if(flatBars < minAge)
+      AdLogI(LOG_CAT_FILTER, StringFormat(
+         "DIAG LevelAge BUY BLOCKED: flatBars=%d < minAge=%d | firstDelta=%.5f vs tol=%.5f",
+         flatBars, minAge, firstDelta, levelTol));
+
    return (flatBars >= minAge);
 }
 

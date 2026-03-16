@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                       adSignalMarkers.mqh        |
-//|           AcquaDulza EA v1.2.0 — Signal Markers                  |
+//|           AcquaDulza EA v1.2.1 — Signal Markers                  |
 //|                                                                  |
 //|  Replica indicatore DonchianPredictiveChannel.mq5:               |
 //|  TBS arrows (bright lime/red) + TWS arrows (dark green/red)      |
@@ -37,8 +37,8 @@ void DrawSignalArrow(const EngineSignal &sig)
    int arrowCode = isBuy ? 233 : 234;
    color clr = GetSignalArrowColor(isBuy, sig.quality);
 
-   // Arrow placement: band level with ATR offset (usa g_pipSize per multi-prodotto)
-   double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] * g_pipSize : 0;
+   // Arrow placement: band level with ATR offset
+   double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] : 0;
    double offset = atr * AD_ARROW_OFFSET;
    double bandPrice = isBuy ? sig.lowerBand : sig.upperBand;
    if(bandPrice <= 0) bandPrice = sig.entryPrice;
@@ -81,8 +81,8 @@ void DrawSignalLabel(const EngineSignal &sig)
    string text = StringFormat("TRIGGER %s [%s]", isBuy ? "BUY" : "SELL", patternName);
    color clr = GetSignalArrowColor(isBuy, sig.quality);
 
-   // Place near arrow (usa g_pipSize per multi-prodotto)
-   double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] * g_pipSize : 0;
+   // Place near arrow
+   double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] : 0;
    double offset = atr * (AD_ARROW_OFFSET + 0.5);
    double bandPrice = isBuy ? sig.lowerBand : sig.upperBand;
    if(bandPrice <= 0) bandPrice = sig.entryPrice;
@@ -226,6 +226,9 @@ void ScanHistoricalSignals()
 
    int signalCount = 0;
    int filteredCount = 0;  // contatore segnali base filtrati (per log diagnostico)
+   int baseDetected = 0;   // contatore segnali base rilevati
+   int flatBlocked = 0, ageBlocked = 0, widthBlocked = 0;
+   int trendBlocked = 0, timeBlocked = 0, maBlocked = 0, cdBlocked = 0, twsBlocked = 0;
 
    // Loop da barra più vecchia (depth) a più recente (1)
    for(int i = depth; i >= 1; i--)
@@ -281,6 +284,7 @@ void ScanHistoricalSignals()
       // ── Anti-ambiguita': entrambe le bande toccate → skip ──
       if(bearBase && bullBase) continue;
       if(!bearBase && !bullBase) continue;
+      baseDetected++;
 
       // ══════════════════════════════════════════════════════════
       // ══ STEP 2: Filtro Flatness (banda stabile) ═══════════════
@@ -306,7 +310,7 @@ void ScanHistoricalSignals()
             }
          }
       }
-      if(!bearBase && !bullBase) { filteredCount++; continue; }
+      if(!bearBase && !bullBase) { filteredCount++; flatBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
       // ══ STEP 3: Filtro LevelAge (banda matura) ════════════════
@@ -327,7 +331,7 @@ void ScanHistoricalSignals()
             if(!DPCCheckLevelAge_Buy(i)) bullBase = false;
          }
       }
-      if(!bearBase && !bullBase) { filteredCount++; continue; }
+      if(!bearBase && !bullBase) { filteredCount++; ageBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
       // ══ STEP 4: Filtro Width (larghezza canale) ═══════════════
@@ -340,7 +344,7 @@ void ScanHistoricalSignals()
       {
          if(!DPCCheckChannelWidth(upper, lower))
          {
-            filteredCount++;
+            filteredCount++; widthBlocked++;
             continue;
          }
       }
@@ -367,7 +371,7 @@ void ScanHistoricalSignals()
             }
          }
       }
-      if(!bearBase && !bullBase) { filteredCount++; continue; }
+      if(!bearBase && !bullBase) { filteredCount++; trendBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
       // ══ STEP 6: Filtro Time (finestra oraria bloccata) ════════
@@ -383,12 +387,12 @@ void ScanHistoricalSignals()
          if(g_dpcTimeBlockStartMin < g_dpcTimeBlockEndMin)
          {
             if(barMinutes >= g_dpcTimeBlockStartMin && barMinutes < g_dpcTimeBlockEndMin)
-            { filteredCount++; continue; }
+            { filteredCount++; timeBlocked++; continue; }
          }
          else if(g_dpcTimeBlockStartMin > g_dpcTimeBlockEndMin)
          {
             if(barMinutes >= g_dpcTimeBlockStartMin || barMinutes < g_dpcTimeBlockEndMin)
-            { filteredCount++; continue; }
+            { filteredCount++; timeBlocked++; continue; }
          }
       }
 
@@ -414,7 +418,7 @@ void ScanHistoricalSignals()
             }
          }
       }
-      if(!bearBase && !bullBase) { filteredCount++; continue; }
+      if(!bearBase && !bullBase) { filteredCount++; maBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
       // ══ STEP 8: SmartCooldown (frequenza segnali) ═════════════
@@ -456,7 +460,7 @@ void ScanHistoricalSignals()
          cooldownOK = (currentBarIdx - hsLastSignalBarIdx >= g_dpc_nOpp);
       }
 
-      if(!cooldownOK) { filteredCount++; continue; }
+      if(!cooldownOK) { filteredCount++; cdBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
       // ══ STEP 9: Classifica TBS/TWS + filtro TWS ═══════════════
@@ -467,7 +471,7 @@ void ScanHistoricalSignals()
       // Se InpShowTWSSignals e' false, i TWS vengono scartati.
       int quality = DPCClassifySignal(direction, open1, close1, upper, lower);
 
-      if(!InpShowTWSSignals && quality == PATTERN_TWS) { filteredCount++; continue; }
+      if(!InpShowTWSSignals && quality == PATTERN_TWS) { filteredCount++; twsBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
       // ══ SEGNALE CONFERMATO — aggiorna SmartCooldown + disegna ═
@@ -548,12 +552,21 @@ void ScanHistoricalSignals()
          ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
       }
 
+      // DIAG: Log posizionamento freccia (solo prime 3 per non inondare il log)
+      if(signalCount < 3)
+         AdLogI(LOG_CAT_UI, StringFormat(
+            "DIAG Arrow #%d: %s @ bar=%d | band=%.2f | atr=%.2f | offset=%.2f | arrowPrice=%.2f",
+            signalCount + 1, isBuy ? "BUY" : "SELL", i, bandPrice, atrPrice, offset,
+            isBuy ? (bandPrice - offset) : (bandPrice + offset)));
+
       signalCount++;
    }
 
-   // Log con conteggio segnali trovati e filtrati
-   AdLogI(LOG_CAT_UI, StringFormat("ScanHistoricalSignals: depth=%d, found=%d signals (filtered=%d base signals)",
-          depth, signalCount, filteredCount));
+   // Log con conteggio segnali trovati e breakdown per-filtro
+   AdLogI(LOG_CAT_UI, StringFormat(
+      "ScanHist: depth=%d | base=%d | blocked: flat=%d age=%d width=%d trend=%d time=%d ma=%d cd=%d tws=%d | PASSED=%d",
+      depth, baseDetected, flatBlocked, ageBlocked, widthBlocked,
+      trendBlocked, timeBlocked, maBlocked, cdBlocked, twsBlocked, signalCount));
 }
 
 //+------------------------------------------------------------------+

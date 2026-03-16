@@ -7,8 +7,8 @@
 //|  Engine: DPC (Donchian Predictive Channel) — swappable           |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.20"
-#property description "AcquaDulza EA v1.2.0 — Reusable Trading Framework"
+#property version   "1.21"
+#property description "AcquaDulza EA v1.2.1 — Reusable Trading Framework"
 #property description "Engine: DPC v7.19 (Donchian Predictive Channel)"
 #property description "Anti-repaint: bar[1] signals only"
 #property strict
@@ -262,11 +262,11 @@ int OnInit()
    // 11. Timer per auto-save
    EventSetTimer(1);  // 1s initially for overlay retry, then 60s
 
-   // Se recovery non ha trovato nulla, system resta IDLE
+   // Auto-start: sistema parte attivo senza bisogno di premere START
    if(!g_recoveryPerformed && g_systemState == STATE_INITIALIZING)
    {
-      g_systemState = STATE_IDLE;
-      AdLogI(LOG_CAT_INIT, "State: INITIALIZING -> IDLE (press START)");
+      g_systemState = STATE_ACTIVE;
+      AdLogI(LOG_CAT_INIT, "State: INITIALIZING -> ACTIVE (auto-start)");
    }
 
    PopulateDashboardData();
@@ -278,7 +278,7 @@ int OnInit()
    AddFeedItem("Engine DPC ready · " + EnumToString(Period()), AD_BIOLUM);
 
    AdLogI(LOG_CAT_INIT, StringFormat("ACQUADULZA ready — %s",
-          g_recoveryPerformed ? "RECOVERED" : "Press START to begin"));
+          g_recoveryPerformed ? "RECOVERED" : "ACTIVE (auto-start)"));
    return INIT_SUCCEEDED;
 }
 
@@ -336,10 +336,11 @@ void OnTick()
          UpdateChannelLiveEdge();
    }
 
-   // ── 1b. CHANNEL OVERLAY FULL REDRAW (solo nuova barra) ───────────
-   if(ShowChannelOverlay && g_engineReady && IsNewBarOverlay())
+   // ── 1b. CHANNEL OVERLAY + HISTORICAL ARROWS (solo nuova barra, pre-gate) ──
+   if(g_engineReady && IsNewBarOverlay())
    {
-      DrawChannelOverlay();
+      if(ShowChannelOverlay) DrawChannelOverlay();
+      if(ShowSignalArrows)   ScanHistoricalSignals();
       ChartRedraw();
    }
 
@@ -354,6 +355,17 @@ void OnTick()
    // ── 4. SESSION FILTER ────────────────────────────────────────────
    if(EnableSessionFilter && !IsWithinSession())
    {
+      // DIAG: log periodico quando sessione blocca (max 1 ogni 5 min)
+      static datetime lastSessBlockLog = 0;
+      datetime nowDT = TimeCurrent();
+      if(nowDT - lastSessBlockLog > 300)
+      {
+         MqlDateTime dtSess;
+         TimeToStruct(nowDT, dtSess);
+         AdLogI(LOG_CAT_SESSION, StringFormat("DIAG SESSION BLOCKED: %s | h=%02d:%02d",
+                g_currentSessionName, dtSess.hour, dtSess.min));
+         lastSessBlockLog = nowDT;
+      }
       HandleSessionEnd();
       return;
    }
@@ -376,11 +388,7 @@ void OnTick()
    bool hasSignal = EngineCalculate(sig);
    g_lastSignal = sig;
 
-   // ── 8. Refresh historical signal scan (new bar → new data) ───────
-   if(ShowSignalArrows)
-      ScanHistoricalSignals();
-
-   // ── 9. LTF CHECK (ogni barra, se finestra aperta) ────────────────
+   // ── 8. LTF CHECK (ogni barra, se finestra aperta) ────────────────
    if(InpUseLTFEntry && DPCLTFIsWaiting())
    {
       int ltfResult = DPCLTFCheckConfirmation();
@@ -555,6 +563,16 @@ void OnTimer()
          AdLogI(LOG_CAT_UI, StringFormat("Initial overlay draw — %d bars available", bars));
       }
    }
+
+   // DIAG: Warning periodico se sistema e' IDLE con EnableSystem=true
+   static int idleWarningCount = 0;
+   if(g_systemState == STATE_IDLE && EnableSystem)
+   {
+      if(++idleWarningCount % 10 == 1)
+         AdLogW(LOG_CAT_SYSTEM, "ATTENZIONE: Sistema IDLE con EnableSystem=true — premi START per attivare");
+   }
+   else
+      idleWarningCount = 0;
 
    if(EnableAutoSave)
       ExecuteAutoSave();

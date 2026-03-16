@@ -287,4 +287,4 @@ struct DashboardData
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
 const string EA_NAME            = "AcquaDulza";
-const string EA_VERSION         = "1.2.0";
+const string EA_VERSION         = "1.2.1";

@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adVisualTheme.mqh       |
-//|           AcquaDulza EA v1.2.0 — Palette "Deep Ocean"            |
+//|           AcquaDulza EA v1.2.1 — Palette "Deep Ocean"            |
 //|                                                                  |
 //|  Colori hardcodati — editabili SOLO via codice sorgente          |
 //|  NON visibili nelle impostazioni EA                              |
@@ -96,7 +96,7 @@
 #define AD_ARROW_TWS_BUY   C'0,160,90'      // TWS BUY — dark green
 #define AD_ARROW_TWS_SELL  C'180,60,60'     // TWS SELL — dark red
 #define AD_ARROW_SIZE      5                 // Arrow width (come indicatore)
-#define AD_ARROW_OFFSET    1.5               // Offset multiplier x ATR
+#define AD_ARROW_OFFSET    0.15              // Offset multiplier x ATR (15% — era 1.5=150%, fuori schermo su crypto)
 
 //+------------------------------------------------------------------+
 //| ENTRY/EXIT                                                       |

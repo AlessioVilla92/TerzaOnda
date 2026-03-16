@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adSessionManager.mqh        |
-//|           AcquaDulza EA v1.1.0 — Session Manager                 |
+//|           AcquaDulza EA v1.2.1 — Session Manager                 |
 //|                                                                  |
 //|  Session filter + ParseTimeToMinutes + IsInBlockedTime           |
 //|  Semplificato: solo un magic number, no hedge logic              |
@@ -80,6 +80,9 @@ bool IsWithinSession()
    if(!EnableSessionFilter) return true;
 
    g_currentSessionName = DetectCurrentSession();
+
+   // Crypto trades 24/7 — bypass session filter (dopo DetectCurrentSession per dashboard)
+   if(g_instrumentClass == INSTRUMENT_CRYPTO) return true;
 
    // Blocked time range check
    int blockStart = ParseTimeToMinutes(BlockedTimeStart);

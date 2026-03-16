@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDPCEngine.mqh         |
-//|           AcquaDulza EA v1.2.0 — DPC Engine Orchestrator         |
+//|           AcquaDulza EA v1.2.1 — DPC Engine Orchestrator         |
 //|                                                                  |
 //|  Implements the 3 contract functions from adEngineInterface.mqh: |
 //|    EngineInit()      — Create handles, init state                |
@@ -195,6 +195,19 @@ bool EngineCalculate(EngineSignal &sig)
       bearBase = false;
       bullBase = false;
    }
+
+   // ── DIAG: Contatore barre senza segnale base (throttled) ──
+   static int noBaseCount = 0;
+   if(!bearBase && !bullBase)
+   {
+      noBaseCount++;
+      if(noBaseCount % 20 == 1)
+         AdLogI(LOG_CAT_ENGINE, StringFormat(
+            "DIAG: %d barre senza segnale base | H=%.2f U=%.2f L=%.2f C=%.2f | W=%.1fp",
+            noBaseCount, high1, upper1, lower1, close1, sig.channelWidthPip));
+   }
+   else
+      noBaseCount = 0;
 
    // ── DIAG: Salva stato base PRE-filtri per diagnostica ──
    bool origBear = bearBase;
