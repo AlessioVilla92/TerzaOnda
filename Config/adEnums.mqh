@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                                adEnums.mqh       |
-//|           AcquaDulza EA v1.2.0 — Enumerations & Structs          |
+//|           AcquaDulza EA v1.3.0 — Enumerations & Structs          |
 //|                                                                  |
 //|  Enum FRAMEWORK (stabili, non cambiano con engine swap)          |
 //|  + struct CycleRecord                                            |
@@ -287,4 +287,4 @@ struct DashboardData
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
 const string EA_NAME            = "AcquaDulza";
-const string EA_VERSION         = "1.2.1";
+const string EA_VERSION         = "1.3.0";

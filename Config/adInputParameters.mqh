@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adInputParameters.mqh       |
-//|           AcquaDulza EA v1.2.0 — Input Parameters                |
+//|           AcquaDulza EA v1.3.0 — Input Parameters                |
 //|                                                                  |
 //|  Sezione FRAMEWORK: parametri stabili (non cambiano con engine)  |
 //|  Sezione ENGINE:    parametri DPC-specifici (da sostituire)       |
@@ -50,6 +50,14 @@ input double         LotSize                = 0.01;          // 📏 Fixed Lot S
 input double         RiskPercent            = 1.0;           // 📊 Risk % Equity (if RISK_PCT)
 input double         RiskCashPerTrade       = 50.0;          // 💵 Risk Cash per Trade (if FIXED_CASH)
 
+input group "    📐 SIGNAL QUALITY LOT SIZING"
+//  TBS (Turtle Body Soup) = segnale FORTE: il corpo della candela penetra la banda
+//  TWS (Turtle Wick Soup) = segnale DEBOLE: solo la shadow/wick tocca la banda
+//  Il lotto base viene moltiplicato per questi fattori in base alla qualita' del segnale.
+//  Esempio: LotSize=0.01, TBS_mult=2.0, TWS_mult=1.0 → TBS apre 0.02, TWS apre 0.01
+input double         TBSLotMultiplier       = 2.0;           // 📈 TBS (segnale forte): moltiplicatore lotti (es. 2.0 = doppio)
+input double         TWSLotMultiplier       = 1.0;           // 📉 TWS (segnale debole): moltiplicatore lotti (es. 1.0 = invariato)
+
 input group "    🛡️ RISK LIMITS"
 input int            MaxConcurrentTrades    = 3;             // 📊 Max Concurrent Trades
 input double         MaxSpreadPips          = 3.0;           // 📏 Max Spread (pip)
@@ -88,7 +96,7 @@ input group "║  ⏰ SESSION FILTER                                        ║"
 input group "╚═══════════════════════════════════════════════════════════╝"
 
 input group "    🌍 SESSION WINDOWS"
-input bool           EnableSessionFilter    = true;          // ✅ Enable Session Filter
+input bool           EnableSessionFilter    = false;         // ❌ Session Filter OFF (crypto 24/7, Forex tutte le sessioni)
 input bool           SessionLondon          = true;          // 🇬🇧 London Session (08:00-16:30 UTC)
 input bool           SessionNewYork         = true;          // 🇺🇸 New York Session (13:00-21:00 UTC)
 input bool           SessionAsian           = false;         // 🇯🇵 Asian Session (00:00-08:00 UTC)
@@ -197,8 +205,8 @@ input group "╚═════════════════════�
 input group "    ⏳ COOLDOWN RULES"
 input bool           InpUseSmartCooldown    = true;          // ✅ Enable SmartCooldown
 input bool           InpRequireMidTouch     = true;          // ✅ Require Midline Touch (same dir)
-input int            InpNSameBars           = 3;             // 📊 Same Direction: Wait Bars after Midline
-input int            InpNOppositeBars       = 2;             // 📊 Opposite Direction: Min Bars
+input int            InpNSameBars           = 2;             // 📊 Same Direction: Wait Bars after Midline
+input int            InpNOppositeBars       = 1;             // 📊 Opposite Direction: Min Bars
 
 //+------------------------------------------------------------------+
 //| E4. FILTERS                                                      |
@@ -211,12 +219,12 @@ input group "╚═════════════════════�
 
 input group "    📏 FLATNESS FILTER"
 input bool           InpUseBandFlatness     = true;          // ✅ Enable Band Flatness Filter
-input double         InpFlatnessTolerance   = 0.55;          // 📏 Flatness Tolerance (ATR mult)
-input int            InpFlatLookback        = 3;             // 📊 Flatness Lookback (bars)
+input double         InpFlatnessTolerance   = 0.85;          // 📏 Flatness Tolerance (ATR mult) — allineato a Carneval
+input int            InpFlatLookback        = 2;             // 📊 Flatness Lookback (bars)
 
 input group "    ⏱️ LEVEL AGE FILTER"
-input bool           InpUseLevelAge         = true;          // ✅ Enable Level Age Filter
-input int            InpMinLevelAge         = 3;             // 📊 Min Level Age (flat bars)
+input bool           InpUseLevelAge         = false;         // ❌ Level Age OFF (impossibile su M5, bande mai piatte)
+input int            InpMinLevelAge         = 3;             // 📊 Min Level Age (flat bars) — attivare solo su H1+
 
 input group "    📈 TREND CONTEXT FILTER"
 input bool           InpUseTrendContext     = false;         // ✅ Enable Trend Context Filter

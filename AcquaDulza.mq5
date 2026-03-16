@@ -3,13 +3,50 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.2.0                                                  |
+//|  Version: 1.3.0                                                  |
 //|  Engine: DPC (Donchian Predictive Channel) — swappable           |
 //+------------------------------------------------------------------+
+//|                                                                  |
+//|  AcquaDulza EA — Framework di trading modulare a 7 livelli       |
+//|                                                                  |
+//|  ARCHITETTURA:                                                   |
+//|    Layer 0: Config    — Enums, parametri input, interfaccia eng.  |
+//|    Layer 1: Core      — Variabili globali, helpers, sessioni      |
+//|    Layer 2: Engine    — DPC (Donchian Predictive Channel)         |
+//|             ↳ Bande Donchian + 7 filtri qualita' + SmartCooldown  |
+//|             ↳ Classificazione TBS/TWS (qualita' segnale)          |
+//|             ↳ LTF Entry (conferma su timeframe inferiore)         |
+//|             ↳ Auto TF Preset (parametri adattivi per TF)          |
+//|    Layer 3: Orders    — Risk manager, lot sizing, order placement |
+//|             ↳ 3 risk modes (Fixed/Percent/Cash)                   |
+//|             ↳ Moltiplicatore TBS/TWS lotti (TBS=2x, TWS=1x)      |
+//|    Layer 4: Persistence — Auto-save/recovery GlobalVariables      |
+//|    Layer 5: Filters   — HTF Direction Filter (multi-timeframe)    |
+//|    Layer 6: Virtual   — Paper trading con P&L tracking            |
+//|    Layer 7: UI        — Dashboard, overlay canale, frecce segnale |
+//|                                                                  |
+//|  SEGNALI:                                                        |
+//|    Turtle Soup (Raschke) — mean reversion su false breakout       |
+//|    TBS = Turtle Body Soup: corpo penetra banda (forte, lotto 2x)  |
+//|    TWS = Turtle Wick Soup: solo wick tocca (debole, lotto 1x)     |
+//|                                                                  |
+//|  STRUMENTI SUPPORTATI:                                           |
+//|    Forex, Crypto (BTC/ETH), Gold, Silver, Oil, Indices            |
+//|    Auto-detection della classe strumento dal nome simbolo          |
+//|                                                                  |
+//|  CHANGELOG v1.3.0:                                               |
+//|    - Allineamento filtri M5/M15 a Carneval (flatTol, cooldown)    |
+//|    - Session Filter OFF di default (crypto 24/7)                  |
+//|    - Level Age OFF di default (impossibile su M5)                 |
+//|    - Moltiplicatore lotti TBS/TWS (TBS=2x default)                |
+//|    - Indicatore DPC allineato ai nuovi preset                     |
+//|                                                                  |
+//+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.21"
-#property description "AcquaDulza EA v1.2.1 — Reusable Trading Framework"
+#property version   "1.30"
+#property description "AcquaDulza EA v1.3.0 — Reusable Trading Framework"
 #property description "Engine: DPC v7.19 (Donchian Predictive Channel)"
+#property description "Segnali: Turtle Soup (TBS forte 2x / TWS debole 1x)"
 #property description "Anti-repaint: bar[1] signals only"
 #property strict
 

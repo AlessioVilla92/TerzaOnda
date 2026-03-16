@@ -1106,8 +1106,8 @@ int    g_lastMarkerBar   = 0;       // bar_index dell'ultimo segnale confermato 
 int    g_lastDirection   = 0;       // Direzione ultimo segnale: +1=BUY, -1=SELL, 0=nessuno (primo segnale)
 bool   g_midlineTouched  = false;   // SmartCooldown: prezzo ha raggiunto la midline dopo l'ultimo segnale?
 int    g_midlineTouchBar = 0;       // SmartCooldown: bar_index del tocco midline (per contare barre dopo)
-int    g_nSameBars       = 3;       // Barre attesa stesso verso (validato 1-10 in OnInit)
-int    g_nOppositeBars   = 2;       // Barre attesa direzione opposta (validato 1-10 in OnInit)
+int    g_nSameBars       = 2;       // Barre attesa stesso verso (validato 1-10 in OnInit) — allineato EA+Carneval
+int    g_nOppositeBars   = 1;       // Barre attesa direzione opposta (validato 1-10 in OnInit) — allineato EA+Carneval
 //--- Filtro Orario (v7.05): range orario bloccato in minuti dall'inizio del giorno (orario BROKER)
 int    g_timeBlockStartMin = 0;    // Inizio blocco in minuti-del-giorno broker (0-1439)
 int    g_timeBlockEndMin   = 0;    // Fine blocco in minuti-del-giorno broker (0-1439)
@@ -1132,9 +1132,9 @@ int    g_minLevelAge     = 3;       // Barre minime età livello Donchian (valid
 int    g_dcLen_eff       = 20;      // Effective Donchian period (da InpLenDC o preset TF)
 int    g_maLen_eff       = 30;      // Effective MA period (da InpMALen o preset TF)
 double g_minWidth_eff    = 8.0;     // Effective min channel width in pip (da InpMinWidthPips o preset TF)
-int    g_flatLook_eff    = 3;       // Effective flatness lookback (da InpFlatLookback o preset TF)
-double g_flatTol_eff     = 0.55;    // v7.19: Effective flatness tolerance per TF (da InpFlatnessTolerance o preset)
-                                    //   M5=0.40, M15=0.50, M30=0.50, H1=0.38, H4=0.35, MANUALE=InpFlatnessTolerance
+int    g_flatLook_eff    = 2;       // Effective flatness lookback (da InpFlatLookback o preset TF) — allineato EA+Carneval
+double g_flatTol_eff     = 0.85;    // v1.3: Effective flatness tolerance per TF (da InpFlatnessTolerance o preset)
+                                    //   M5=0.85, M15=0.65, M30=0.50, H1=0.38, H4=0.35, MANUALE=InpFlatnessTolerance
 
 //--- Chart Theme: salvataggio colori originali per ripristino in OnDeinit (v7.03)
 color  g_origBG          = clrBlack;
@@ -1427,10 +1427,14 @@ int OnInit()
    //    PRINCIPIO DI CALIBRAZIONE:
    //      TF BASSI (M5) → tolleranza MODERATA (0.40): ATR piccolo, candele rapide, necessario
    //        filtrare i micro-trend scalping che generano falsi mean-reversion.
-   //      TF MEDI (M15/M30) → tolleranza STANDARD (0.50): equilibrio tra filtro e sensibilità.
+   //      TF MEDI (M15/M30) → tolleranza MEDIA (0.50-0.65): equilibrio tra filtro e sensibilità.
    //      TF ALTI (H1/H4) → tolleranza BASSA (0.35-0.38): i trend su TF alti sono più
    //        persistenti e direzionali, il filtro deve essere più aggressivo per bloccare
    //        segnali contro-trend che su H1/H4 hanno bassa probabilità di reversal.
+   //
+   //    v1.3 ALLINEAMENTO CARNEVAL: M5 e M15 allineati ai valori Carneval EA che
+   //    generavano più operazioni con buoni risultati. flatTol alzata, lookback ridotto,
+   //    cooldown più reattivo. H1/H4 invariati (parametri già ragionevoli).
    //
    //    NOTA MinWidth M5 (v7.19): alzato 5.0→7.0 pip per eliminare canali troppo stretti
    //    dove il TP target (metà canale = 2.5 pip) non copre lo spread (~1.5-2 pip).
@@ -1438,14 +1442,14 @@ int OnInit()
    if(presetTF == PERIOD_M5)
    {
       g_dcLen_eff=20; g_maLen_eff=50; g_minWidth_eff=7.0;   // MA=50×5min=250min≈4h | minWidth alzato 5→7 pip (v7.19)
-      g_nSameBars=3;  g_nOppositeBars=2; g_flatLook_eff=3;  // cooldown 15min/10min
-      g_flatTol_eff=0.40;  // v7.19: tolleranza ridotta per M5 (ATR~8pip → soglia 3.2pip)
+      g_nSameBars=2;  g_nOppositeBars=1; g_flatLook_eff=2;  // cooldown 10min/5min (allineato EA+Carneval v1.3)
+      g_flatTol_eff=0.85;  // v1.3: tolleranza allineata Carneval (ATR~8pip → soglia 6.8pip)
    }
    else if(presetTF == PERIOD_M15)
    {
       g_dcLen_eff=20; g_maLen_eff=34; g_minWidth_eff=10.0;  // MA=34×15min=510min≈8.5h
-      g_nSameBars=2;  g_nOppositeBars=2; g_flatLook_eff=3;  // cooldown 30min/30min
-      g_flatTol_eff=0.50;  // v7.19: tolleranza standard M15 (ATR~12pip → soglia 6pip)
+      g_nSameBars=2;  g_nOppositeBars=1; g_flatLook_eff=2;  // cooldown 30min/15min (allineato EA v1.3)
+      g_flatTol_eff=0.65;  // v1.3: tolleranza intermedia M15 (ATR~12pip → soglia 7.8pip)
    }
    else if(presetTF == PERIOD_M30)
    {

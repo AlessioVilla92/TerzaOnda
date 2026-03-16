@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDashboard.mqh         |
-//|           AcquaDulza EA v1.2.0 — Dashboard Display               |
+//|           AcquaDulza EA v1.3.0 — Dashboard Display               |
 //|                                                                  |
 //|  Ocean theme dashboard — Pragmatic approach.                     |
 //|  Layout: Header (logo+ver+engine) | TitleBar (pair+state)        |
@@ -634,7 +634,7 @@ void UpdateDashboard()
    ObjectSetInteger(0, "AD_DASH_FRAME_TITLE", OBJPROP_ANCHOR, ANCHOR_UPPER);
    ObjectSetInteger(0, "AD_DASH_FRAME_TITLE", OBJPROP_ZORDER, AD_Z_LABEL + 1000);
 
-   // Titolo inferiore centrato "────── v1.1.0 · DPC Engine ──────"
+   // Titolo inferiore centrato "────── vX.X.X · DPC Engine ──────" (usa EA_VERSION)
    DashLabel("FRAME_BOTTOM", x + w / 2, y + totalH + fm + 1,
              hBar + " v" + EA_VERSION + " " + ShortToString(0x00B7) + " DPC Engine " + hBar,
              AD_BORDER_FRAME, 8, AD_FONT_SECTION);

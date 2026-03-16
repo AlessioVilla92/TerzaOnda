@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adCycleManager.mqh        |
-//|           AcquaDulza EA v1.1.0 — Cycle Manager                   |
+//|           AcquaDulza EA v1.3.0 — Cycle Manager                   |
 //|                                                                  |
 //|  Manages trade cycles: create, monitor, expire, detect fills     |
 //|  Absorbed from carnTriggerSystem + Carneval.mq5 cycle logic      |
@@ -137,9 +137,15 @@ int CreateCycle(const EngineSignal &sig)
    g_cycles[slot].quality         = sig.quality;
    g_cycles[slot].profit          = 0;
 
-   // [MOD] SL rimosso — CalculateLotSize(0) usa il LotSize fisso come fallback.
-   g_cycles[slot].lotSize = CalculateLotSize(0);
-   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: LotSize calcolato=%.4f (RiskMode=%s)", g_cycles[slot].lotSize, EnumToString(RiskMode)));
+   // [MOD] SL rimosso — CalculateLotSize(0, quality) usa il LotSize fisso come fallback.
+   // Il secondo parametro (sig.quality) applica il moltiplicatore TBS/TWS:
+   //   TBS (corpo penetra banda) → TBSLotMultiplier (default 2.0x = doppio lotto)
+   //   TWS (solo wick tocca)     → TWSLotMultiplier (default 1.0x = lotto standard)
+   g_cycles[slot].lotSize = CalculateLotSize(0, sig.quality);
+   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: LotSize calcolato=%.4f (RiskMode=%s, Quality=%s, Mult=%.1fx)",
+          g_cycles[slot].lotSize, EnumToString(RiskMode),
+          sig.quality == PATTERN_TBS ? "TBS" : "TWS",
+          sig.quality == PATTERN_TBS ? TBSLotMultiplier : TWSLotMultiplier));
 
    // ── DIAG: Log pre-OrderPlace ──
    AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: Invoco OrderPlace() — CycleID=#%d | %s | Lot=%.4f | Entry=%s | TP=%s",

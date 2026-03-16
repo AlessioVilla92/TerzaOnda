@@ -1,11 +1,12 @@
 //+------------------------------------------------------------------+
 //|                                          adDPCPresets.mqh        |
-//|           AcquaDulza EA v1.1.0 — DPC TF Auto-Preset             |
+//|           AcquaDulza EA v1.3.0 — DPC TF Auto-Preset             |
 //|                                                                  |
 //|  Inizializza parametri effettivi per il TF corrente.             |
 //|  Se InpEngineAutoTFPreset=true, sovrascrive i valori input.      |
 //|                                                                  |
-//|  PRESET ALLINEATI a DonchianPredictiveChannel.mq5 v7.19          |
+//|  v1.3.0: M5/M15 allineati a Carneval EA (flatTol, cooldown)      |
+//|  PRESET ALLINEATI a DonchianPredictiveChannel.mq5 + Carneval     |
 //|  Logica: MA scala INVERSAMENTE col TF (finestra temporale ~cost) |
 //|    M5=50 barre×5min=250min≈4h  |  H4=12 barre×240min=48h≈2gg   |
 //|  Cooldown/flatLook scalano inversamente (1 barra H4 = 4h già)   |
@@ -19,10 +20,10 @@
 int    g_dpc_dcLen     = 20;
 int    g_dpc_maLen     = 30;
 double g_dpc_minWidth  = 8.0;
-int    g_dpc_flatLook  = 3;
-double g_dpc_flatTol   = 0.55;
-int    g_dpc_nSame     = 3;
-int    g_dpc_nOpp      = 2;
+int    g_dpc_flatLook  = 2;
+double g_dpc_flatTol   = 0.85;
+int    g_dpc_nSame     = 2;
+int    g_dpc_nOpp      = 1;
 
 //+------------------------------------------------------------------+
 //| DPCPresetsInit — Auto-preset based on chart timeframe            |
@@ -30,8 +31,8 @@ int    g_dpc_nOpp      = 2;
 //| Values aligned with DonchianPredictiveChannel.mq5 v7.19          |
 //|                                                                  |
 //|  TF   | dcLen | maLen | minW  | nS | nO | flatL | flatT         |
-//|  M5   |  20   |  50   |  7.0  |  3 |  2 |   3   | 0.40          |
-//|  M15  |  20   |  34   | 10.0  |  2 |  2 |   3   | 0.50          |
+//|  M5   |  20   |  50   |  7.0  |  2 |  1 |   2   | 0.85          |
+//|  M15  |  20   |  34   | 10.0  |  2 |  1 |   2   | 0.65          |
 //|  M30  |  20   |  24   | 14.0  |  2 |  1 |   2   | 0.50          |
 //|  H1   |  20   |  18   | 18.0  |  1 |  1 |   2   | 0.38          |
 //|  H4   |  20   |  12   | 30.0  |  1 |  1 |   1   | 0.35          |
@@ -71,20 +72,20 @@ bool DPCPresetsInit()
          g_dpc_dcLen    = 20;
          g_dpc_maLen    = 50;       // MA=50×5min=250min≈4h
          g_dpc_minWidth = 7.0;      // minWidth alzato 5→7 pip (v7.19)
-         g_dpc_flatLook = 3;        // cooldown 15min
-         g_dpc_flatTol  = 0.40;     // tolleranza ridotta M5 (ATR~8pip → soglia 3.2pip)
-         g_dpc_nSame    = 3;        // 3 barre = 15min
-         g_dpc_nOpp     = 2;        // 2 barre = 10min
+         g_dpc_flatLook = 2;        // 2 barre = 10min lookback (allineato Carneval)
+         g_dpc_flatTol  = 0.85;     // tolleranza Carneval (ATR~8pip → soglia 6.8pip)
+         g_dpc_nSame    = 2;        // 2 barre = 10min (allineato Carneval)
+         g_dpc_nOpp     = 1;        // 1 barra = 5min (allineato Carneval)
          break;
 
       case PERIOD_M15:
          g_dpc_dcLen    = 20;
          g_dpc_maLen    = 34;       // MA=34×15min=510min≈8.5h
          g_dpc_minWidth = 10.0;     // canali M15 più ampi di M5
-         g_dpc_flatLook = 3;        // cooldown 45min
-         g_dpc_flatTol  = 0.50;     // tolleranza standard M15 (ATR~12pip → soglia 6pip)
+         g_dpc_flatLook = 2;        // 2 barre = 30min lookback
+         g_dpc_flatTol  = 0.65;     // tolleranza intermedia M15 (ATR~12pip → soglia 7.8pip)
          g_dpc_nSame    = 2;        // 2 barre = 30min
-         g_dpc_nOpp     = 2;        // 2 barre = 30min
+         g_dpc_nOpp     = 1;        // 1 barra = 15min (piu' reattivo)
          break;
 
       case PERIOD_M30:

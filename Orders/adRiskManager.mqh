@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                         adRiskManager.mqh        |
-//|           AcquaDulza EA v1.1.0 — Risk Manager                    |
+//|           AcquaDulza EA v1.3.0 — Risk Manager                    |
 //|                                                                  |
 //|  3 lot sizing modes: FIXED_LOT, RISK_PCT, FIXED_CASH            |
 //|  Circuit breaker, daily loss limit, spread check                 |
@@ -34,9 +34,16 @@ bool InitializeRiskManager()
 //+------------------------------------------------------------------+
 //| CalculateLotSize — 3 modes: FIXED_LOT, RISK_PCT, FIXED_CASH    |
 //|  slDistancePrice: SL distance in price units (not pips)          |
+//|  signalQuality: PATTERN_TBS (3) o PATTERN_TWS (1)               |
+//|                                                                  |
+//|  Il lotto base viene calcolato in base al RiskMode, poi          |
+//|  moltiplicato per TBSLotMultiplier o TWSLotMultiplier            |
+//|  in base alla qualita' del segnale:                              |
+//|    TBS = corpo candela penetra la banda → segnale forte → x2    |
+//|    TWS = solo wick tocca la banda → segnale debole → x1         |
 //|  Returns: normalized lot size                                    |
 //+------------------------------------------------------------------+
-double CalculateLotSize(double slDistancePrice)
+double CalculateLotSize(double slDistancePrice, int signalQuality = 0)
 {
    double lots = LotSize;  // Default: fixed lot
 
@@ -68,9 +75,25 @@ double CalculateLotSize(double slDistancePrice)
    }
    // RISK_FIXED_LOT: use LotSize directly
 
+   // ── SIGNAL QUALITY MULTIPLIER (TBS/TWS) ──
+   // TBS (quality=3): segnale forte, corpo penetra banda → lotto maggiorato
+   // TWS (quality=1): segnale debole, solo wick → lotto standard
+   // quality=0: nessuna classificazione → nessun moltiplicatore
+   double qualityMult = 1.0;
+   if(signalQuality == PATTERN_TBS)
+      qualityMult = TBSLotMultiplier;
+   else if(signalQuality == PATTERN_TWS)
+      qualityMult = TWSLotMultiplier;
+
+   // Applica moltiplicatore qualita' (clamp a 0.1-10.0 per sicurezza)
+   qualityMult = MathMax(0.1, MathMin(10.0, qualityMult));
+   lots *= qualityMult;
+
    double finalLot = NormalizeLotSize(lots);
-   AdLogI(LOG_CAT_RISK, StringFormat("LotSize: mode=%s raw=%.4f final=%.4f slDist=%.5f",
-      EnumToString(RiskMode), lots, finalLot, slDistancePrice));
+   AdLogI(LOG_CAT_RISK, StringFormat("LotSize: mode=%s raw=%.4f qualMult=%.2f(%s) final=%.4f slDist=%.5f",
+      EnumToString(RiskMode), lots / qualityMult, qualityMult,
+      signalQuality == PATTERN_TBS ? "TBS" : (signalQuality == PATTERN_TWS ? "TWS" : "N/A"),
+      finalLot, slDistancePrice));
    return finalLot;
 }
 

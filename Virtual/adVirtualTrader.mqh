@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                       adVirtualTrader.mqh        |
-//|           AcquaDulza EA v1.1.0 — Virtual (Paper) Trader          |
+//|           AcquaDulza EA v1.3.0 — Virtual (Paper) Trader          |
 //|                                                                  |
 //|  Simulates trade cycles without broker orders.                   |
 //|  Uses same CycleRecord structure for consistency.                |
@@ -37,7 +37,7 @@ int VirtualCreateTrade(const EngineSignal &sig)
    g_cycles[slot].entryPrice = sig.entryPrice;
    g_cycles[slot].slPrice    = sig.slPrice;
    g_cycles[slot].tpPrice    = sig.tpPrice;
-   g_cycles[slot].lotSize    = CalculateLotSize(slDist);
+   g_cycles[slot].lotSize    = CalculateLotSize(slDist, sig.quality);
    g_cycles[slot].signalTime = sig.barTime;
    g_cycles[slot].placedTime = TimeCurrent();
    g_cycles[slot].quality    = sig.quality;

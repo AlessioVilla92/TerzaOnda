@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adVisualTheme.mqh       |
-//|           AcquaDulza EA v1.2.1 — Palette "Deep Ocean"            |
+//|           AcquaDulza EA v1.3.0 — Palette "Deep Ocean"            |
 //|                                                                  |
 //|  Colori hardcodati — editabili SOLO via codice sorgente          |
 //|  NON visibili nelle impostazioni EA                              |

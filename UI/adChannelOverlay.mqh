@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adChannelOverlay.mqh        |
-//|           AcquaDulza EA v1.1.0 — Channel Overlay                 |
+//|           AcquaDulza EA v1.3.0 — Channel Overlay                 |
 //|                                                                  |
 //|  Visualizzazione grafica del canale Donchian Predictive sul chart.|
 //|                                                                  |

@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                              adHelpers.mqh       |
-//|           AcquaDulza EA v1.1.0 — Helper Functions                |
+//|           AcquaDulza EA v1.3.0 — Helper Functions                |
 //|                                                                  |
 //|  Utility: price conversion, logging, formatting, account info    |
 //+------------------------------------------------------------------+

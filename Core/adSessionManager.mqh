@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adSessionManager.mqh        |
-//|           AcquaDulza EA v1.2.1 — Session Manager                 |
+//|           AcquaDulza EA v1.3.0 — Session Manager                 |
 //|                                                                  |
 //|  Session filter + ParseTimeToMinutes + IsInBlockedTime           |
 //|  Semplificato: solo un magic number, no hedge logic              |
