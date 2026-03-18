@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                                adEnums.mqh       |
-//|           AcquaDulza EA v1.3.0 — Enumerations & Structs          |
+//|           AcquaDulza EA v1.4.0 — Enumerations & Structs          |
 //|                                                                  |
 //|  Enum FRAMEWORK (stabili, non cambiano con engine swap)          |
 //|  + struct CycleRecord                                            |
@@ -35,6 +35,7 @@ enum ENUM_CYCLE_STATE
    CYCLE_IDLE,              // Slot disponibile
    CYCLE_PENDING,           // Ordine pendente (STOP/LIMIT)
    CYCLE_ACTIVE,            // Posizione attiva
+   CYCLE_HEDGING,           // Entrambe le gambe aperte (Soup + Hedge)
    CYCLE_CLOSED             // Ciclo completato
 };
 
@@ -194,7 +195,7 @@ enum ENUM_SIGNAL_PATTERN
 
 //+------------------------------------------------------------------+
 //| === STRUCT CycleRecord ===                                       |
-//| Record semplificato — no soup/breakout/hedge fields              |
+//| Record semplificato — with hedge fields (v1.4.0)                |
 //+------------------------------------------------------------------+
 struct CycleRecord
 {
@@ -202,7 +203,7 @@ struct CycleRecord
    ENUM_CYCLE_STATE   state;
    int                direction;       // +1=BUY, -1=SELL
    int                quality;         // 3=TBS, 1=TWS
-   ulong              ticket;          // Ticket ordine/posizione
+   ulong              ticket;          // Ticket ordine/posizione Soup
    double             entryPrice;
    double             tpPrice;
    double             slPrice;
@@ -210,6 +211,15 @@ struct CycleRecord
    datetime           signalTime;      // Tempo del segnale
    datetime           placedTime;      // Tempo piazzamento ordine
    double             profit;          // P&L (floating o realized)
+
+   // === HEDGE FIELDS (EnableHedge=true) ===
+   ulong              hedgeTicket;     // Ticket ordine hedge (0 se non attivo)
+   double             hedgeTriggerPrice; // Livello BUY/SELL STOP hedge
+   double             hedgeTPPrice;    // TP dell'ordine hedge
+   double             hedgeLotSize;    // Lotto specifico hedge
+   bool               hedgePending;    // true = ordine pendente broker non ancora riempito
+   bool               hedgeActive;     // true = hedge riempito, stato HEDGING
+   string             hedgeLineName;   // Nome oggetto linea fucsia sul grafico
 };
 
 //+------------------------------------------------------------------+
@@ -287,4 +297,4 @@ struct DashboardData
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
 const string EA_NAME            = "AcquaDulza";
-const string EA_VERSION         = "1.3.0";
+const string EA_VERSION         = "1.4.0";

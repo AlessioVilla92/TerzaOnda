@@ -3,7 +3,7 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.3.0                                                  |
+//|  Version: 1.4.0                                                  |
 //|  Engine: DPC (Donchian Predictive Channel) — swappable           |
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -20,6 +20,7 @@
 //|    Layer 3: Orders    — Risk manager, lot sizing, order placement |
 //|             ↳ 3 risk modes (Fixed/Percent/Cash)                   |
 //|             ↳ Moltiplicatore TBS/TWS lotti (TBS=2x, TWS=1x)      |
+//|             ↳ Hedge Manager (BUY/SELL STOP opposto, MagicNumber+1)|
 //|    Layer 4: Persistence — Auto-save/recovery GlobalVariables      |
 //|    Layer 5: Filters   — HTF Direction Filter (multi-timeframe)    |
 //|    Layer 6: Virtual   — Paper trading con P&L tracking            |
@@ -34,6 +35,21 @@
 //|    Forex, Crypto (BTC/ETH), Gold, Silver, Oil, Indices            |
 //|    Auto-detection della classe strumento dal nome simbolo          |
 //|                                                                  |
+//|  CHANGELOG v1.4.0:                                               |
+//|    - HEDGE SYSTEM: ordine opposto BUY/SELL STOP automatico        |
+//|      Trigger: banda +/- HedgeATRMult x ATR(14) (default 1.0x)    |
+//|      TP: triggerLevel +/- HedgeTPAtrMult x ATR(14) (default 2.0x)|
+//|      Magic separato: MagicNumber+1 (evita conflitto DetectFill)   |
+//|      Risoluzione CLOSE_ON_FIRST_TP: primo TP chiude l'altro      |
+//|    - Nuovo stato CYCLE_HEDGING (Soup + Hedge entrambi aperti)     |
+//|    - CycleRecord: +7 campi hedge (ticket, trigger, TP, lot,      |
+//|      pending, active, lineName)                                   |
+//|    - Persistence: save/restore 6 campi hedge + validazione broker |
+//|    - Recovery: scan MagicNumber+1 per posizioni/ordini hedge      |
+//|    - Dashboard: stato HEDG fucsia, P&L combinato, pill, monitor   |
+//|    - Linea fucsia tratteggiata sul grafico al livello trigger     |
+//|    - EnableHedge=true di default                                  |
+//|                                                                  |
 //|  CHANGELOG v1.3.0:                                               |
 //|    - Allineamento filtri M5/M15 a Carneval (flatTol, cooldown)    |
 //|    - Session Filter OFF di default (crypto 24/7)                  |
@@ -43,10 +59,11 @@
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.30"
-#property description "AcquaDulza EA v1.3.0 — Reusable Trading Framework"
+#property version   "1.40"
+#property description "AcquaDulza EA v1.4.0 — Reusable Trading Framework"
 #property description "Engine: DPC v7.19 (Donchian Predictive Channel)"
 #property description "Segnali: Turtle Soup (TBS forte 2x / TWS debole 1x)"
+#property description "Hedge: BUY/SELL STOP opposto con CLOSE_ON_FIRST_TP"
 #property description "Anti-repaint: bar[1] signals only"
 #property strict
 
@@ -79,6 +96,7 @@
 #include "Orders/adRiskManager.mqh"
 #include "Orders/adOrderManager.mqh"
 #include "Orders/adCycleManager.mqh"
+#include "Orders/adHedgeManager.mqh"   // Layer 3.5: Hedge Engine
 
 // === Layer 4: Persistence ===
 #include "Persistence/adStatePersistence.mqh"
@@ -151,8 +169,13 @@ void PopulateDashboardData()
    g_dashData.floatingPnL   = 0;
    for(int i = 0; i < ArraySize(g_cycles); i++)
    {
-      if(g_cycles[i].state == CYCLE_ACTIVE && g_cycles[i].ticket > 0)
+      if((g_cycles[i].state == CYCLE_ACTIVE || g_cycles[i].state == CYCLE_HEDGING)
+         && g_cycles[i].ticket > 0)
          g_dashData.floatingPnL += GetFloatingProfit(g_cycles[i].ticket);
+      // Include hedge leg floating P&L
+      if(g_cycles[i].state == CYCLE_HEDGING && g_cycles[i].hedgeActive
+         && g_cycles[i].hedgeTicket > 0)
+         g_dashData.floatingPnL += GetFloatingProfit(g_cycles[i].hedgeTicket);
    }
    g_dashData.dailyLoss = g_dailyRealizedProfit;
 
@@ -275,6 +298,9 @@ int OnInit()
    // 8. Risk manager
    InitializeRiskManager();
 
+   // 8b. Hedge Engine
+   if(EnableHedge) HedgeInit();
+
    // 9. HTF filter
    if(UseHTFFilter)
       InitializeHTFFilter();
@@ -343,6 +369,7 @@ void OnDeinit(const int reason)
    EngineDeinit();
    g_engineReady = false;
 
+   if(EnableHedge) HedgeDeinit();
    ReleaseATRHandle();
 
    // UI cleanup
@@ -528,6 +555,10 @@ void OnTick()
                                sig.barTime, sig.direction > 0);
                DrawTPLine(g_cycles[slot].cycleID, sig.tpPrice, sig.direction > 0);
                DrawTPDot(g_cycles[slot].cycleID, sig.tpPrice, sig.barTime, sig.direction > 0);
+
+               // === Hedge Engine: piazza ordine hedge contestualmente al ciclo ===
+               if(EnableHedge && !VirtualMode)
+                  HedgePlaceOrder(slot, sig);
             }
             else
             {
@@ -542,6 +573,13 @@ void OnTick()
 
    // ── 11. MONITOR CYCLES ────────────────────────────────────────────
    MonitorCycles(sig);
+
+   // ── 11b. HEDGE MONITOR ────────────────────────────────────────────
+   if(EnableHedge)
+   {
+      for(int _hi = 0; _hi < ArraySize(g_cycles); _hi++)
+         HedgeMonitor(_hi);
+   }
 
    // ── 12. DAILY RESET ──────────────────────────────────────────────
    CheckDailyReset();

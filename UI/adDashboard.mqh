@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDashboard.mqh         |
-//|           AcquaDulza EA v1.3.0 — Dashboard Display               |
+//|           AcquaDulza EA v1.4.0 — Dashboard Display               |
 //|                                                                  |
 //|  Ocean theme dashboard — Pragmatic approach.                     |
 //|  Layout: Header (logo+ver+engine) | TitleBar (pair+state)        |
@@ -8,6 +8,13 @@
 //|          ActiveCycles | P&L | Controls | StatusBar               |
 //|  Side panel: Engine Monitor + Signal Feed                        |
 //|  Dashboard foreground (BACK=false, Z=15000+) — overlay behind    |
+//|                                                                  |
+//|  v1.4.0: Integrazione hedge nel dashboard (6 punti)              |
+//|    DrawActiveCycles — stato "HEDG" fucsia + P&L combinato        |
+//|    DrawPLSession    — FLOAT include CYCLE_HEDGING (entrambe)     |
+//|    DrawFilterBar    — pill [+Hedge]/[_Hedge] in fucsia           |
+//|    DrawStatusBar    — Hedge:ON/OFF nella barra inferiore         |
+//|    UpdateSidePanel  — riga 13 "Hedge" con conteggio attivi       |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -48,6 +55,7 @@ void DashLabel(string id, int x, int y, string text, color clr,
    {
       ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0);
       ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, name, OBJPROP_BACK, false);
       ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
       ObjectSetInteger(0, name, OBJPROP_ZORDER, AD_Z_LABEL);
@@ -132,7 +140,7 @@ void DrawSystemStatus(int x, int y, int w)
    int row2 = y + 40;
    int row3 = y + 58;
 
-   // Row 1: Session | Uptime | Magic
+   // Row 1: Session | Uptime | Free Margin
    DashLabel("SY_L1", col1, row1, "SESSION", AD_TEXT_LO, 7);
    DashLabel("SY_V1", col1, row1 + 10, GetSessionStatus(), AD_TEXT_HI, 10, AD_FONT_SECTION);
 
@@ -142,8 +150,11 @@ void DrawSystemStatus(int x, int y, int w)
    DashLabel("SY_V2", col3, row1 + 10,
              StringFormat("%02d:%02d:%02d", upH, upM, upS), AD_TEXT_HI, 10);
 
-   DashLabel("SY_L3", col5, row1, "MAGIC", AD_TEXT_LO, 7);
-   DashLabel("SY_V3", col5, row1 + 10, IntegerToString(MagicNumber), AD_TEXT_MID, 10);
+   double freeMargin = GetFreeMargin();
+   double marginLvl  = GetMarginLevel();
+   DashLabel("SY_L3", col5, row1, "FREE MARGIN", AD_TEXT_LO, 7);
+   DashLabel("SY_V3", col5, row1 + 10, FormatMoney(freeMargin),
+             marginLvl > 500 ? AD_BUY : (marginLvl > 200 ? AD_AMBER : AD_SELL), 10);
 
    // Row 2: Spread | ATR | Balance
    double spread = GetSpreadPips();
@@ -159,12 +170,17 @@ void DrawSystemStatus(int x, int y, int w)
    DashLabel("SY_L6", col5, row2, "BALANCE", AD_TEXT_LO, 7);
    DashLabel("SY_V6", col5, row2 + 10, FormatMoney(GetBalance()), AD_TEXT_HI, 10);
 
-   // Row 3: Equity only (wider)
+   // Row 3: Equity | Margin Level
    double equity = GetEquity();
    double balance = GetBalance();
    DashLabel("SY_L7", col1, row3, "EQUITY", AD_TEXT_LO, 7);
    DashLabel("SY_V7", col1, row3 + 10, FormatMoney(equity),
              equity >= balance ? AD_BUY : AD_SELL, 10, AD_FONT_SECTION);
+
+   DashLabel("SY_L8", col3, row3, "MARGIN LVL", AD_TEXT_LO, 7);
+   DashLabel("SY_V8", col3, row3 + 10,
+             marginLvl > 0 ? StringFormat("%.0f%%", marginLvl) : "---",
+             marginLvl > 500 ? AD_BUY : (marginLvl > 200 ? AD_AMBER : AD_SELL), 10);
 }
 
 //+------------------------------------------------------------------+
@@ -260,6 +276,12 @@ void DrawFilterBar(int x, int y, int w)
    DashLabel("FP_SESS", px, y + 3,
              inSession ? "[+Sess]" : "[!Sess]",
              inSession ? AD_BUY : AD_SELL, 8);
+   px += 48;
+
+   // Hedge pill
+   DashLabel("FP_HEDGE", px, y + 3,
+             EnableHedge ? "[+Hedge]" : "[_Hedge]",
+             EnableHedge ? AD_HEDGE : AD_TEXT_LO, 8);
 }
 
 //+------------------------------------------------------------------+
@@ -309,6 +331,7 @@ void DrawLastSignals(int x, int y, int w)
 
 //+------------------------------------------------------------------+
 //| DrawActiveCycles — Header + max 4 cycle rows                   |
+//|  Per ciclo: ID Dir State Lot Entry  TP_dist  P&L (Soup/Hedge)  |
 //+------------------------------------------------------------------+
 void DrawActiveCycles(int x, int y, int w)
 {
@@ -323,7 +346,7 @@ void DrawActiveCycles(int x, int y, int w)
 
    // Column header
    DashLabel("CY_HDR", x + pad, y + 20,
-             "#     Dir    State    Entry              P&L", AD_TEXT_LO, 7);
+             "#   Dir  State  Lot    Entry         toTP     P&L", AD_TEXT_LO, 7);
 
    int cy = y + 34;
    int displayed = 0;
@@ -332,27 +355,84 @@ void DrawActiveCycles(int x, int y, int w)
       if(g_cycles[i].state == CYCLE_IDLE || g_cycles[i].state == CYCLE_CLOSED) continue;
 
       string dirStr = g_cycles[i].direction > 0 ? "BUY " : "SELL";
-      string stStr = (g_cycles[i].state == CYCLE_PENDING) ? "PEND" : "LIVE";
-      color dirClr = g_cycles[i].direction > 0 ? AD_BUY : AD_SELL;
+      string stStr = "LIVE";
+      color  rowClr = g_cycles[i].direction > 0 ? AD_BUY : AD_SELL;
+      if(g_cycles[i].state == CYCLE_PENDING)      { stStr = "PEND"; rowClr = AD_AMBER; }
+      else if(g_cycles[i].state == CYCLE_HEDGING) { stStr = "HEDG"; rowClr = AD_HEDGE; }
 
+      // Lot size display
+      string lotStr = StringFormat("%.2f", g_cycles[i].lotSize);
+
+      // Distance to TP in pips
+      string tpDistStr = "---";
+      if(g_cycles[i].tpPrice > 0 && g_cycles[i].state != CYCLE_PENDING)
+      {
+         double currentBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+         double distToTP = 0;
+         if(g_cycles[i].direction > 0)
+            distToTP = g_cycles[i].tpPrice - currentBid;  // BUY: TP sopra
+         else
+            distToTP = currentBid - g_cycles[i].tpPrice;  // SELL: TP sotto
+         double pipDist = PointsToPips(distToTP);
+         tpDistStr = StringFormat("%+.0f", pipDist);
+      }
+
+      // Floating P&L — separato per HEDG
+      double soupPL  = 0;
+      double hedgePL = 0;
       double floatPL = 0;
       if(g_cycles[i].state == CYCLE_ACTIVE && g_cycles[i].ticket > 0)
-         floatPL = GetFloatingProfit(g_cycles[i].ticket);
+      {
+         soupPL = GetFloatingProfit(g_cycles[i].ticket);
+         floatPL = soupPL;
+      }
+      else if(g_cycles[i].state == CYCLE_HEDGING)
+      {
+         if(g_cycles[i].ticket > 0)
+            soupPL = GetFloatingProfit(g_cycles[i].ticket);
+         if(g_cycles[i].hedgeActive && g_cycles[i].hedgeTicket > 0)
+            hedgePL = GetFloatingProfit(g_cycles[i].hedgeTicket);
+         floatPL = soupPL + hedgePL;
+      }
       color plClr = floatPL >= 0 ? AD_BUY : AD_SELL;
 
+      // Riga principale: ID Dir State Lot Entry toTP
       DashLabel(StringFormat("CY%d", displayed), x + pad, cy,
-                StringFormat("%02d    %s   %s     %s",
-                g_cycles[i].cycleID, dirStr, stStr, FormatPrice(g_cycles[i].entryPrice)),
-                dirClr, 9);
-      DashLabel(StringFormat("CY%d_PL", displayed), x + w - 80, cy,
-                StringFormat("%+.2f", floatPL), plClr, 9);
+                StringFormat("%02d  %s  %s  %s  %s",
+                g_cycles[i].cycleID, dirStr, stStr, lotStr, FormatPrice(g_cycles[i].entryPrice)),
+                rowClr, 9);
+
+      // TP distance (colonna separata per allineamento)
+      DashLabel(StringFormat("CY%d_TP", displayed), x + w - 150, cy,
+                tpDistStr, AD_BIOLUM_DIM, 9);
+
+      // P&L — se HEDG mostra "S:+12 H:-8" altrimenti solo totale
+      if(g_cycles[i].state == CYCLE_HEDGING)
+      {
+         color splClr = soupPL >= 0 ? AD_BUY : AD_SELL;
+         color hplClr = hedgePL >= 0 ? AD_BUY : AD_SELL;
+         DashLabel(StringFormat("CY%d_PL", displayed), x + w - 100, cy,
+                   StringFormat("S:%+.0f", soupPL), splClr, 8);
+         DashLabel(StringFormat("CY%d_HPL", displayed), x + w - 50, cy,
+                   StringFormat("H:%+.0f", hedgePL), hplClr, 8);
+      }
+      else
+      {
+         DashLabel(StringFormat("CY%d_PL", displayed), x + w - 80, cy,
+                   StringFormat("%+.2f", floatPL), plClr, 9);
+         DashLabel(StringFormat("CY%d_HPL", displayed), x + w - 50, cy,
+                   " ", AD_TEXT_MUTED, 8);
+      }
+
       cy += 16;
       displayed++;
    }
    for(int c = displayed; c < 4; c++)
    {
       DashLabel(StringFormat("CY%d", c), x + pad, cy, " ", AD_TEXT_MUTED, 9);
+      DashLabel(StringFormat("CY%d_TP", c), x + w - 150, cy, " ", AD_TEXT_MUTED, 9);
       DashLabel(StringFormat("CY%d_PL", c), x + w - 80, cy, " ", AD_TEXT_MUTED, 9);
+      DashLabel(StringFormat("CY%d_HPL", c), x + w - 50, cy, " ", AD_TEXT_MUTED, 8);
       cy += 16;
    }
 }
@@ -402,8 +482,12 @@ void DrawPLSession(int x, int y, int w)
    double totalFloat = 0;
    for(int fi = 0; fi < ArraySize(g_cycles); fi++)
    {
-      if(g_cycles[fi].state == CYCLE_ACTIVE && g_cycles[fi].ticket > 0)
+      if((g_cycles[fi].state == CYCLE_ACTIVE || g_cycles[fi].state == CYCLE_HEDGING)
+         && g_cycles[fi].ticket > 0)
          totalFloat += GetFloatingProfit(g_cycles[fi].ticket);
+      if(g_cycles[fi].state == CYCLE_HEDGING
+         && g_cycles[fi].hedgeActive && g_cycles[fi].hedgeTicket > 0)
+         totalFloat += GetFloatingProfit(g_cycles[fi].hedgeTicket);
    }
    color fClr = totalFloat >= 0 ? AD_BUY : AD_SELL;
    DashLabel("PL_L5", c2, r2, "FLOAT", AD_TEXT_LO, 7);
@@ -425,10 +509,8 @@ void DrawControls(int x, int y, int w)
    DashRectangle("CTRL_PANEL", x, y, w, AD_H_CONTROLS, AD_PANEL_BG, AD_PANEL_BORDER);
    DashLabel("CT_TITLE", x + pad, y + 4, "CONTROLS", AD_AMBER_DIM, 9, AD_FONT_SECTION);
 
-   DashLabel("CT_SESS", x + pad + 100, y + 5,
-             "Session: " + GetSessionStatus(), AD_TEXT_SECONDARY, 8);
    DashLabel("CT_TIME", x + w - 80, y + 5,
-             TimeToString(TimeCurrent(), TIME_MINUTES), AD_TEXT_MUTED, 8);
+             TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES), AD_TEXT_MUTED, 8);
 
    // Button feedback
    if(ObjectFind(0, "AD_BTN_START_" + _Symbol) >= 0)
@@ -454,12 +536,14 @@ void DrawStatusBar(int x, int y, int w)
    string cdMode = InpUseSmartCooldown ? "SmartCD:ON" : "FixedCD";
    string twsMode = InpShowTWSSignals ? "TWS:ON" : "TWS:HID";
    string ltfMode = InpUseLTFEntry ? "LTF:ON" : "";
+   string hedgeMode = EnableHedge ? "Hedge:ON" : "Hedge:OFF";
 
    string bar = ShortToString(0x25CF) + " " + stateStr
               + "  DPC v7.19"
               + "  " + cdMode
               + "  TBS:ON " + twsMode
               + (ltfMode != "" ? "  " + ltfMode : "")
+              + "  " + hedgeMode
               + "  v" + EA_VERSION
               + "  M:" + IntegerToString(MagicNumber);
 
@@ -476,7 +560,7 @@ void UpdateSidePanel()
    int sw = AD_SIDE_W;
 
    // === ENGINE MONITOR ===
-   DashRectangle("SIDE_MON", sx, sy, sw, 220, AD_BG_DEEP, AD_SIDE_BORDER);
+   DashRectangle("SIDE_MON", sx, sy, sw, 235, AD_BG_DEEP, AD_SIDE_BORDER);
    DashLabel("SM_TITLE", sx + 10, sy + 5, "ENGINE MONITOR", AD_BIOLUM_DIM, 9, AD_FONT_SECTION);
 
    int ly = sy + 22;
@@ -502,12 +586,11 @@ void UpdateSidePanel()
              AD_TEXT_SECONDARY, 8);
    ly += lh;
 
-   // 4. Spread
-   double spread = GetSpreadPips();
-   DashLabel("SM_R04L", sx + 10, ly, "Spread", AD_TEXT_MID, 8);
+   // 4. Daily Trades (sostituisce Spread — gia' in System Status)
+   DashLabel("SM_R04L", sx + 10, ly, "Daily Trades", AD_TEXT_MID, 8);
    DashLabel("SM_R04V", valX, ly,
-             StringFormat("%.1f pip", spread),
-             spread > g_inst_maxSpread ? AD_SELL : AD_TEXT_SECONDARY, 8);
+             StringFormat("%dW %dL", g_dailyWins, g_dailyLosses),
+             g_dailyWins >= g_dailyLosses ? AD_BUY : AD_SELL, 8);
    ly += lh;
 
    // 5. TF Preset
@@ -544,9 +627,11 @@ void UpdateSidePanel()
              InpUseLTFEntry ? AD_BIOLUM : AD_TEXT_MUTED, 8);
    ly += lh;
 
-   // 10. Session
-   DashLabel("SM_R10L", sx + 10, ly, "Session", AD_TEXT_MID, 8);
-   DashLabel("SM_R10V", valX, ly, GetSessionStatus(), AD_TEXT_SECONDARY, 8);
+   // 10. Expired Orders (sostituisce Session — gia' in System Status)
+   DashLabel("SM_R10L", sx + 10, ly, "Expired", AD_TEXT_MID, 8);
+   DashLabel("SM_R10V", valX, ly,
+             g_totalExpiredOrders > 0 ? IntegerToString(g_totalExpiredOrders) : "0",
+             g_totalExpiredOrders > 0 ? AD_AMBER : AD_TEXT_MUTED, 8);
    ly += lh;
 
    // 11. AutoSave
@@ -565,6 +650,23 @@ void UpdateSidePanel()
    DashLabel("SM_R12V", valX, ly, HTFGetStatusString(), AD_TEXT_SECONDARY, 8);
    ly += lh;
 
+   // 13. Hedge
+   DashLabel("SM_R13L", sx + 10, ly, "Hedge", AD_TEXT_MID, 8);
+   if(EnableHedge)
+   {
+      int hedgeCount = 0;
+      for(int hi = 0; hi < ArraySize(g_cycles); hi++)
+      {
+         if(g_cycles[hi].hedgePending || g_cycles[hi].hedgeActive) hedgeCount++;
+      }
+      DashLabel("SM_R13V", valX, ly,
+                hedgeCount > 0 ? StringFormat("ON (%d)", hedgeCount) : "ON",
+                AD_HEDGE, 8, AD_FONT_SECTION);
+   }
+   else
+      DashLabel("SM_R13V", valX, ly, "OFF", AD_TEXT_MUTED, 8);
+   ly += lh;
+
    // Virtual mode indicator
    if(VirtualMode)
    {
@@ -575,7 +677,7 @@ void UpdateSidePanel()
       DashLabel("SM_VIRT", sx + 10, ly + 4, " ", AD_TEXT_MUTED, 8);
 
    // === SIGNAL FEED ===
-   int feedY = sy + 230;
+   int feedY = sy + 245;
    DashRectangle("SIDE_FEED", sx, feedY, sw, 110, AD_BG_PANEL, AD_SIDE_BORDER);
    DashLabel("SF_TITLE", sx + 10, feedY + 5, "SIGNAL FEED", AD_AMBER_DIM, 9, AD_FONT_SECTION);
 

@@ -1,9 +1,14 @@
 //+------------------------------------------------------------------+
 //|                                        adCycleManager.mqh        |
-//|           AcquaDulza EA v1.3.0 — Cycle Manager                   |
+//|           AcquaDulza EA v1.4.0 — Cycle Manager                   |
 //|                                                                  |
 //|  Manages trade cycles: create, monitor, expire, detect fills     |
 //|  Absorbed from carnTriggerSystem + Carneval.mq5 cycle logic      |
+//|                                                                  |
+//|  v1.4.0: Hedge fields reset on cycle creation + cleanup          |
+//|    CreateCycle() — resetta 7 campi hedge (ticket, trigger, TP,   |
+//|      lot, pending, active, lineName) per ogni nuovo ciclo        |
+//|    InitCycleManager() — idem per inizializzazione completa       |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -136,6 +141,14 @@ int CreateCycle(const EngineSignal &sig)
    g_cycles[slot].placedTime      = iTime(_Symbol, PERIOD_CURRENT, 0);
    g_cycles[slot].quality         = sig.quality;
    g_cycles[slot].profit          = 0;
+   // Hedge fields reset
+   g_cycles[slot].hedgeTicket       = 0;
+   g_cycles[slot].hedgeTriggerPrice = 0;
+   g_cycles[slot].hedgeTPPrice      = 0;
+   g_cycles[slot].hedgeLotSize      = 0;
+   g_cycles[slot].hedgePending      = false;
+   g_cycles[slot].hedgeActive       = false;
+   g_cycles[slot].hedgeLineName     = "";
 
    // [MOD] SL rimosso — CalculateLotSize(0, quality) usa il LotSize fisso come fallback.
    // Il secondo parametro (sig.quality) applica il moltiplicatore TBS/TWS:
@@ -415,6 +428,14 @@ void InitializeCycles()
       g_cycles[i].placedTime = 0;
       g_cycles[i].quality   = 0;
       g_cycles[i].profit    = 0;
+      // Hedge fields
+      g_cycles[i].hedgeTicket       = 0;
+      g_cycles[i].hedgeTriggerPrice = 0;
+      g_cycles[i].hedgeTPPrice      = 0;
+      g_cycles[i].hedgeLotSize      = 0;
+      g_cycles[i].hedgePending      = false;
+      g_cycles[i].hedgeActive       = false;
+      g_cycles[i].hedgeLineName     = "";
    }
 
    Log_InitComplete("Cycle Manager");

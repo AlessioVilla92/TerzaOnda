@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                              adHelpers.mqh       |
-//|           AcquaDulza EA v1.3.0 — Helper Functions                |
+//|           AcquaDulza EA v1.4.0 — Helper Functions                |
 //|                                                                  |
 //|  Utility: price conversion, logging, formatting, account info    |
 //+------------------------------------------------------------------+
@@ -96,6 +96,7 @@ string FormatPercent(double percent)
 #define LOG_CAT_SYSTEM    "[SYSTEM]"
 #define LOG_CAT_RECOVERY  "[RECOVERY]"
 #define LOG_CAT_ENGINE    "[ENGINE]"
+#define LOG_CAT_HEDGE     "[HEDGE]"
 #define LOG_CAT_DPC       "[DPC]"
 #define LOG_CAT_PERSIST   "[PERSIST]"
 #define LOG_CAT_UI        "[UI]"

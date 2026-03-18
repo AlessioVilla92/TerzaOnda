@@ -1,9 +1,13 @@
 //+------------------------------------------------------------------+
 //|                                    adRecoveryManager.mqh         |
-//|           AcquaDulza EA v1.3.0 — Recovery Manager                |
+//|           AcquaDulza EA v1.4.0 — Recovery Manager                |
 //|                                                                  |
 //|  Broker scan recovery: reconstruct cycles from positions/orders  |
-//|  Single magic number, no soup/breakout/hedge                     |
+//|                                                                  |
+//|  v1.4.0: Scan hedge positions/orders (MagicNumber+1)             |
+//|    Posizioni hedge attive → hedgeActive=true, CYCLE_HEDGING      |
+//|    Ordini hedge pendenti → hedgePending=true                     |
+//|    Entrambi protetti da guard EnableHedge                         |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -115,6 +119,42 @@ void AttemptRecovery()
       g_recoveredPositions++;
    }
 
+   // === SCAN HEDGE POSITIONS (MagicNumber + 1) ===
+   if(EnableHedge)
+   {
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         ulong ticket = PositionGetTicket(i);
+         if(ticket == 0) continue;
+         if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+         if(PositionGetInteger(POSITION_MAGIC) != MagicNumber + 1) continue;
+
+         string comment = PositionGetString(POSITION_COMMENT);
+         int cycleID = ParseCycleIDFromComment(comment);
+         if(cycleID < 0) continue;
+
+         for(int j = 0; j < ArraySize(g_cycles); j++)
+         {
+            if(g_cycles[j].cycleID == cycleID)
+            {
+               g_cycles[j].hedgeTicket       = ticket;
+               g_cycles[j].hedgeActive       = true;
+               g_cycles[j].hedgePending      = false;
+               g_cycles[j].hedgeLotSize      = PositionGetDouble(POSITION_VOLUME);
+               g_cycles[j].hedgeTriggerPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+               g_cycles[j].hedgeTPPrice      = PositionGetDouble(POSITION_TP);
+               if(g_cycles[j].state == CYCLE_ACTIVE)
+                  g_cycles[j].state = CYCLE_HEDGING;
+
+               AdLogI(LOG_CAT_RECOVERY, StringFormat(
+                  "Hedge position recovered — #%d | Ticket=%d | Entry=%s",
+                  cycleID, ticket, DoubleToString(g_cycles[j].hedgeTriggerPrice, _Digits)));
+               break;
+            }
+         }
+      }
+   }
+
    // === SCAN PENDING ORDERS ===
    for(int i = OrdersTotal() - 1; i >= 0; i--)
    {
@@ -146,6 +186,40 @@ void AttemptRecovery()
 
       if(cycleID > maxCycleID) maxCycleID = cycleID;
       g_recoveredPendings++;
+   }
+
+   // === SCAN HEDGE PENDING ORDERS (MagicNumber + 1) ===
+   if(EnableHedge)
+   {
+      for(int i = OrdersTotal() - 1; i >= 0; i--)
+      {
+         ulong ticket = OrderGetTicket(i);
+         if(ticket == 0) continue;
+         if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
+         if(OrderGetInteger(ORDER_MAGIC) != MagicNumber + 1) continue;
+
+         string comment = OrderGetString(ORDER_COMMENT);
+         int cycleID = ParseCycleIDFromComment(comment);
+         if(cycleID < 0) continue;
+
+         for(int j = 0; j < ArraySize(g_cycles); j++)
+         {
+            if(g_cycles[j].cycleID == cycleID)
+            {
+               g_cycles[j].hedgeTicket       = ticket;
+               g_cycles[j].hedgePending      = true;
+               g_cycles[j].hedgeActive       = false;
+               g_cycles[j].hedgeLotSize      = OrderGetDouble(ORDER_VOLUME_CURRENT);
+               g_cycles[j].hedgeTriggerPrice = OrderGetDouble(ORDER_PRICE_OPEN);
+               g_cycles[j].hedgeTPPrice      = OrderGetDouble(ORDER_TP);
+
+               AdLogI(LOG_CAT_RECOVERY, StringFormat(
+                  "Hedge pending recovered — #%d | Ticket=%d | Trigger=%s",
+                  cycleID, ticket, DoubleToString(g_cycles[j].hedgeTriggerPrice, _Digits)));
+               break;
+            }
+         }
+      }
    }
 
    // Update next cycle ID

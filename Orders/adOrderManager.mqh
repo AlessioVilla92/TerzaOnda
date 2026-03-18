@@ -1,10 +1,15 @@
 //+------------------------------------------------------------------+
 //|                                        adOrderManager.mqh        |
-//|           AcquaDulza EA v1.3.0 — Order Manager                   |
+//|           AcquaDulza EA v1.4.0 — Order Manager                   |
 //|                                                                  |
 //|  3 entry modes: MARKET, LIMIT, STOP                              |
-//|  Single magic number. Retry logic.                               |
+//|  Retry logic. MagicNumber + MagicNumber+1 (hedge).               |
 //|  Absorbed from carnOrderManager + carnTriggerSystem              |
+//|                                                                  |
+//|  v1.4.0: CloseAll/DeleteAll gestiscono MagicNumber+1 (hedge)     |
+//|    CloseAllPositions() — chiude sia Soup che Hedge positions      |
+//|    DeleteAllPendingOrders() — cancella pendenti Soup + Hedge      |
+//|    Magic number restaurato a MagicNumber dopo ogni operazione     |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -400,11 +405,14 @@ int CloseAllPositions()
    {
       ulong ticket = PositionGetTicket(i);
       if(!PositionSelectByTicket(ticket)) continue;
-      if(PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
+      long posMagic = PositionGetInteger(POSITION_MAGIC);
+      if(posMagic != MagicNumber && posMagic != MagicNumber + 1) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
 
+      g_trade.SetExpertMagicNumber((int)posMagic);
       if(ClosePosition(ticket)) closed++;
    }
+   g_trade.SetExpertMagicNumber(MagicNumber);
    return closed;
 }
 
@@ -418,11 +426,14 @@ int DeleteAllPendingOrders()
    {
       ulong ticket = OrderGetTicket(i);
       if(!OrderSelect(ticket)) continue;
-      if(OrderGetInteger(ORDER_MAGIC) != MagicNumber) continue;
+      long ordMagic = OrderGetInteger(ORDER_MAGIC);
+      if(ordMagic != MagicNumber && ordMagic != MagicNumber + 1) continue;
       if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
 
+      g_trade.SetExpertMagicNumber((int)ordMagic);
       if(DeletePendingOrder(ticket)) deleted++;
    }
+   g_trade.SetExpertMagicNumber(MagicNumber);
    return deleted;
 }
 

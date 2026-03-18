@@ -1,9 +1,15 @@
 //+------------------------------------------------------------------+
 //|                                    adStatePersistence.mqh        |
-//|           AcquaDulza EA v1.3.0 — State Persistence               |
+//|           AcquaDulza EA v1.4.0 — State Persistence               |
 //|                                                                  |
 //|  Auto-save & restore CycleRecord array via GlobalVariables       |
-//|  Simplified: single magic, no soup/breakout/hedge                |
+//|                                                                  |
+//|  v1.4.0: Salvataggio/ripristino 6 campi hedge per ciclo          |
+//|    Save: hedgeTkt, hedgeTrig, hedgeTP, hedgeLot, hedgePend,      |
+//|          hedgeAct — persistiti in GlobalVariables                 |
+//|    Restore: ricostruzione completa stato hedge + validazione      |
+//|      CYCLE_HEDGING — verifica broker sia Soup che Hedge           |
+//|    HasSavedState: check MagicNumber E MagicNumber+1               |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -82,7 +88,8 @@ bool HasSavedState()
       ulong ticket = PositionGetTicket(i);
       if(ticket == 0) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
-      if(PositionGetInteger(POSITION_MAGIC) == MagicNumber)
+      long posMagic = PositionGetInteger(POSITION_MAGIC);
+      if(posMagic == MagicNumber || posMagic == MagicNumber + 1)
       { hasOrders = true; break; }
    }
    if(!hasOrders)
@@ -92,7 +99,8 @@ bool HasSavedState()
          ulong ticket = OrderGetTicket(i);
          if(ticket == 0) continue;
          if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
-         if(OrderGetInteger(ORDER_MAGIC) == MagicNumber)
+         long ordMagic = OrderGetInteger(ORDER_MAGIC);
+         if(ordMagic == MagicNumber || ordMagic == MagicNumber + 1)
          { hasOrders = true; break; }
       }
    }
@@ -163,6 +171,13 @@ void SaveState()
       SaveStateInt(p + "placTime", (int)g_cycles[i].placedTime);
       SaveStateInt(p + "quality", g_cycles[i].quality);
       SaveStateDouble(p + "profit", g_cycles[i].profit);
+      // Hedge fields
+      SaveStateUlong(p + "hedgeTkt", g_cycles[i].hedgeTicket);
+      SaveStateDouble(p + "hedgeTrig", g_cycles[i].hedgeTriggerPrice);
+      SaveStateDouble(p + "hedgeTP", g_cycles[i].hedgeTPPrice);
+      SaveStateDouble(p + "hedgeLot", g_cycles[i].hedgeLotSize);
+      SaveStateBool(p + "hedgePend", g_cycles[i].hedgePending);
+      SaveStateBool(p + "hedgeAct", g_cycles[i].hedgeActive);
    }
 
    // Timestamp
@@ -226,6 +241,14 @@ bool RestoreState()
          g_cycles[i].placedTime = (datetime)RestoreStateInt(p + "placTime");
          g_cycles[i].quality    = RestoreStateInt(p + "quality");
          g_cycles[i].profit     = RestoreStateDouble(p + "profit");
+         // Hedge fields
+         g_cycles[i].hedgeTicket       = RestoreStateUlong(p + "hedgeTkt");
+         g_cycles[i].hedgeTriggerPrice = RestoreStateDouble(p + "hedgeTrig");
+         g_cycles[i].hedgeTPPrice      = RestoreStateDouble(p + "hedgeTP");
+         g_cycles[i].hedgeLotSize      = RestoreStateDouble(p + "hedgeLot");
+         g_cycles[i].hedgePending      = RestoreStateBool(p + "hedgePend");
+         g_cycles[i].hedgeActive       = RestoreStateBool(p + "hedgeAct");
+         g_cycles[i].hedgeLineName     = "";  // Visual objects not persisted
       }
    }
 
@@ -245,6 +268,40 @@ bool RestoreState()
       {
          g_cycles[i].state = CYCLE_CLOSED;
          invalidated++;
+      }
+      else if(g_cycles[i].state == CYCLE_HEDGING)
+      {
+         bool soupValid  = (g_cycles[i].ticket > 0) && IsPositionOpen(g_cycles[i].ticket);
+         bool hedgeValid = false;
+         if(g_cycles[i].hedgeActive && g_cycles[i].hedgeTicket > 0)
+            hedgeValid = IsPositionOpen(g_cycles[i].hedgeTicket);
+         else if(g_cycles[i].hedgePending && g_cycles[i].hedgeTicket > 0)
+            hedgeValid = OrderSelect(g_cycles[i].hedgeTicket);
+
+         if(!soupValid && !hedgeValid)
+         {
+            g_cycles[i].state = CYCLE_CLOSED;
+            g_cycles[i].hedgePending = false;
+            g_cycles[i].hedgeActive  = false;
+            invalidated++;
+         }
+         else if(!hedgeValid)
+         {
+            // Hedge sparito ma Soup viva — torna a CYCLE_ACTIVE
+            g_cycles[i].state = CYCLE_ACTIVE;
+            g_cycles[i].hedgePending = false;
+            g_cycles[i].hedgeActive  = false;
+            g_cycles[i].hedgeTicket  = 0;
+            validated++;
+         }
+         else if(!soupValid)
+         {
+            // Soup sparita ma hedge vivo — segna CLOSED, HedgeMonitor fara' cleanup
+            g_cycles[i].state = CYCLE_CLOSED;
+            invalidated++;
+         }
+         else
+            validated++;
       }
       else
          validated++;

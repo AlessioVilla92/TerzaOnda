@@ -1,11 +1,12 @@
 //+------------------------------------------------------------------+
 //|                                          adVisualTheme.mqh       |
-//|           AcquaDulza EA v1.3.0 — Palette "Deep Ocean"            |
+//|           AcquaDulza EA v1.4.0 — Palette "Deep Ocean"            |
 //|                                                                  |
 //|  Colori hardcodati — editabili SOLO via codice sorgente          |
 //|  NON visibili nelle impostazioni EA                              |
 //|                                                                  |
 //|  Palette: Deep Ocean — da AcquaDulza_Dashboard_Ocean_v3.html     |
+//|  v1.4.0: Aggiunto AD_HEDGE (fucsia) e AD_HEDGE_DIM              |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -23,7 +24,7 @@
 //+------------------------------------------------------------------+
 #define AD_BORDER          C'30,61,92'       // #1e3d5c — bordo pannello
 #define AD_BORDER_GLOW     C'42,85,128'      // #2a5580 — bordo attivo / hover
-#define AD_BORDER_FRAME    C'0,190,230'      // #00bee6 — cornice acqua perimetrale dashboard
+#define AD_BORDER_FRAME    C'180,220,255'    // #b4dcff — azzurro chiaro perimetrale dashboard
 
 // Alias dashboard
 #define AD_PANEL_BG        AD_BG_PANEL
@@ -45,6 +46,8 @@
 #define AD_SELL_DIM        C'136,34,51'      // #882233 — SELL smorzato
 #define AD_AMBER           C'255,179,71'     // #ffb347 — ambra marina
 #define AD_AMBER_DIM       C'136,85,0'       // #885500 — ambra smorzato
+#define AD_HEDGE           C'255,0,255'      // #ff00ff — fucsia (hedge)
+#define AD_HEDGE_DIM       C'136,0,136'      // #880088 — fucsia smorzato
 
 //+------------------------------------------------------------------+
 //| TESTO                                                            |

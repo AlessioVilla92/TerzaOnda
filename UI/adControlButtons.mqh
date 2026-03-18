@@ -1,9 +1,12 @@
 //+------------------------------------------------------------------+
 //|                                      adControlButtons.mqh        |
-//|           AcquaDulza EA v1.3.0 — Control Buttons                 |
+//|           AcquaDulza EA v1.4.0 — Control Buttons                 |
 //|                                                                  |
 //|  4 buttons: START, PAUSE, RECOVERY, STOP                        |
 //|  Ocean palette colors                                            |
+//|                                                                  |
+//|  v1.4.0: STOP resetta stato hedge (pending/active/ticket)        |
+//|           + chiama HedgeDeinit() per rimuovere linee fucsia      |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -175,6 +178,17 @@ void HandleButtonClick(string sparam)
    {
       AdLogI(LOG_CAT_UI, "Button: STOP — closing all");
       CloseAllOrders();
+      // Cleanup hedge state on all cycles
+      if(EnableHedge)
+      {
+         for(int _ci = 0; _ci < ArraySize(g_cycles); _ci++)
+         {
+            g_cycles[_ci].hedgePending = false;
+            g_cycles[_ci].hedgeActive  = false;
+            g_cycles[_ci].hedgeTicket  = 0;
+         }
+         HedgeDeinit();  // Remove all fuchsia lines
+      }
       g_systemState = STATE_IDLE;
       UpdateButtonFeedback();
       ChartRedraw();
