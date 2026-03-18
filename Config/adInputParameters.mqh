@@ -330,3 +330,7 @@ input bool   ShowHedgeLine           = true;    // ✅ Mostra linea fucsia trigg
 input int    HedgeLineBarWidth       = 6;       // 📏 Durata linea fucsia (barre)
 // ↑ Quante barre dura la visualizzazione del livello hedge sul grafico.
 //   Valore consigliato: 5-8 barre. Non influenza il comportamento dell'ordine.
+input bool   ShowHedgeZone           = true;    // ✅ Mostra zona hedge (linee continue)
+// ↑ Due linee fuchsia continue sopra e sotto il canale Donchian che mostrano
+//   in tempo reale dove verrebbe piazzato l'hedge: banda ± HedgeATRMult × ATR(14).
+//   Richiede EnableHedge=true e ShowChannelOverlay=true.

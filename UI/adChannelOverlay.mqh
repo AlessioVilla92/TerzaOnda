@@ -131,6 +131,8 @@ void DrawChannelOverlay()
          ObjectDelete(0, pfx + "L");
          ObjectDelete(0, pfx + "M");
          ObjectDelete(0, pfx + "A");
+         ObjectDelete(0, pfx + "HU");
+         ObjectDelete(0, pfx + "HL");
       }
    }
    g_ovlLastDepth = depth;
@@ -193,6 +195,17 @@ void DrawChannelOverlay()
       {
          DrawOverlayLine(prefix + "A", t2, arrMA[i + 1], t1, arrMA[i],
                          AD_CHAN_MA_CLR, STYLE_SOLID, 2);
+      }
+
+      // Hedge zone lines — linee continue fuchsia esterne al canale
+      // Mostrano dove verrebbe piazzato l'hedge: banda ± HedgeATRMult × ATR
+      if(EnableHedge && ShowHedgeZone && g_atrPips > 0)
+      {
+         double hedgeOff = HedgeATRMult * PipsToPrice(g_atrPips);
+         DrawOverlayLine(prefix + "HU", t2, arrU[i + 1] + hedgeOff, t1, arrU[i] + hedgeOff,
+                         AD_HEDGE_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE_ZONE_STYLE, AD_HEDGE_ZONE_WIDTH);
+         DrawOverlayLine(prefix + "HL", t2, arrL[i + 1] - hedgeOff, t1, arrL[i] - hedgeOff,
+                         AD_HEDGE_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE_ZONE_STYLE, AD_HEDGE_ZONE_WIDTH);
       }
    }
 
@@ -417,6 +430,26 @@ void UpdateChannelLiveEdge()
       {
          ObjectSetInteger(0, nameA, OBJPROP_TIME, 1, t0);
          ObjectSetDouble(0, nameA, OBJPROP_PRICE, 1, ma0);
+      }
+   }
+
+   // Aggiorna hedge zone lines — live edge
+   if(EnableHedge && ShowHedgeZone && g_atrPips > 0)
+   {
+      double hedgeOff = HedgeATRMult * PipsToPrice(g_atrPips);
+
+      string nameHU = prefix + "HU";
+      if(ObjectFind(0, nameHU) >= 0)
+      {
+         ObjectSetInteger(0, nameHU, OBJPROP_TIME, 1, t0);
+         ObjectSetDouble(0, nameHU, OBJPROP_PRICE, 1, upper0 + hedgeOff);
+      }
+
+      string nameHL = prefix + "HL";
+      if(ObjectFind(0, nameHL) >= 0)
+      {
+         ObjectSetInteger(0, nameHL, OBJPROP_TIME, 1, t0);
+         ObjectSetDouble(0, nameHL, OBJPROP_PRICE, 1, lower0 - hedgeOff);
       }
    }
 }

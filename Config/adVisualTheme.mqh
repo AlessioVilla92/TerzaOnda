@@ -48,6 +48,9 @@
 #define AD_AMBER_DIM       C'136,85,0'       // #885500 — ambra smorzato
 #define AD_HEDGE           C'255,0,255'      // #ff00ff — fucsia (hedge)
 #define AD_HEDGE_DIM       C'136,0,136'      // #880088 — fucsia smorzato
+#define AD_HEDGE_ZONE_CLR  AD_HEDGE_DIM      // Linee zona hedge continue
+#define AD_HEDGE_ZONE_WIDTH 1                // Spessore linee zona hedge
+#define AD_HEDGE_ZONE_STYLE STYLE_SOLID      // Stile linee zona hedge
 
 //+------------------------------------------------------------------+
 //| TESTO                                                            |

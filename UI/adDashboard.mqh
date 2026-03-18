@@ -196,6 +196,18 @@ void DrawEnginePanel(int x, int y, int w)
    DashLabel("ENG_STATUS", x + w - 100, y + 6,
              ready ? "ACTIVE" : "INIT...", ready ? AD_BUY : AD_AMBER, 10, AD_FONT_SECTION);
 
+   // TP Mode label — centrato tra titolo e status
+   string tpStr = "";
+   switch(TPMode)
+   {
+      case TP_MIDLINE:       tpStr = "TP: MIDLINE";                         break;
+      case TP_OPPOSITE_BAND: tpStr = "TP: OPP.BAND";                       break;
+      case TP_150_PERCENT:   tpStr = "TP: 150%";                            break;
+      case TP_ATR_MULTIPLE:  tpStr = "TP: ATR" + ShortToString(0x00D7) + StringFormat("%.1f", TPValue); break;
+      case TP_FIXED_PIPS:    tpStr = StringFormat("TP: %.0f pip", TPValue);  break;
+   }
+   DashLabel("ENG_TP", x + w / 2, y + 6, tpStr, AD_AMBER, 9, AD_FONT_SECTION);
+
    if(g_lastSignal.upperBand > 0)
    {
       DashLabel("ENG_UPPER", x + pad, y + 26,
@@ -706,9 +718,7 @@ void UpdateDashboard()
               + AD_H_FILTERS + AD_H_LASTSIG + AD_H_CYCLES + AD_H_PL
               + AD_H_CONTROLS + AD_H_STATUSBAR + (9 * AD_GAP);
 
-   // ── Cornice perimetrale acqua con titolo "ACQUADULZA" ──
-   // Frame esteso: area titolo sopra (20px) + area sottotitolo sotto (16px)
-   // Doppio rettangolo: glow esterno (acqua dim) + cornice interna (acqua brillante)
+   // ── Cornice perimetrale con bordo solido 3px (stile SugamaraPivot) ──
    int fm = 4;    // margine cornice (px tra bordo e pannelli)
    int ftH = 20;  // area titolo superiore
    int fbH = 16;  // area titolo inferiore
@@ -717,14 +727,9 @@ void UpdateDashboard()
    int frameW = w + 2 * fm;
    int frameH = totalH + ftH + fbH + 2 * fm;
 
-   // Glow esterno (alone acqua dim)
-   DashRectangle("FRAME_GLOW", frameX - 1, frameY - 1,
-                 frameW + 2, frameH + 2, C'0,0,0', AD_BIOLUM_DIM);
-
-   // Cornice principale (bordo acqua brillante, sfondo deep per area titolo)
-   DashRectangle("BORDER_FRAME", frameX, frameY,
-                 frameW, frameH, AD_BG_DEEP, AD_BORDER_FRAME);
-   ObjectSetInteger(0, "AD_BORDER_FRAME", OBJPROP_ZORDER, AD_Z_RECT + 1);
+   // Sfondo completo frame (creato primo = disegnato sotto i pannelli)
+   DashRectangle("FRAME_BG", frameX, frameY,
+                 frameW, frameH, AD_BG_DEEP, AD_BG_DEEP);
 
    // Barra decorativa orizzontale (─────)
    string hBar = "";
@@ -755,6 +760,18 @@ void UpdateDashboard()
    DrawStatusBar(x, y, w);
 
    UpdateSidePanel();
+
+   // ── Bordo solido 4 rettangoli (creati ULTIMI per stacking MT5) ──
+   int bw = 3;
+   color bClr = AD_BIOLUM;  // cyan brillante C'0,212,255'
+   DashRectangle("FRAME_BORDER_T", frameX - bw, frameY - bw,
+                 frameW + 2*bw, bw, bClr, bClr);
+   DashRectangle("FRAME_BORDER_B", frameX - bw, frameY + frameH,
+                 frameW + 2*bw, bw, bClr, bClr);
+   DashRectangle("FRAME_BORDER_L", frameX - bw, frameY - bw,
+                 bw, frameH + 2*bw, bClr, bClr);
+   DashRectangle("FRAME_BORDER_R", frameX + frameW, frameY - bw,
+                 bw, frameH + 2*bw, bClr, bClr);
 }
 
 //+------------------------------------------------------------------+

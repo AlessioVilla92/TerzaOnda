@@ -325,11 +325,11 @@ int OnInit()
    // 11. Timer per auto-save
    EventSetTimer(1);  // 1s initially for overlay retry, then 60s
 
-   // Auto-start: sistema parte attivo senza bisogno di premere START
+   // Fresh start: sistema parte IDLE — utente deve premere START
    if(!g_recoveryPerformed && g_systemState == STATE_INITIALIZING)
    {
-      g_systemState = STATE_ACTIVE;
-      AdLogI(LOG_CAT_INIT, "State: INITIALIZING -> ACTIVE (auto-start)");
+      g_systemState = STATE_IDLE;
+      AdLogI(LOG_CAT_INIT, "State: INITIALIZING -> IDLE (press START)");
    }
 
    PopulateDashboardData();
@@ -339,9 +339,11 @@ int OnInit()
    if(_UninitReason == REASON_CHARTCHANGE)
       AddFeedItem("TF changed -> " + EnumToString(Period()), AD_BIOLUM);
    AddFeedItem("Engine DPC ready · " + EnumToString(Period()), AD_BIOLUM);
+   if(g_systemState == STATE_IDLE)
+      AddFeedItem("Press START to begin trading", AD_AMBER);
 
    AdLogI(LOG_CAT_INIT, StringFormat("ACQUADULZA ready — %s",
-          g_recoveryPerformed ? "RECOVERED" : "ACTIVE (auto-start)"));
+          g_recoveryPerformed ? "RECOVERED" : "IDLE (press START)"));
    return INIT_SUCCEEDED;
 }
 
