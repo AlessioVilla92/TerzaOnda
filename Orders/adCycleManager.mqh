@@ -385,11 +385,23 @@ void MonitorActive()
                 g_cycles[i].direction > 0 ? "BUY" : "SELL", profit,
                 g_sessionWins, g_sessionLosses, g_sessionRealizedProfit));
 
-         // Feed item for dashboard
+         // Alert popup + Feed item for dashboard
          if(profit > 0)
+         {
+            Alert(StringFormat("AcquaDulza TP HIT #%d %s | Profit=+%.2f | TP=%s | %s",
+                  g_cycles[i].cycleID,
+                  g_cycles[i].direction > 0 ? "BUY" : "SELL",
+                  profit, FormatPrice(g_cycles[i].tpPrice), _Symbol));
             AddFeedItem("TP hit " + FormatPrice(g_cycles[i].tpPrice) + " +$" + DoubleToString(profit, 2), AD_BUY);
+         }
          else
+         {
+            Alert(StringFormat("AcquaDulza CLOSED #%d %s | Loss=%.2f | %s",
+                  g_cycles[i].cycleID,
+                  g_cycles[i].direction > 0 ? "BUY" : "SELL",
+                  profit, _Symbol));
             AddFeedItem("SL hit -$" + DoubleToString(MathAbs(profit), 2), AD_SELL);
+         }
 
          Log_PositionClosed(g_cycles[i].ticket, result, profit,
                            g_cycles[i].entryPrice);

@@ -257,6 +257,14 @@ void HedgePlaceOrder(int slot, const EngineSignal &sig)
          g_atrPips,
          PointsToPips(hedgeDist)));
 
+      Alert(StringFormat("AcquaDulza HEDGE PIAZZATO #%d %s STOP | Lot=%.2f | Trigger=%s | TP=%s | %s",
+            g_cycles[slot].cycleID,
+            g_cycles[slot].direction < 0 ? "BUY" : "SELL",
+            hedgeLot,
+            DoubleToString(triggerLevel, _Digits),
+            DoubleToString(tpLevel, _Digits),
+            _Symbol));
+
       // Disegna linea fucsia
       if(ShowHedgeLine)
          HedgeDrawTriggerLine(slot, triggerLevel, sig.barTime);
@@ -466,6 +474,9 @@ void HedgeMonitor(int slot)
             "=== HEDGED CLOSED #%d === SoupPL=%.2f | HedgePL=%.2f | Net=%.2f",
             g_cycles[slot].cycleID, soupPL, hedgePL, g_cycles[slot].profit));
 
+         Alert(StringFormat("AcquaDulza HEDGE CLOSED #%d (Soup TP) | Soup=%+.2f | Hedge=%+.2f | Net=%+.2f | %s",
+               g_cycles[slot].cycleID, soupPL, hedgePL, g_cycles[slot].profit, _Symbol));
+
          g_cycles[slot].state = CYCLE_CLOSED;
          return;
       }
@@ -509,6 +520,9 @@ void HedgeMonitor(int slot)
             "=== HEDGED CLOSED #%d === SoupPL=%.2f | HedgePL=%.2f | Net=%.2f",
             g_cycles[slot].cycleID, soupPL, hedgePL, g_cycles[slot].profit));
 
+         Alert(StringFormat("AcquaDulza HEDGE CLOSED #%d (Hedge TP) | Soup=%+.2f | Hedge=%+.2f | Net=%+.2f | %s",
+               g_cycles[slot].cycleID, soupPL, hedgePL, g_cycles[slot].profit, _Symbol));
+
          g_cycles[slot].state = CYCLE_CLOSED;
          return;
       }
@@ -528,6 +542,9 @@ void HedgeMonitor(int slot)
          g_cycles[slot].state = CYCLE_CLOSED;
          AdLogI(LOG_CAT_HEDGE, StringFormat(
             "BOTH CLOSED simultaneously #%d | Net=%.2f", g_cycles[slot].cycleID, g_cycles[slot].profit));
+
+         Alert(StringFormat("AcquaDulza HEDGE CLOSED #%d (Both) | Soup=%+.2f | Hedge=%+.2f | Net=%+.2f | %s",
+               g_cycles[slot].cycleID, soupPL, hedgePL, g_cycles[slot].profit, _Symbol));
       }
    }
 }
