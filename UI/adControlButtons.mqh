@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adControlButtons.mqh        |
-//|           AcquaDulza EA v1.4.0 — Control Buttons                 |
+//|           AcquaDulza EA v1.4.1 — Control Buttons                 |
 //|                                                                  |
 //|  4 buttons: START, PAUSE, RECOVERY, STOP                        |
 //|  Ocean palette colors                                            |
@@ -17,7 +17,6 @@
 #define BTN_PAUSE    "AD_BTN_PAUSE"
 #define BTN_RECOVER  "AD_BTN_RECOVER"
 #define BTN_STOP     "AD_BTN_STOP"
-#define BTN_STATUS   "AD_BTN_STATUS"
 
 //+------------------------------------------------------------------+
 //| Button Colors (Ocean)                                            |

@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adSessionManager.mqh        |
-//|           AcquaDulza EA v1.3.0 — Session Manager                 |
+//|           AcquaDulza EA v1.4.1 — Session Manager                 |
 //|                                                                  |
 //|  Session filter + ParseTimeToMinutes + IsInBlockedTime           |
 //|  Semplificato: solo un magic number, no hedge logic              |
@@ -10,7 +10,6 @@
 //+------------------------------------------------------------------+
 //| Session Variables                                                |
 //+------------------------------------------------------------------+
-bool     g_sessionActive        = false;
 bool     g_sessionCloseTriggered = false;
 int      g_lastSessionDay       = -1;
 string   g_currentSessionName   = "NONE";

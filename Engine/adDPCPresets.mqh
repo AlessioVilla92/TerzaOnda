@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDPCPresets.mqh        |
-//|           AcquaDulza EA v1.3.0 — DPC TF Auto-Preset             |
+//|           AcquaDulza EA v1.4.1 — DPC TF Auto-Preset             |
 //|                                                                  |
 //|  Inizializza parametri effettivi per il TF corrente.             |
 //|  Se InpEngineAutoTFPreset=true, sovrascrive i valori input.      |

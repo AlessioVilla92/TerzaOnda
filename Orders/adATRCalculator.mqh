@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adATRCalculator.mqh       |
-//|           AcquaDulza EA v1.3.0 — ATR Calculator Module           |
+//|           AcquaDulza EA v1.4.1 — ATR Calculator Module           |
 //|                                                                  |
 //|  ATR indicator for volatility monitoring                         |
 //|  Unified cache system for dashboard + engine                     |
@@ -126,6 +126,10 @@ bool InitializeATR()
    g_atrCache.lastFullUpdate = TimeCurrent();
    g_atrCache.lastBarTime = iTime(_Symbol, InpATR_Timeframe, 0);
    g_atrCache.isValid = (g_atrCache.valuePips > 0);
+   g_atrPips = g_atrCache.valuePips;
+
+   AdLogI(LOG_CAT_ATR, StringFormat("g_atrPips synced: %.2f pips | valid=%s",
+          g_atrPips, g_atrCache.isValid ? "YES" : "NO"));
 
    Log_InitComplete("ATR Calculator");
    return true;
@@ -140,39 +144,11 @@ void UpdateATR()
    if(newATR > 0)
    {
       g_atrCache.valuePips     = newATR;
+      g_atrPips                = newATR;
       g_atrCache.lastFullUpdate = TimeCurrent();
       g_atrCache.lastBarTime   = iTime(_Symbol, InpATR_Timeframe, 0);
       g_atrCache.isValid       = true;
    }
 }
 
-//+------------------------------------------------------------------+
-//| GetATRPipsUnified — Single source of truth with caching         |
-//|  updateMode: 0=cache only, 1=force update, 2=if new bar         |
-//+------------------------------------------------------------------+
-double GetATRPipsUnified(int updateMode = 0)
-{
-   if(g_atrHandle == INVALID_HANDLE)
-      return g_atrCache.isValid ? g_atrCache.valuePips : 10.0;
-
-   datetime currentBarTime = iTime(_Symbol, InpATR_Timeframe, 0);
-
-   if(updateMode == 0 && g_atrCache.isValid)
-      return g_atrCache.valuePips;
-
-   if(updateMode == 2 && g_atrCache.lastBarTime == currentBarTime && g_atrCache.isValid)
-      return g_atrCache.valuePips;
-
-   // Force update
-   double newATR = GetATRPips();
-   if(newATR > 0)
-   {
-      g_atrCache.valuePips      = newATR;
-      g_atrCache.lastFullUpdate = TimeCurrent();
-      g_atrCache.lastBarTime    = currentBarTime;
-      g_atrCache.isValid        = true;
-   }
-
-   return g_atrCache.isValid ? g_atrCache.valuePips : 10.0;
-}
 

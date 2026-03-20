@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDashboard.mqh         |
-//|           AcquaDulza EA v1.4.0 — Dashboard Display               |
+//|           AcquaDulza EA v1.4.1 — Dashboard Display               |
 //|                                                                  |
 //|  Ocean theme dashboard — Pragmatic approach.                     |
 //|  Layout: Header (logo+ver+engine) | TitleBar (pair+state)        |
@@ -131,11 +131,8 @@ void DrawSystemStatus(int x, int y, int w)
 
    // Grid: 3 rows x 2 columns, labels + values
    int col1 = x + pad;
-   int col2 = x + pad + 110;
    int col3 = x + pad + 220;
-   int col4 = x + pad + 330;
    int col5 = x + pad + 440;
-   int col6 = x + pad + 550;
    int row1 = y + 22;
    int row2 = y + 40;
    int row3 = y + 58;

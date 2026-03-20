@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adDPCLTFEntry.mqh         |
-//|           AcquaDulza EA v1.3.0 — DPC LTF Entry Confirmation      |
+//|           AcquaDulza EA v1.4.1 — DPC LTF Entry Confirmation      |
 //|                                                                  |
 //|  Lower TimeFrame entry confirmation for precise timing.          |
 //|  Based on DPC0404 v7.19 Section 5c.                              |

@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                    adRecoveryManager.mqh         |
-//|           AcquaDulza EA v1.4.0 — Recovery Manager                |
+//|           AcquaDulza EA v1.4.1 — Recovery Manager                |
 //|                                                                  |
 //|  Broker scan recovery: reconstruct cycles from positions/orders  |
 //|                                                                  |

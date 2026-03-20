@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adChannelOverlay.mqh        |
-//|           AcquaDulza EA v1.3.0 — Channel Overlay                 |
+//|           AcquaDulza EA v1.4.1 — Channel Overlay                 |
 //|                                                                  |
 //|  Visualizzazione grafica del canale Donchian Predictive sul chart.|
 //|                                                                  |
@@ -611,38 +611,6 @@ void DrawTPHitMarker(int cycleID, double tpPrice, datetime hitTime)
    ObjectSetInteger(0, name, OBJPROP_WIDTH, 3);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
-}
-
-//+------------------------------------------------------------------+
-//| DrawTriggerVLine — VLine gialla sulla candela trigger             |
-//|                                                                  |
-//| NOTA: Funzione attualmente NON chiamata. Le VLine trigger sono   |
-//|       state disattivate su richiesta utente. La funzione e'      |
-//|       mantenuta per eventuale riattivazione futura.              |
-//|       Era chiamata da DrawSignalMarkers() e ScanHistoricalSignals|
-//|                                                                  |
-//| SCOPO ORIGINALE: Disegnava una linea verticale gialla tratteggiata|
-//|        sulla candela trigger (bar[1]) al momento del segnale.    |
-//|                                                                  |
-//| PROPRIETA':                                                      |
-//|   - BACK=true: dietro le candele (non intrusiva)                 |
-//|   - STYLE_DOT: tratteggiata sottile                              |
-//|   - Tooltip con direzione BUY/SELL                               |
-//+------------------------------------------------------------------+
-void DrawTriggerVLine(datetime barTime, bool isBuy)
-{
-   string name = StringFormat("AD_TRIG_VL_%d", (int)barTime);
-   if(ObjectFind(0, name) < 0)
-      ObjectCreate(0, name, OBJ_VLINE, 0, barTime, 0);
-
-   ObjectSetInteger(0, name, OBJPROP_COLOR, AD_TRIGGER_CLR);  // Giallo
-   ObjectSetInteger(0, name, OBJPROP_STYLE, STYLE_DOT);
-   ObjectSetInteger(0, name, OBJPROP_WIDTH, 1);
-   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
-   ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
-   ObjectSetInteger(0, name, OBJPROP_BACK, true);
-   ObjectSetString(0, name, OBJPROP_TOOLTIP,
-      StringFormat("TRIGGER %s", isBuy ? "BUY" : "SELL"));
 }
 
 //+------------------------------------------------------------------+

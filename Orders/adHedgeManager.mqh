@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adHedgeManager.mqh          |
-//|           AcquaDulza EA v1.4.0 — Hedge Manager                   |
+//|           AcquaDulza EA v1.4.1 — Hedge Manager                   |
 //|                                                                  |
 //|  Gestisce ordine hedge (BUY/SELL STOP) opposto alla Soup.        |
 //|                                                                  |
@@ -478,6 +478,7 @@ void HedgeMonitor(int slot)
                g_cycles[slot].cycleID, soupPL, hedgePL, g_cycles[slot].profit, _Symbol));
 
          g_cycles[slot].state = CYCLE_CLOSED;
+         RemoveTPLine(g_cycles[slot].cycleID);
          return;
       }
 
@@ -524,6 +525,7 @@ void HedgeMonitor(int slot)
                g_cycles[slot].cycleID, soupPL, hedgePL, g_cycles[slot].profit, _Symbol));
 
          g_cycles[slot].state = CYCLE_CLOSED;
+         RemoveTPLine(g_cycles[slot].cycleID);
          return;
       }
 
@@ -545,6 +547,7 @@ void HedgeMonitor(int slot)
 
          Alert(StringFormat("AcquaDulza HEDGE CLOSED #%d (Both) | Soup=%+.2f | Hedge=%+.2f | Net=%+.2f | %s",
                g_cycles[slot].cycleID, soupPL, hedgePL, g_cycles[slot].profit, _Symbol));
+         RemoveTPLine(g_cycles[slot].cycleID);
       }
    }
 }

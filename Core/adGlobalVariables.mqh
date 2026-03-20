@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adGlobalVariables.mqh       |
-//|           AcquaDulza EA v1.3.0 — Global Variables                |
+//|           AcquaDulza EA v1.4.1 — Global Variables                |
 //|                                                                  |
 //|  Stato macchina + array cicli + tracking + trade object          |
 //|  NO variabili engine-specifiche (vivono in Engine/)              |
@@ -81,19 +81,12 @@ bool g_engineReady = false;
 EngineSignal g_lastSignal;
 
 //+------------------------------------------------------------------+
-//| DASHBOARD DATA — Popolata dal framework, letta dal dashboard     |
-//+------------------------------------------------------------------+
-DashboardData g_dashData;
-
-//+------------------------------------------------------------------+
 //| SIGNAL TRACKING                                                  |
 //+------------------------------------------------------------------+
 int      g_totalSignals     = 0;
 int      g_buySignals       = 0;
 int      g_sellSignals      = 0;
 datetime g_lastSignalTime   = 0;
-datetime g_lastProcessedBuyBar  = 0;   // Anti-repaint
-datetime g_lastProcessedSellBar = 0;   // Anti-repaint
 
 //+------------------------------------------------------------------+
 //| CYCLE MANAGEMENT                                                 |

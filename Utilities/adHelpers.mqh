@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                              adHelpers.mqh       |
-//|           AcquaDulza EA v1.4.0 — Helper Functions                |
+//|           AcquaDulza EA v1.4.1 — Helper Functions                |
 //|                                                                  |
 //|  Utility: price conversion, logging, formatting, account info    |
 //+------------------------------------------------------------------+
@@ -24,13 +24,7 @@ double PointsToPips(double points)
    return points / g_pipSize;
 }
 
-//--- Converte pip in distanza prezzo (points)
-double PipsToPoints(double pips)
-{
-   return pips * g_pipSize;
-}
-
-//--- Alias: converte pip in delta prezzo (per SL/TP/offset)
+//--- Converte pip in delta prezzo (per SL/TP/offset)
 double PipsToPrice(double pips)
 {
    return pips * g_pipSize;
@@ -108,12 +102,12 @@ string FormatPercent(double percent)
 #define LOG_CAT_VIRTUAL   "[VIRTUAL]"
 #define LOG_CAT_TRIGGER   "[TRIGGER]"
 #define LOG_CAT_HTF       "[HTF]"
-#define LOG_CAT_LTF       "[LTF]"
 
 string LogLevelToString(ENUM_LOG_LEVEL level)
 {
    switch(level)
    {
+      case LOG_DEBUG:   return "DEBUG";
       case LOG_INFO:    return "INFO ";
       case LOG_WARNING: return "WARN ";
       case LOG_ERROR:   return "ERROR";
@@ -136,6 +130,7 @@ void AdLog(ENUM_LOG_LEVEL level, string category, string message)
       LogToCSV(level, category, message);
 }
 
+void AdLogD(string cat, string msg) { AdLog(LOG_DEBUG,   cat, msg); }
 void AdLogI(string cat, string msg) { AdLog(LOG_INFO,    cat, msg); }
 void AdLogW(string cat, string msg) { AdLog(LOG_WARNING, cat, msg); }
 void AdLogE(string cat, string msg) { AdLog(LOG_ERROR,   cat, msg); }
@@ -182,12 +177,6 @@ void Log_SystemError(string component, int code, string message)
 {
    AdLog(LOG_ERROR, LOG_CAT_SYSTEM,
       StringFormat("component=%s code=%d message=%s", component, code, message));
-}
-
-void Log_SystemWarning(string component, string message)
-{
-   AdLog(LOG_WARNING, LOG_CAT_SYSTEM,
-      StringFormat("component=%s message=%s", component, message));
 }
 
 void Log_InitConfig(string key, string value)
@@ -255,15 +244,6 @@ double GetMarginLevel()
    return (AccountInfoDouble(ACCOUNT_EQUITY) / margin) * 100.0;
 }
 
-double GetCurrentDrawdown()
-{
-   double balance = GetBalance();
-   double equity  = GetEquity();
-   if(balance <= 0) return 0;
-   if(equity >= balance) return 0;
-   return ((balance - equity) / balance) * 100.0;
-}
-
 //+------------------------------------------------------------------+
 //| CHART OBJECT HELPERS                                             |
 //+------------------------------------------------------------------+
@@ -282,32 +262,6 @@ void CreateHLine(string name, double price, color clr, int width = 1, ENUM_LINE_
    ObjectSetInteger(0, name, OBJPROP_BACK, true);
    ObjectSetInteger(0, name, OBJPROP_ZORDER, 100);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
-}
-
-void CreateExitArrow(double price, datetime time, bool isBuy, bool isTP, string prefix)
-{
-   string name = "AD_EXIT_" + prefix + "_" + TimeToString(time, TIME_DATE|TIME_MINUTES);
-
-   int arrowCode;
-   if(isTP)
-      arrowCode = 171;
-   else
-      arrowCode = isBuy ? 234 : 233;
-
-   color arrowColor = isTP ? AD_EXIT_TP_CLR : AD_EXIT_SL_CLR;
-
-   ObjectCreate(0, name, OBJ_ARROW, 0, time, price);
-   ObjectSetInteger(0, name, OBJPROP_ARROWCODE, arrowCode);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, arrowColor);
-   ObjectSetInteger(0, name, OBJPROP_WIDTH, AD_ARROW_SIZE);
-   ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
-   ObjectSetInteger(0, name, OBJPROP_BACK, false);
-   ObjectSetInteger(0, name, OBJPROP_ZORDER, 500);
-   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
-
-   string tooltip = StringFormat("%s %s | %s",
-      isBuy ? "BUY" : "SELL", isTP ? "TP" : "SL", FormatPrice(price));
-   ObjectSetString(0, name, OBJPROP_TOOLTIP, tooltip);
 }
 
 //+------------------------------------------------------------------+

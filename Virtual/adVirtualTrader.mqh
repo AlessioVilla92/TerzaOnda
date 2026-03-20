@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                       adVirtualTrader.mqh        |
-//|           AcquaDulza EA v1.3.0 — Virtual (Paper) Trader          |
+//|           AcquaDulza EA v1.4.1 — Virtual (Paper) Trader          |
 //|                                                                  |
 //|  Simulates trade cycles without broker orders.                   |
 //|  Uses same CycleRecord structure for consistency.                |
@@ -11,7 +11,6 @@
 //+------------------------------------------------------------------+
 //| Virtual Trade State                                              |
 //+------------------------------------------------------------------+
-int      g_virtualTradeCount = 0;
 double   g_virtualTotalProfit = 0;
 int      g_virtualWins  = 0;
 int      g_virtualLosses = 0;
@@ -43,7 +42,6 @@ int VirtualCreateTrade(const EngineSignal &sig)
    g_cycles[slot].quality    = sig.quality;
    g_cycles[slot].profit     = 0;
 
-   g_virtualTradeCount++;
    g_totalSignals++;
    if(sig.direction > 0) g_buySignals++;
    else g_sellSignals++;
@@ -121,11 +119,4 @@ void VirtualMonitor()
    }
 }
 
-//+------------------------------------------------------------------+
-//| VirtualGetSummary — Dashboard summary                           |
-//+------------------------------------------------------------------+
-string VirtualGetSummary()
-{
-   return StringFormat("V:%d W:%d L:%d PL:%.2f",
-          g_virtualTradeCount, g_virtualWins, g_virtualLosses, g_virtualTotalProfit);
-}
+

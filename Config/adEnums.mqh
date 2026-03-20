@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                                adEnums.mqh       |
-//|           AcquaDulza EA v1.4.0 — Enumerations & Structs          |
+//|           AcquaDulza EA v1.4.1 — Enumerations & Structs          |
 //|                                                                  |
 //|  Enum FRAMEWORK (stabili, non cambiano con engine swap)          |
 //|  + struct CycleRecord                                            |
@@ -22,8 +22,6 @@ enum ENUM_SYSTEM_STATE
    STATE_ACTIVE        = 2,   // Operativo
    STATE_PAUSED        = 3,   // In pausa
    STATE_INITIALIZING  = 4,   // Inizializzazione in corso
-   STATE_CLOSING       = 5,   // Chiusura posizioni
-   STATE_EMERGENCY     = 90,  // Emergency stop
    STATE_ERROR         = 99   // Errore critico
 };
 
@@ -108,9 +106,10 @@ enum ENUM_TP_MODE
 //+------------------------------------------------------------------+
 enum ENUM_LOG_LEVEL
 {
-   LOG_INFO,                // Info — standard
-   LOG_WARNING,             // Warning — avvisi
-   LOG_ERROR                // Error — errori
+   LOG_DEBUG   = -1,        // Debug — diagnostica verbose (DIAG)
+   LOG_INFO    = 0,         // Info — standard
+   LOG_WARNING = 1,         // Warning — avvisi
+   LOG_ERROR   = 2          // Error — errori
 };
 
 //+------------------------------------------------------------------+
@@ -223,78 +222,7 @@ struct CycleRecord
 };
 
 //+------------------------------------------------------------------+
-//| === STRUCT DashboardData ===                                     |
-//| Popolata dal framework leggendo EngineSignal.                    |
-//| Dashboard legge SOLO questa struct — zero dipendenza da Engine.  |
-//+------------------------------------------------------------------+
-struct DashboardData
-{
-   // System
-   ENUM_SYSTEM_STATE  systemState;
-   string             symbolName;
-   string             timeframeName;
-   int                magicNumber;
-   string             engineName;       // "DPC v7.19" etc.
-
-   // Engine signal (copiato da EngineSignal)
-   double             upperBand;
-   double             midline;
-   double             lowerBand;
-   double             channelWidthPip;
-   bool               isFlat;
-   int                lastDirection;
-   int                lastQuality;
-
-   // Extra engine values (da EngineSignal.extraValues)
-   double             extraValues[12];
-   string             extraLabels[12];
-   int                extraCount;
-
-   // Filters (da EngineSignal.filterStates)
-   int                filterStates[8];
-   string             filterNames[8];
-   int                filterCount;
-
-   // Cycles
-   int                activeCycles;
-   int                maxCycles;
-   int                pendingCycles;
-
-   // P&L
-   double             sessionPnL;
-   int                totalTrades;
-   int                wins;
-   int                losses;
-   double             winRate;
-   double             maxDrawdown;
-   double             floatingPnL;
-   double             dailyLoss;
-
-   // Market
-   double             atrValue;
-   double             spreadPips;
-   double             balance;
-   double             equity;
-
-   // Signals
-   int                buySignals;
-   int                sellSignals;
-   int                totalSignals;
-
-   // LTF
-   int                ltfConfirm;
-   string             ltfTimeframe;
-
-   // Session
-   string             sessionName;
-
-   // AutoSave
-   datetime           lastSaveTime;
-};
-
-//+------------------------------------------------------------------+
 //| COSTANTI GLOBALI                                                 |
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
-const string EA_NAME            = "AcquaDulza";
-const string EA_VERSION         = "1.4.0";
+const string EA_VERSION         = "1.4.1";

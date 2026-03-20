@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                     adInstrumentConfig.mqh        |
-//|           AcquaDulza EA v1.3.0 — Instrument Classification        |
+//|           AcquaDulza EA v1.4.1 — Instrument Classification        |
 //|                                                                    |
 //|  Sistema multi-prodotto CFD: rileva la classe dello strumento      |
 //|  e auto-scala tutti i parametri pip-dipendenti.                    |
@@ -72,9 +72,10 @@ ENUM_INSTRUMENT_CLASS DetectInstrumentClass()
       StringFind(sym, "USTEC") >= 0)
       return INSTRUMENT_INDEX_US;
 
-   //--- Indici EU: DAX, DE30, DE40, FTMIB, IT40, STOXX, EU50, UK100, FTSE, CAC, AEX
+   //--- Indici EU: DAX, DE30, DE40, GER30, GER40, FTMIB, IT40, STOXX, EU50, UK100, FTSE, CAC, AEX
    if(StringFind(sym, "DAX") >= 0 || StringFind(sym, "DE30") >= 0 ||
-      StringFind(sym, "DE40") >= 0 || StringFind(sym, "FTMIB") >= 0 ||
+      StringFind(sym, "DE40") >= 0 || StringFind(sym, "GER") >= 0 ||
+      StringFind(sym, "FTMIB") >= 0 ||
       StringFind(sym, "IT40") >= 0 || StringFind(sym, "STOXX") >= 0 ||
       StringFind(sym, "EU50") >= 0 || StringFind(sym, "UK100") >= 0 ||
       StringFind(sym, "FTSE") >= 0 || StringFind(sym, "CAC") >= 0)

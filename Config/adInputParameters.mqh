@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adInputParameters.mqh       |
-//|           AcquaDulza EA v1.4.0 — Input Parameters                |
+//|           AcquaDulza EA v1.4.1 — Input Parameters                |
 //|                                                                  |
 //|  Sezione FRAMEWORK: parametri stabili (non cambiano con engine)  |
 //|  Sezione ENGINE:    parametri DPC-specifici (da sostituire)       |

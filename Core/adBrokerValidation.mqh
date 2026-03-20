@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adBrokerValidation.mqh      |
-//|           AcquaDulza EA v1.3.0 — Broker Validation               |
+//|           AcquaDulza EA v1.4.1 — Broker Validation               |
 //|                                                                  |
 //|  Load broker specs, validate inputs, normalize lots              |
 //+------------------------------------------------------------------+
@@ -174,7 +174,7 @@ double ValidateTakeProfit(double price, double tp, bool isBuy)
 {
    if(tp == 0)
    {
-      AdLogI(LOG_CAT_BROKER, "DIAG ValidateTP: TP=0 — nessun Take Profit impostato");
+      AdLogD(LOG_CAT_BROKER, "DIAG ValidateTP: TP=0 — nessun Take Profit impostato");
       return 0;
    }
 
@@ -185,7 +185,7 @@ double ValidateTakeProfit(double price, double tp, bool isBuy)
    minDistance *= 1.1;
 
    // ── DIAG: Log parametri validazione TP ──
-   AdLogI(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP: %s | RefPrice=%s | TP=%s | MinDist=%s (%.1fp) | StopsLevel=%d",
+   AdLogD(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP: %s | RefPrice=%s | TP=%s | MinDist=%s (%.1fp) | StopsLevel=%d",
           isBuy ? "BUY" : "SELL", DoubleToString(price, g_symbolDigits),
           DoubleToString(tp, g_symbolDigits), DoubleToString(minDistance, g_symbolDigits),
           PointsToPips(minDistance), (int)g_symbolStopsLevel));
@@ -217,7 +217,7 @@ double ValidateTakeProfit(double price, double tp, bool isBuy)
       AdLogW(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP RISULTATO: TP aggiustato %s -> %s",
          DoubleToString(originalTP, g_symbolDigits), DoubleToString(tp, g_symbolDigits)));
    else
-      AdLogI(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP RISULTATO: TP OK = %s (nessun aggiustamento)",
+      AdLogD(LOG_CAT_BROKER, StringFormat("DIAG ValidateTP RISULTATO: TP OK = %s (nessun aggiustamento)",
          DoubleToString(tp, g_symbolDigits)));
 
    return tp;
@@ -245,48 +245,6 @@ bool IsValidPendingPrice(double price, ENUM_ORDER_TYPE orderType)
       case ORDER_TYPE_SELL_STOP:  return (price < currentBid - minDistance);
       default: return false;
    }
-}
-
-//+------------------------------------------------------------------+
-//| GetSafeOrderPrice — Adaptive price fix                           |
-//+------------------------------------------------------------------+
-double GetSafeOrderPrice(double desiredPrice, ENUM_ORDER_TYPE orderType)
-{
-   double currentAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double currentBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-
-   if(currentAsk <= 0 || currentBid <= 0)
-      return NormalizeDouble(desiredPrice, g_symbolDigits);
-
-   double minDistance = g_symbolStopsLevel * g_symbolPoint;
-   if(minDistance < g_pipSize)
-      minDistance = 3 * g_pipSize;
-   minDistance *= 1.5;
-
-   double buffer = g_pipSize;
-   double adaptivePrice = desiredPrice;
-
-   switch(orderType)
-   {
-      case ORDER_TYPE_BUY_LIMIT:
-         if(desiredPrice >= currentAsk - minDistance)
-            adaptivePrice = currentAsk - minDistance - buffer;
-         break;
-      case ORDER_TYPE_SELL_LIMIT:
-         if(desiredPrice <= currentBid + minDistance)
-            adaptivePrice = currentBid + minDistance + buffer;
-         break;
-      case ORDER_TYPE_BUY_STOP:
-         if(desiredPrice <= currentAsk + minDistance)
-            adaptivePrice = currentAsk + minDistance + buffer;
-         break;
-      case ORDER_TYPE_SELL_STOP:
-         if(desiredPrice >= currentBid - minDistance)
-            adaptivePrice = currentBid - minDistance - buffer;
-         break;
-   }
-
-   return NormalizeDouble(adaptivePrice, g_symbolDigits);
 }
 
 //+------------------------------------------------------------------+

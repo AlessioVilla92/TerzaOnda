@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                         adDPCFilters.mqh         |
-//|           AcquaDulza EA v1.3.0 — DPC Quality Filters             |
+//|           AcquaDulza EA v1.4.1 — DPC Quality Filters             |
 //|                                                                  |
 //|  Flatness + TrendContext + LevelAge + ChannelWidth + MA Filter   |
 //+------------------------------------------------------------------+

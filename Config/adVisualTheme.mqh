@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adVisualTheme.mqh       |
-//|           AcquaDulza EA v1.4.0 — Palette "Deep Ocean"            |
+//|           AcquaDulza EA v1.4.1 — Palette "Deep Ocean"            |
 //|                                                                  |
 //|  Colori hardcodati — editabili SOLO via codice sorgente          |
 //|  NON visibili nelle impostazioni EA                              |
@@ -17,13 +17,11 @@
 #define AD_BG_PANEL        C'9,21,37'        // #091525 — panel background
 #define AD_BG_SECTION_A    C'13,30,53'       // #0d1e35 — sezioni alternate A
 #define AD_BG_SECTION_B    C'18,37,64'       // #122540 — sezioni alternate B
-#define AD_BG_CELL         C'26,51,80'       // #1a3350 — sfondo celle griglia
 
 //+------------------------------------------------------------------+
 //| BORDI                                                            |
 //+------------------------------------------------------------------+
 #define AD_BORDER          C'30,61,92'       // #1e3d5c — bordo pannello
-#define AD_BORDER_GLOW     C'42,85,128'      // #2a5580 — bordo attivo / hover
 #define AD_BORDER_FRAME    C'180,220,255'    // #b4dcff — azzurro chiaro perimetrale dashboard
 
 // Alias dashboard
@@ -60,18 +58,8 @@
 #define AD_TEXT_LO         C'42,74,101'      // #2a4a65 — testo disabilitato
 
 // Alias dashboard
-#define AD_TEXT_PRIMARY    AD_TEXT_HI
 #define AD_TEXT_SECONDARY  AD_TEXT_MID
 #define AD_TEXT_MUTED      AD_TEXT_LO
-
-//+------------------------------------------------------------------+
-//| STATO SEMANTICO                                                  |
-//+------------------------------------------------------------------+
-#define AD_STATE_OK        AD_BUY
-#define AD_STATE_WARN      AD_AMBER
-#define AD_STATE_ERR       AD_SELL
-#define AD_STATE_INFO      AD_BIOLUM
-#define AD_STATE_INACTIVE  AD_TEXT_MID
 
 //+------------------------------------------------------------------+
 //| CANDELE CHART                                                    |
@@ -109,9 +97,6 @@
 //+------------------------------------------------------------------+
 #define AD_ENTRY_BUY_CLR   AD_BUY
 #define AD_ENTRY_SELL_CLR  AD_SELL
-#define AD_EXIT_TP_CLR     C'255,255,255'   // Bianco — TP hit
-#define AD_EXIT_SL_CLR     AD_SELL          // Corallo — SL hit
-#define AD_ENTRY_DOT_SIZE  3
 
 //+------------------------------------------------------------------+
 //| TP TARGET — Replica indicatore                                   |
@@ -119,15 +104,7 @@
 #define AD_TP_DOT_BUY      clrLime          // TP dot BUY
 #define AD_TP_DOT_SELL     clrRed           // TP dot SELL
 #define AD_TP_HIT_CLR      clrYellow        // TP hit star
-#define AD_TP_LINE_CLR     AD_BIOLUM_DIM
-#define AD_TP_LINE_STYLE   STYLE_DASH
 #define AD_TP_LINE_WIDTH   1
-
-//+------------------------------------------------------------------+
-//| TRIGGER CANDLE (VLine rimossa — colore mantenuto per eventuale   |
-//| riattivazione futura di DrawTriggerVLine in adChannelOverlay)    |
-//+------------------------------------------------------------------+
-#define AD_TRIGGER_CLR     clrYellow         // VLine sulla candela trigger (non attiva)
 
 //+------------------------------------------------------------------+
 //| Z-ORDER                                                          |
@@ -148,8 +125,6 @@
 #define AD_FONT_TITLE      "Arial Black"
 #define AD_FONT_SECTION    "Arial Bold"
 #define AD_FONT_SIZE       9
-#define AD_FONT_SIZE_TITLE 16
-#define AD_FONT_SIZE_SEC   10
 
 // Alias dashboard
 #define AD_FONT_BODY       AD_FONT_MONO
@@ -161,7 +136,6 @@
 #define AD_DASH_X          10
 #define AD_DASH_Y          25
 #define AD_DASH_W          640
-#define AD_LINE_H          18
 #define AD_PAD             14
 #define AD_GAP             4
 

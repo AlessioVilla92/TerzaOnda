@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                           adDPCBands.mqh         |
-//|           AcquaDulza EA v1.3.0 — DPC Band Calculation            |
+//|           AcquaDulza EA v1.4.1 — DPC Band Calculation            |
 //|                                                                  |
 //|  Calcolo Donchian bands + EMA ATR. Math puro.                    |
 //+------------------------------------------------------------------+
@@ -9,7 +9,6 @@
 //+------------------------------------------------------------------+
 //| DPC Engine internal handles                                      |
 //+------------------------------------------------------------------+
-int    g_dpcATRHandle     = INVALID_HANDLE;
 int    g_dpcMAHandle      = INVALID_HANDLE;
 int    g_dpcHMAHalfHandle = INVALID_HANDLE;
 int    g_dpcHMAFullHandle = INVALID_HANDLE;
@@ -47,7 +46,7 @@ void DPCComputeBands(int barShift, int lookback, double &upper, double &lower, d
 //+------------------------------------------------------------------+
 double DPCGetATR(int barShift)
 {
-   if(g_dpcATRHandle == INVALID_HANDLE)
+   if(g_atrHandle == INVALID_HANDLE)
    {
       AdLogW(LOG_CAT_DPC, "DPCGetATR: ATR handle invalid");
       return 0;
@@ -57,7 +56,7 @@ double DPCGetATR(int barShift)
    ArrayResize(atrBuf, 1);
    ArraySetAsSeries(atrBuf, true);
 
-   if(CopyBuffer(g_dpcATRHandle, 0, barShift, 1, atrBuf) < 1)
+   if(CopyBuffer(g_atrHandle, 0, barShift, 1, atrBuf) < 1)
    {
       AdLogW(LOG_CAT_DPC, StringFormat("DPCGetATR: CopyBuffer failed (bar=%d)", barShift));
       return 0;
@@ -112,9 +111,15 @@ double DPCGetMAValue(int barShift)
       if(sqrtLen < 1) sqrtLen = 1;
       int neededBars = sqrtLen + 2;
 
-      double halfBuf[], fullBuf[];
-      ArrayResize(halfBuf, neededBars);
-      ArrayResize(fullBuf, neededBars);
+      static double halfBuf[], fullBuf[], interBuf[];
+      static int s_lastNeeded = 0;
+      if(neededBars != s_lastNeeded)
+      {
+         ArrayResize(halfBuf, neededBars);
+         ArrayResize(fullBuf, neededBars);
+         ArrayResize(interBuf, neededBars);
+         s_lastNeeded = neededBars;
+      }
       ArraySetAsSeries(halfBuf, true);
       ArraySetAsSeries(fullBuf, true);
 
@@ -127,9 +132,6 @@ double DPCGetMAValue(int barShift)
             copiedHalf, copiedFull, neededBars));
          return 0;
       }
-
-      double interBuf[];
-      ArrayResize(interBuf, neededBars);
       for(int k = 0; k < neededBars; k++)
          interBuf[k] = 2.0 * halfBuf[k] - fullBuf[k];
 
@@ -167,7 +169,7 @@ int DPCGetMidlineColor(int barShift)
    DPCComputeBands(barShift, g_dpc_dcLen, u1, l1, m1);
    DPCComputeBands(barShift + 2, g_dpc_dcLen, u3, l3, m3);
 
-   double threshold = g_symbolPoint * 2;
+   double threshold = g_pipSize * 2;
    if(m1 - m3 > threshold) return 0;  // bullish
    if(m3 - m1 > threshold) return 1;  // bearish
    return 2;                           // flat
@@ -178,15 +180,8 @@ int DPCGetMidlineColor(int barShift)
 //+------------------------------------------------------------------+
 bool DPCCreateHandles()
 {
-   // ATR(14)
-   ENUM_TIMEFRAMES atrTf = InpATR_Timeframe;
-   if(atrTf == PERIOD_CURRENT) atrTf = Period();
-   g_dpcATRHandle = iATR(_Symbol, atrTf, InpATR_Period);
-   if(g_dpcATRHandle == INVALID_HANDLE)
-   {
-      AdLogE(LOG_CAT_ENGINE, "Failed to create iATR handle!");
-      return false;
-   }
+   // ATR: uses framework g_atrHandle (created by InitializeATR in adATRCalculator.mqh)
+   // No duplicate handle needed — DPCGetATR() reads from g_atrHandle directly.
 
    // MA handle(s)
    if(InpMAType == DPC_MA_HMA)
@@ -225,7 +220,6 @@ bool DPCCreateHandles()
 //+------------------------------------------------------------------+
 void DPCReleaseHandles()
 {
-   if(g_dpcATRHandle != INVALID_HANDLE)     { IndicatorRelease(g_dpcATRHandle);     g_dpcATRHandle = INVALID_HANDLE; }
    if(g_dpcMAHandle != INVALID_HANDLE)      { IndicatorRelease(g_dpcMAHandle);      g_dpcMAHandle = INVALID_HANDLE; }
    if(g_dpcHMAHalfHandle != INVALID_HANDLE) { IndicatorRelease(g_dpcHMAHalfHandle); g_dpcHMAHalfHandle = INVALID_HANDLE; }
    if(g_dpcHMAFullHandle != INVALID_HANDLE) { IndicatorRelease(g_dpcHMAFullHandle); g_dpcHMAFullHandle = INVALID_HANDLE; }

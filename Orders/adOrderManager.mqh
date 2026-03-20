@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adOrderManager.mqh        |
-//|           AcquaDulza EA v1.4.0 — Order Manager                   |
+//|           AcquaDulza EA v1.4.1 — Order Manager                   |
 //|                                                                  |
 //|  3 entry modes: MARKET, LIMIT, STOP                              |
 //|  Retry logic. MagicNumber + MagicNumber+1 (hedge).               |
@@ -62,7 +62,7 @@ ulong OrderPlaceMarket(int direction, double lots, double sl, double tp, string 
    tp   = NormalizeDouble(tp, (int)g_symbolDigits);
 
    // ── DIAG: Log parametri ricevuti ──
-   AdLogI(LOG_CAT_ORDER, StringFormat("DIAG OrderPlaceMarket: %s | Lot=%.4f | SL=%s | TP=%s",
+   AdLogD(LOG_CAT_ORDER, StringFormat("DIAG OrderPlaceMarket: %s | Lot=%.4f | SL=%s | TP=%s",
           dirStr, lots, FormatPrice(sl), FormatPrice(tp)));
 
    // Validazione TP broker
@@ -76,7 +76,7 @@ ulong OrderPlaceMarket(int direction, double lots, double sl, double tp, string 
    g_trade.SetExpertMagicNumber(MagicNumber);
 
    // ── DIAG: Log invio al broker ──
-   AdLogI(LOG_CAT_ORDER, StringFormat("DIAG BROKER SEND: MARKET %s | Lot=%.4f | SL=%s | TP=%s | RefPrice=%s",
+   AdLogD(LOG_CAT_ORDER, StringFormat("DIAG BROKER SEND: MARKET %s | Lot=%.4f | SL=%s | TP=%s | RefPrice=%s",
           dirStr, lots, FormatPrice(sl), FormatPrice(tp), FormatPrice(refPrice)));
 
    int retries = 0;
@@ -95,7 +95,7 @@ ulong OrderPlaceMarket(int direction, double lots, double sl, double tp, string 
          ulong ticket = g_trade.ResultOrder();
          if(ticket > 0)
          {
-            AdLogI(LOG_CAT_ORDER, StringFormat("DIAG SUCCESSO: MARKET %s #%d ESEGUITO | Lot=%.2f | SL=%s | TP=%s",
+            AdLogD(LOG_CAT_ORDER, StringFormat("DIAG SUCCESSO: MARKET %s #%d ESEGUITO | Lot=%.2f | SL=%s | TP=%s",
                    dirStr, ticket, lots, FormatPrice(sl), FormatPrice(tp)));
             return ticket;
          }
@@ -132,7 +132,7 @@ ulong OrderPlacePending(ENUM_ORDER_TYPE orderType, double lots, double price,
    lots  = NormalizeLotSize(lots);
 
    // ── DIAG: Log parametri ricevuti ──
-   AdLogI(LOG_CAT_ORDER, StringFormat("DIAG OrderPlacePending: %s | Lot=%.4f | Price=%s | SL=%s | TP=%s",
+   AdLogD(LOG_CAT_ORDER, StringFormat("DIAG OrderPlacePending: %s | Lot=%.4f | Price=%s | SL=%s | TP=%s",
           GetOrderTypeString(orderType), lots, FormatPrice(price), FormatPrice(sl), FormatPrice(tp)));
 
    // Validazione TP broker
@@ -142,7 +142,7 @@ ulong OrderPlacePending(ENUM_ORDER_TYPE orderType, double lots, double price,
    if(MathAbs(tp - tpBefore) > g_symbolPoint)
       AdLogW(LOG_CAT_ORDER, StringFormat("DIAG: TP aggiustato da broker validation: %s -> %s", FormatPrice(tpBefore), FormatPrice(tp)));
    else
-      AdLogI(LOG_CAT_ORDER, StringFormat("DIAG: TP validato OK: %s (ref price=%s)", FormatPrice(tp), FormatPrice(price)));
+      AdLogD(LOG_CAT_ORDER, StringFormat("DIAG: TP validato OK: %s (ref price=%s)", FormatPrice(tp), FormatPrice(price)));
 
    // Broker order limit check
    int currentOrders = OrdersTotal() + PositionsTotal();
@@ -163,12 +163,12 @@ ulong OrderPlacePending(ENUM_ORDER_TYPE orderType, double lots, double price,
              GetOrderTypeString(orderType), FormatPrice(price), FormatPrice(checkBid), FormatPrice(checkAsk)));
       return 0;
    }
-   AdLogI(LOG_CAT_ORDER, "DIAG: Prezzo valido per pending — invio al broker...");
+   AdLogD(LOG_CAT_ORDER, "DIAG: Prezzo valido per pending — invio al broker...");
 
    g_trade.SetExpertMagicNumber(MagicNumber);
 
    // ── DIAG: Log parametri finali inviati al broker ──
-   AdLogI(LOG_CAT_ORDER, StringFormat("DIAG BROKER SEND: %s | Lot=%.4f | Price=%s | SL=%s | TP=%s | Comment=%s",
+   AdLogD(LOG_CAT_ORDER, StringFormat("DIAG BROKER SEND: %s | Lot=%.4f | Price=%s | SL=%s | TP=%s | Comment=%s",
           GetOrderTypeString(orderType), lots, FormatPrice(price), FormatPrice(sl), FormatPrice(tp), comment));
 
    int retries = 0;
@@ -197,7 +197,7 @@ ulong OrderPlacePending(ENUM_ORDER_TYPE orderType, double lots, double price,
          ulong ticket = g_trade.ResultOrder();
          if(ticket > 0)
          {
-            AdLogI(LOG_CAT_ORDER, StringFormat("DIAG SUCCESSO: %s #%d PIAZZATO | Lot=%.2f | Entry=%s | SL=%s | TP=%s",
+            AdLogD(LOG_CAT_ORDER, StringFormat("DIAG SUCCESSO: %s #%d PIAZZATO | Lot=%.2f | Entry=%s | SL=%s | TP=%s",
                    GetOrderTypeString(orderType), ticket, lots,
                    FormatPrice(price), FormatPrice(sl), FormatPrice(tp)));
             return ticket;
@@ -235,7 +235,7 @@ ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
    string comment = StringFormat("AD_%s_#%d", dirStr, cycleID);
 
    // ── DIAG: Log ingresso in OrderPlace ──
-   AdLogI(LOG_CAT_ORDER, StringFormat("DIAG OrderPlace: %s #%d | Lot=%.4f | Entry=%s | TP=%s | Mode=%s",
+   AdLogD(LOG_CAT_ORDER, StringFormat("DIAG OrderPlace: %s #%d | Lot=%.4f | Entry=%s | TP=%s | Mode=%s",
           dirStr, cycleID, lots, FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice), EnumToString(EntryMode)));
 
    // Validate entry/TP consistency
@@ -257,14 +257,14 @@ ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
          return 0;
       }
    }
-   AdLogI(LOG_CAT_ORDER, "DIAG: Validazione Entry/TP OK — procedo al routing");
+   AdLogD(LOG_CAT_ORDER, "DIAG: Validazione Entry/TP OK — procedo al routing");
 
    // Route by entry mode
    // [MOD] SL rimosso: sl=0 in tutte le modalita'
    switch(EntryMode)
    {
       case ENTRY_MARKET:
-         AdLogI(LOG_CAT_ORDER, StringFormat("DIAG: ENTRY_MARKET — invio %s market | Lot=%.4f | TP=%s",
+         AdLogD(LOG_CAT_ORDER, StringFormat("DIAG: ENTRY_MARKET — invio %s market | Lot=%.4f | TP=%s",
                 dirStr, lots, FormatPrice(sig.tpPrice)));
          return OrderPlaceMarket(sig.direction, lots, 0, sig.tpPrice, comment);
 
@@ -284,7 +284,7 @@ ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
             limitPrice = sig.entryPrice + limitOffset;
             type = ORDER_TYPE_SELL_LIMIT;
          }
-         AdLogI(LOG_CAT_ORDER, StringFormat("DIAG: ENTRY_LIMIT — %s @ %s (offset=%.1fp da entry %s) | TP=%s",
+         AdLogD(LOG_CAT_ORDER, StringFormat("DIAG: ENTRY_LIMIT — %s @ %s (offset=%.1fp da entry %s) | TP=%s",
                 GetOrderTypeString(type), FormatPrice(limitPrice),
                 PointsToPips(limitOffset), FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice)));
          return OrderPlacePending(type, lots, limitPrice, 0, sig.tpPrice, comment);
@@ -302,7 +302,7 @@ ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
          double currentBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
          double currentAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
 
-         AdLogI(LOG_CAT_ORDER, StringFormat("DIAG: ENTRY_STOP — entry originale=%s | Bid=%s | Ask=%s | minDist=%s (%.1fp)",
+         AdLogD(LOG_CAT_ORDER, StringFormat("DIAG: ENTRY_STOP — entry originale=%s | Bid=%s | Ask=%s | minDist=%s (%.1fp)",
                 FormatPrice(entryPrice), FormatPrice(currentBid), FormatPrice(currentAsk),
                 FormatPrice(minDistance), PointsToPips(minDistance)));
 
@@ -318,7 +318,7 @@ ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
             }
             else
             {
-               AdLogI(LOG_CAT_ORDER, StringFormat("DIAG: BUY STOP prezzo OK: %s > Ask(%s) + minDist(%s)",
+               AdLogD(LOG_CAT_ORDER, StringFormat("DIAG: BUY STOP prezzo OK: %s > Ask(%s) + minDist(%s)",
                       FormatPrice(entryPrice), FormatPrice(currentAsk), FormatPrice(minDistance)));
             }
          }
@@ -334,12 +334,12 @@ ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
             }
             else
             {
-               AdLogI(LOG_CAT_ORDER, StringFormat("DIAG: SELL STOP prezzo OK: %s < Bid(%s) - minDist(%s)",
+               AdLogD(LOG_CAT_ORDER, StringFormat("DIAG: SELL STOP prezzo OK: %s < Bid(%s) - minDist(%s)",
                       FormatPrice(entryPrice), FormatPrice(currentBid), FormatPrice(minDistance)));
             }
          }
 
-         AdLogI(LOG_CAT_ORDER, StringFormat("DIAG: Invio %s @ %s | Lot=%.4f | SL=0 | TP=%s",
+         AdLogD(LOG_CAT_ORDER, StringFormat("DIAG: Invio %s @ %s | Lot=%.4f | SL=0 | TP=%s",
                 GetOrderTypeString(type), FormatPrice(entryPrice), lots, FormatPrice(sig.tpPrice)));
          return OrderPlacePending(type, lots, entryPrice, 0, sig.tpPrice, comment);
       }

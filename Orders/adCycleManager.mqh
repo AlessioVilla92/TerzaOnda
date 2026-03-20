@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adCycleManager.mqh        |
-//|           AcquaDulza EA v1.4.0 — Cycle Manager                   |
+//|           AcquaDulza EA v1.4.1 — Cycle Manager                   |
 //|                                                                  |
 //|  Manages trade cycles: create, monitor, expire, detect fills     |
 //|  Absorbed from carnTriggerSystem + Carneval.mq5 cycle logic      |
@@ -106,7 +106,7 @@ int CreateCycle(const EngineSignal &sig)
    string dirStr = sig.direction > 0 ? "BUY" : "SELL";
 
    // ── DIAG: Log ingresso in CreateCycle ──
-   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG CreateCycle: %s | Entry=%s | TP=%s | Quality=%d",
+   AdLogD(LOG_CAT_CYCLE, StringFormat("DIAG CreateCycle: %s | Entry=%s | TP=%s | Quality=%d",
           dirStr, FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice), sig.quality));
 
    // Check max concurrent
@@ -117,7 +117,7 @@ int CreateCycle(const EngineSignal &sig)
              activeCycles, MaxConcurrentTrades));
       return -1;
    }
-   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: Cicli attivi %d/%d — OK, procedo", activeCycles, MaxConcurrentTrades));
+   AdLogD(LOG_CAT_CYCLE, StringFormat("DIAG: Cicli attivi %d/%d — OK, procedo", activeCycles, MaxConcurrentTrades));
 
    int slot = FindFreeCycleSlot();
    if(slot < 0)
@@ -125,7 +125,7 @@ int CreateCycle(const EngineSignal &sig)
       AdLogW(LOG_CAT_CYCLE, "DIAG BLOCCATO: Nessuno slot libero nel cycle array — ordine NON creato");
       return -1;
    }
-   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: Slot libero trovato: %d", slot));
+   AdLogD(LOG_CAT_CYCLE, StringFormat("DIAG: Slot libero trovato: %d", slot));
 
    // Initialize cycle
    g_nextCycleID++;
@@ -155,13 +155,13 @@ int CreateCycle(const EngineSignal &sig)
    //   TBS (corpo penetra banda) → TBSLotMultiplier (default 2.0x = doppio lotto)
    //   TWS (solo wick tocca)     → TWSLotMultiplier (default 1.0x = lotto standard)
    g_cycles[slot].lotSize = CalculateLotSize(0, sig.quality);
-   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: LotSize calcolato=%.4f (RiskMode=%s, Quality=%s, Mult=%.1fx)",
+   AdLogD(LOG_CAT_CYCLE, StringFormat("DIAG: LotSize calcolato=%.4f (RiskMode=%s, Quality=%s, Mult=%.1fx)",
           g_cycles[slot].lotSize, EnumToString(RiskMode),
           sig.quality == PATTERN_TBS ? "TBS" : "TWS",
           sig.quality == PATTERN_TBS ? TBSLotMultiplier : TWSLotMultiplier));
 
    // ── DIAG: Log pre-OrderPlace ──
-   AdLogI(LOG_CAT_CYCLE, StringFormat("DIAG: Invoco OrderPlace() — CycleID=#%d | %s | Lot=%.4f | Entry=%s | TP=%s",
+   AdLogD(LOG_CAT_CYCLE, StringFormat("DIAG: Invoco OrderPlace() — CycleID=#%d | %s | Lot=%.4f | Entry=%s | TP=%s",
           g_nextCycleID, dirStr, g_cycles[slot].lotSize, FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice)));
 
    // Place order
@@ -336,6 +336,9 @@ void UpdatePending(const EngineSignal &sig)
       double newEntry = sig.entryPrice;
       double newTP    = sig.tpPrice;
 
+      // Skip se il segnale non ha prezzi validi (nessun segnale attivo)
+      if(newEntry <= 0 || newTP <= 0) continue;
+
       // Only modify if difference > 1 pip
       double entryDiff = MathAbs(newEntry - g_cycles[i].entryPrice);
       double tpDiff    = MathAbs(newTP - g_cycles[i].tpPrice);
@@ -405,6 +408,11 @@ void MonitorActive()
 
          Log_PositionClosed(g_cycles[i].ticket, result, profit,
                            g_cycles[i].entryPrice);
+
+         // Cleanup chart objects: TP hit marker + remove TP line/dot
+         if(profit > 0 && ShowTPTargetLines)
+            DrawTPHitMarker(g_cycles[i].cycleID, g_cycles[i].tpPrice, TimeCurrent());
+         RemoveTPLine(g_cycles[i].cycleID);
       }
    }
 }

@@ -60,7 +60,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 #property version   "1.40"
-#property description "AcquaDulza EA v1.4.0 — Reusable Trading Framework"
+#property description "AcquaDulza EA v1.4.1 — Reusable Trading Framework"
 #property description "Engine: DPC v7.19 (Donchian Predictive Channel)"
 #property description "Segnali: Turtle Soup (TBS forte 2x / TWS debole 1x)"
 #property description "Hedge: BUY/SELL STOP opposto con CLOSE_ON_FIRST_TP"
@@ -115,93 +115,6 @@
 #include "UI/adSignalMarkers.mqh"
 
 //+------------------------------------------------------------------+
-//| PopulateDashboardData — Copia dati framework in DashboardData    |
-//+------------------------------------------------------------------+
-void PopulateDashboardData()
-{
-   g_dashData.systemState     = g_systemState;
-   g_dashData.symbolName      = _Symbol;
-   g_dashData.timeframeName   = EnumToString(Period());
-   g_dashData.magicNumber     = MagicNumber;
-   g_dashData.engineName      = "DPC v7.19";
-
-   // Band data (da ultimo segnale)
-   g_dashData.upperBand       = g_lastSignal.upperBand;
-   g_dashData.midline         = g_lastSignal.midline;
-   g_dashData.lowerBand       = g_lastSignal.lowerBand;
-   g_dashData.channelWidthPip = g_lastSignal.channelWidthPip;
-   g_dashData.isFlat          = g_lastSignal.isFlat;
-   g_dashData.lastDirection   = g_lastSignal.direction;
-   g_dashData.lastQuality     = g_lastSignal.quality;
-
-   // Engine extras
-   g_dashData.extraCount = g_lastSignal.extraCount;
-   for(int i = 0; i < g_lastSignal.extraCount && i < 12; i++)
-   {
-      g_dashData.extraValues[i] = g_lastSignal.extraValues[i];
-      g_dashData.extraLabels[i] = g_lastSignal.extraLabels[i];
-   }
-
-   // Filters
-   g_dashData.filterCount = g_lastSignal.filterCount;
-   for(int i = 0; i < g_lastSignal.filterCount && i < 12; i++)
-   {
-      g_dashData.filterStates[i] = g_lastSignal.filterStates[i];
-      g_dashData.filterNames[i]  = g_lastSignal.filterNames[i];
-   }
-
-   // Cycles
-   g_dashData.activeCycles  = CountActiveCycles();
-   g_dashData.maxCycles     = MaxConcurrentTrades;
-   int pending = 0;
-   for(int i = 0; i < ArraySize(g_cycles); i++)
-      if(g_cycles[i].state == CYCLE_PENDING) pending++;
-   g_dashData.pendingCycles = pending;
-
-   // P&L
-   g_dashData.sessionPnL    = g_sessionRealizedProfit;
-   g_dashData.totalTrades   = g_sessionWins + g_sessionLosses;
-   g_dashData.wins          = g_sessionWins;
-   g_dashData.losses        = g_sessionLosses;
-   g_dashData.winRate       = (g_dashData.totalTrades > 0) ?
-      (g_sessionWins * 100.0 / g_dashData.totalTrades) : 0.0;
-   g_dashData.maxDrawdown   = g_maxDrawdownPct;
-   g_dashData.floatingPnL   = 0;
-   for(int i = 0; i < ArraySize(g_cycles); i++)
-   {
-      if((g_cycles[i].state == CYCLE_ACTIVE || g_cycles[i].state == CYCLE_HEDGING)
-         && g_cycles[i].ticket > 0)
-         g_dashData.floatingPnL += GetFloatingProfit(g_cycles[i].ticket);
-      // Include hedge leg floating P&L
-      if(g_cycles[i].state == CYCLE_HEDGING && g_cycles[i].hedgeActive
-         && g_cycles[i].hedgeTicket > 0)
-         g_dashData.floatingPnL += GetFloatingProfit(g_cycles[i].hedgeTicket);
-   }
-   g_dashData.dailyLoss = g_dailyRealizedProfit;
-
-   // Market
-   g_dashData.atrValue    = g_atrPips;
-   g_dashData.spreadPips  = GetSpreadPips();
-   g_dashData.balance     = GetBalance();
-   g_dashData.equity      = GetEquity();
-
-   // Signals
-   g_dashData.buySignals    = g_buySignals;
-   g_dashData.sellSignals   = g_sellSignals;
-   g_dashData.totalSignals  = g_totalSignals;
-
-   // LTF
-   g_dashData.ltfConfirm    = g_lastSignal.ltfConfirm;
-   g_dashData.ltfTimeframe  = InpUseLTFEntry ? EnumToString(DPCGetLTFTimeframe()) : "OFF";
-
-   // Session
-   g_dashData.sessionName = GetSessionStatus();
-
-   // AutoSave
-   g_dashData.lastSaveTime = 0;  // Updated by SaveState
-}
-
-//+------------------------------------------------------------------+
 //| Expert initialization                                            |
 //+------------------------------------------------------------------+
 int OnInit()
@@ -228,7 +141,6 @@ int OnInit()
    {
       g_systemState = STATE_IDLE;
       AdLogI(LOG_CAT_SYSTEM, "System DISABLED by user");
-      PopulateDashboardData();
       UpdateDashboard();
       return INIT_SUCCEEDED;
    }
@@ -238,7 +150,6 @@ int OnInit()
    {
       AdLogE(LOG_CAT_INIT, "FAILED: LoadBrokerSpecifications");
       g_systemState = STATE_ERROR;
-      PopulateDashboardData();
       UpdateDashboard();
       return INIT_SUCCEEDED;
    }
@@ -256,7 +167,6 @@ int OnInit()
    {
       AdLogE(LOG_CAT_INIT, "FAILED: ValidateInputParameters");
       g_systemState = STATE_ERROR;
-      PopulateDashboardData();
       UpdateDashboard();
       return INIT_SUCCEEDED;
    }
@@ -266,7 +176,6 @@ int OnInit()
    {
       AdLogE(LOG_CAT_INIT, "FAILED: InitializeATR");
       g_systemState = STATE_ERROR;
-      PopulateDashboardData();
       UpdateDashboard();
       return INIT_SUCCEEDED;
    }
@@ -276,7 +185,6 @@ int OnInit()
    {
       AdLogE(LOG_CAT_INIT, "FAILED: EngineInit");
       g_systemState = STATE_ERROR;
-      PopulateDashboardData();
       UpdateDashboard();
       return INIT_SUCCEEDED;
    }
@@ -332,7 +240,6 @@ int OnInit()
       AdLogI(LOG_CAT_INIT, "State: INITIALIZING -> IDLE (press START)");
    }
 
-   PopulateDashboardData();
    UpdateDashboard();
 
    // Feed: engine ready
@@ -394,7 +301,6 @@ void OnTick()
    if(now - lastDashUpdate > 500)
    {
       lastDashUpdate = now;
-      PopulateDashboardData();
       UpdateDashboard();
 
       // Channel overlay live edge — lightweight update (only bar[0] segment)
@@ -428,7 +334,7 @@ void OnTick()
       {
          MqlDateTime dtSess;
          TimeToStruct(nowDT, dtSess);
-         AdLogI(LOG_CAT_SESSION, StringFormat("DIAG SESSION BLOCKED: %s | h=%02d:%02d",
+         AdLogD(LOG_CAT_SESSION, StringFormat("DIAG SESSION BLOCKED: %s | h=%02d:%02d",
                 g_currentSessionName, dtSess.hour, dtSess.min));
          lastSessBlockLog = nowDT;
       }
@@ -497,7 +403,7 @@ void OnTick()
          AdLogI(LOG_CAT_TRIGGER, StringFormat("  Direction=%d | Quality=%d (%s)", sig.direction, sig.quality, qStr));
          AdLogI(LOG_CAT_TRIGGER, StringFormat("  Entry=%s | TP=%s | SL=%s", FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice), FormatPrice(sig.slPrice)));
          AdLogI(LOG_CAT_TRIGGER, StringFormat("  Bands: Upper=%s | Mid=%s | Lower=%s", FormatPrice(sig.upperBand), FormatPrice(sig.midline), FormatPrice(sig.lowerBand)));
-         AdLogI(LOG_CAT_TRIGGER, StringFormat("  Mercato: Bid=%s | Ask=%s | Spread=%.1fp", FormatPrice(diagBid), FormatPrice(diagAsk), PointsToPips(diagAsk - diagBid)));
+         AdLogD(LOG_CAT_TRIGGER, StringFormat("  Mercato: Bid=%s | Ask=%s | Spread=%.1fp", FormatPrice(diagBid), FormatPrice(diagAsk), PointsToPips(diagAsk - diagBid)));
          AdLogI(LOG_CAT_TRIGGER, StringFormat("  EntryMode=%s | Cicli attivi=%d/%d", EnumToString(EntryMode), CountActiveCycles(), MaxConcurrentTrades));
          AdLogI(LOG_CAT_TRIGGER, StringFormat("  BarTime=%s | VirtualMode=%s", TimeToString(sig.barTime, TIME_DATE|TIME_MINUTES), VirtualMode ? "ON" : "OFF"));
          AdLogI(LOG_CAT_TRIGGER, "════════════════════════════════════════════════════");
@@ -518,7 +424,7 @@ void OnTick()
          DrawTPAsterisk(sig.tpPrice, sig.barTime, sig.direction > 0);
 
          // ── DIAG: Log TP diagnostico ──
-         AdLogI(LOG_CAT_TRIGGER, StringFormat("DIAG TP: Mode=%s | Value=%.2f | TP calcolato=%s",
+         AdLogD(LOG_CAT_TRIGGER, StringFormat("DIAG TP: Mode=%s | Value=%.2f | TP calcolato=%s",
                 EnumToString(TPMode), TPValue, FormatPrice(sig.tpPrice)));
          if(sig.direction > 0 && sig.tpPrice <= sig.entryPrice)
             AdLogW(LOG_CAT_TRIGGER, StringFormat("DIAG TP WARNING: BUY ma TP (%s) <= Entry (%s) — ordine sara' RIFIUTATO",
@@ -530,7 +436,7 @@ void OnTick()
          // Create cycle
          if(VirtualMode)
          {
-            AdLogI(LOG_CAT_TRIGGER, "DIAG: VirtualMode ON — creo trade virtuale (nessun ordine reale)");
+            AdLogD(LOG_CAT_TRIGGER, "DIAG: VirtualMode ON — creo trade virtuale (nessun ordine reale)");
             int vSlot = VirtualCreateTrade(sig);
             if(vSlot >= 0)
             {
@@ -542,13 +448,13 @@ void OnTick()
          }
          else
          {
-            AdLogI(LOG_CAT_TRIGGER, "DIAG: Invoco CreateCycle() per piazzare ordine reale...");
+            AdLogD(LOG_CAT_TRIGGER, "DIAG: Invoco CreateCycle() per piazzare ordine reale...");
             int slot = CreateCycle(sig);
             if(slot >= 0)
             {
-               AdLogI(LOG_CAT_TRIGGER, StringFormat("DIAG: CreateCycle OK — slot=%d | CycleID=#%d | Ticket=%d",
+               AdLogD(LOG_CAT_TRIGGER, StringFormat("DIAG: CreateCycle OK — slot=%d | CycleID=#%d | Ticket=%d",
                       slot, g_cycles[slot].cycleID, g_cycles[slot].ticket));
-               AdLogI(LOG_CAT_TRIGGER, StringFormat("DIAG: Ordine PIAZZATO — %s Lot=%.2f | Entry=%s | TP=%s",
+               AdLogD(LOG_CAT_TRIGGER, StringFormat("DIAG: Ordine PIAZZATO — %s Lot=%.2f | Entry=%s | TP=%s",
                       dirStr, g_cycles[slot].lotSize, FormatPrice(g_cycles[slot].entryPrice), FormatPrice(g_cycles[slot].tpPrice)));
                Alert(StringFormat("AcquaDulza ORDINE PIAZZATO #%d %s | Lot=%.2f | %s",
                      g_cycles[slot].cycleID, dirStr, g_cycles[slot].lotSize, _Symbol));
@@ -632,7 +538,6 @@ void OnTimer()
       {
          if(ShowChannelOverlay) DrawChannelOverlay();
          if(ShowSignalArrows) ScanHistoricalSignals();
-         PopulateDashboardData();
          UpdateDashboard();
          ChartRedraw();
          initialDrawDone = true;

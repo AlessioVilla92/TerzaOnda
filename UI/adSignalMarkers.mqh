@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                       adSignalMarkers.mqh        |
-//|           AcquaDulza EA v1.3.0 — Signal Markers                  |
+//|           AcquaDulza EA v1.4.1 — Signal Markers                  |
 //|                                                                  |
 //|  Replica indicatore DonchianPredictiveChannel.mq5:               |
 //|  TBS arrows (bright lime/red) + TWS arrows (dark green/red)      |

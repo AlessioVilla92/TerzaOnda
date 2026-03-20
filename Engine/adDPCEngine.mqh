@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDPCEngine.mqh         |
-//|           AcquaDulza EA v1.3.0 — DPC Engine Orchestrator         |
+//|           AcquaDulza EA v1.4.1 — DPC Engine Orchestrator         |
 //|                                                                  |
 //|  Implements the 3 contract functions from adEngineInterface.mqh: |
 //|    EngineInit()      — Create handles, init state                |
@@ -217,7 +217,7 @@ bool EngineCalculate(EngineSignal &sig)
    // ── DIAG: Log quando un segnale base viene rilevato ──
    if(bearBase || bullBase)
    {
-      AdLogI(LOG_CAT_ENGINE, StringFormat("DIAG BASE SIGNAL DETECTED: %s | Bar[1]=%s | H=%s L=%s O=%s C=%s | Upper=%s Lower=%s Mid=%s",
+      AdLogD(LOG_CAT_ENGINE, StringFormat("DIAG BASE SIGNAL DETECTED: %s | Bar[1]=%s | H=%s L=%s O=%s C=%s | Upper=%s Lower=%s Mid=%s",
              bearBase ? "SELL(bear)" : "BUY(bull)",
              TimeToString(iTime(_Symbol, PERIOD_CURRENT, 1), TIME_DATE|TIME_MINUTES),
              DoubleToString(high1, _Digits), DoubleToString(low1, _Digits),
@@ -241,13 +241,13 @@ bool EngineCalculate(EngineSignal &sig)
       {
          bearBase = false;
          rejectedBy += "Flatness(SELL) ";
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: Flatness — SELL bloccato (banda upper si espande, tol=%.4f*ATR)", g_dpc_flatTol));
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: Flatness — SELL bloccato (banda upper si espande, tol=%.4f*ATR)", g_dpc_flatTol));
       }
       if(bullBase && !flatPass_buy)
       {
          bullBase = false;
          rejectedBy += "Flatness(BUY) ";
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: Flatness — BUY bloccato (banda lower si espande, tol=%.4f*ATR)", g_dpc_flatTol));
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: Flatness — BUY bloccato (banda lower si espande, tol=%.4f*ATR)", g_dpc_flatTol));
       }
    }
    sig.filterNames[sig.filterCount]  = "Flat";
@@ -264,13 +264,13 @@ bool EngineCalculate(EngineSignal &sig)
       {
          bearBase = false;
          rejectedBy += "TrendCtx(SELL) ";
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: TrendContext — SELL bloccato (macro uptrend, soglia=%.1f*ATR)", InpTrendContextMult));
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: TrendContext — SELL bloccato (macro uptrend, soglia=%.1f*ATR)", InpTrendContextMult));
       }
       if(bullBase && !trendPass_buy)
       {
          bullBase = false;
          rejectedBy += "TrendCtx(BUY) ";
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: TrendContext — BUY bloccato (macro downtrend, soglia=%.1f*ATR)", InpTrendContextMult));
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: TrendContext — BUY bloccato (macro downtrend, soglia=%.1f*ATR)", InpTrendContextMult));
       }
    }
    sig.filterNames[sig.filterCount]  = "Trend";
@@ -287,13 +287,13 @@ bool EngineCalculate(EngineSignal &sig)
       {
          bearBase = false;
          rejectedBy += "LevelAge(SELL) ";
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: LevelAge — SELL bloccato (upper band non flat per min %d barre)", InpMinLevelAge));
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: LevelAge — SELL bloccato (upper band non flat per min %d barre)", InpMinLevelAge));
       }
       if(bullBase && !agePass_buy)
       {
          bullBase = false;
          rejectedBy += "LevelAge(BUY) ";
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: LevelAge — BUY bloccato (lower band non flat per min %d barre)", InpMinLevelAge));
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: LevelAge — BUY bloccato (lower band non flat per min %d barre)", InpMinLevelAge));
       }
    }
    sig.filterNames[sig.filterCount]  = "Age";
@@ -311,7 +311,7 @@ bool EngineCalculate(EngineSignal &sig)
          if(bullBase) rejectedBy += "Width(BUY) ";
          bearBase = false;
          bullBase = false;
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: Width — canale troppo stretto (%.1fp < min %.1fp)",
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: Width — canale troppo stretto (%.1fp < min %.1fp)",
                 PointsToPips(upper1 - lower1), g_dpc_minWidth));
       }
    }
@@ -330,7 +330,7 @@ bool EngineCalculate(EngineSignal &sig)
          if(bullBase) rejectedBy += "Time(BUY) ";
          bearBase = false;
          bullBase = false;
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: TimeFilter — orario bloccato (%s-%s)",
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: TimeFilter — orario bloccato (%s-%s)",
                 InpTimeBlockStart, InpTimeBlockEnd));
       }
    }
@@ -348,14 +348,14 @@ bool EngineCalculate(EngineSignal &sig)
       {
          bearBase = false;
          rejectedBy += "MA(SELL) ";
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: MA — SELL bloccato (close=%s, MA=%s, mode=%s)",
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: MA — SELL bloccato (close=%s, MA=%s, mode=%s)",
                 DoubleToString(close1, _Digits), DoubleToString(ma1, _Digits), EnumToString(InpMAFilterMode)));
       }
       if(bullBase && !maPass_buy)
       {
          bullBase = false;
          rejectedBy += "MA(BUY) ";
-         AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: MA — BUY bloccato (close=%s, MA=%s, mode=%s)",
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: MA — BUY bloccato (close=%s, MA=%s, mode=%s)",
                 DoubleToString(close1, _Digits), DoubleToString(ma1, _Digits), EnumToString(InpMAFilterMode)));
       }
    }
@@ -374,14 +374,14 @@ bool EngineCalculate(EngineSignal &sig)
    if(bearBase && !bearCooldownOK)
    {
       rejectedBy += "Cooldown(SELL) ";
-      AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: SmartCooldown — SELL bloccato (lastDir=%d, barsSince=%d, midTouch=%s, waitingMid=%s)",
+      AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: SmartCooldown — SELL bloccato (lastDir=%d, barsSince=%d, midTouch=%s, waitingMid=%s)",
              g_dpcLastDirection_cd, currentBarIdx - g_dpcLastSignalBarIdx,
              g_dpcMidlineTouched_cd ? "YES" : "NO", g_dpcWaitingForMidTouch ? "YES" : "NO"));
    }
    if(bullBase && !bullCooldownOK)
    {
       rejectedBy += "Cooldown(BUY) ";
-      AdLogI(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: SmartCooldown — BUY bloccato (lastDir=%d, barsSince=%d, midTouch=%s, waitingMid=%s)",
+      AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: SmartCooldown — BUY bloccato (lastDir=%d, barsSince=%d, midTouch=%s, waitingMid=%s)",
              g_dpcLastDirection_cd, currentBarIdx - g_dpcLastSignalBarIdx,
              g_dpcMidlineTouched_cd ? "YES" : "NO", g_dpcWaitingForMidTouch ? "YES" : "NO"));
    }
@@ -400,7 +400,7 @@ bool EngineCalculate(EngineSignal &sig)
       // ── DIAG: Log riepilogo reiezione se c'era un segnale base ──
       if(origBear || origBull)
       {
-         AdLogW(LOG_CAT_ENGINE, StringFormat("DIAG SIGNAL REJECTED: %s base=%s | BLOCCATO DA: %s| Bar=%s",
+         AdLogD(LOG_CAT_ENGINE, StringFormat("DIAG SIGNAL REJECTED: %s base=%s | BLOCCATO DA: %s| Bar=%s",
                 origBear ? "SELL" : "BUY",
                 origBear ? StringFormat("H(%s)>=U(%s) C(%s)<U", DoubleToString(high1, _Digits), DoubleToString(upper1, _Digits), DoubleToString(close1, _Digits))
                          : StringFormat("L(%s)<=L(%s) C(%s)>L", DoubleToString(low1, _Digits), DoubleToString(lower1, _Digits), DoubleToString(close1, _Digits)),
@@ -415,7 +415,7 @@ bool EngineCalculate(EngineSignal &sig)
    }
 
    // ── DIAG: Log segnale che ha SUPERATO tutti i filtri ──
-   AdLogI(LOG_CAT_ENGINE, StringFormat("DIAG SIGNAL PASSED ALL FILTERS: %s | Bar=%s | Filtri superati: Flat=%s Trend=%s Age=%s Width=%s Time=%s MA=%s CD=%s",
+   AdLogD(LOG_CAT_ENGINE, StringFormat("DIAG SIGNAL PASSED ALL FILTERS: %s | Bar=%s | Filtri superati: Flat=%s Trend=%s Age=%s Width=%s Time=%s MA=%s CD=%s",
           bullCond ? "BUY" : "SELL",
           TimeToString(iTime(_Symbol, PERIOD_CURRENT, 1), TIME_DATE|TIME_MINUTES),
           flatPass_sell || flatPass_buy ? "OK" : "SKIP",
@@ -433,7 +433,7 @@ bool EngineCalculate(EngineSignal &sig)
    // Skip TWS signals if disabled
    if(!InpShowTWSSignals && quality == PATTERN_TWS)
    {
-      AdLogI(LOG_CAT_ENGINE, StringFormat("DIAG SIGNAL DROPPED: %s TWS scartato (InpShowTWSSignals=false) | Bar=%s",
+      AdLogD(LOG_CAT_ENGINE, StringFormat("DIAG SIGNAL DROPPED: %s TWS scartato (InpShowTWSSignals=false) | Bar=%s",
              direction > 0 ? "BUY" : "SELL",
              TimeToString(iTime(_Symbol, PERIOD_CURRENT, 1), TIME_DATE|TIME_MINUTES)));
       return true;  // Data populated but no signal emitted
@@ -456,7 +456,7 @@ bool EngineCalculate(EngineSignal &sig)
 
    if(!isNew)
    {
-      AdLogI(LOG_CAT_ENGINE, StringFormat("DIAG ANTI-REPAINT: %s duplicato bloccato (bar gia' processata: %s)",
+      AdLogD(LOG_CAT_ENGINE, StringFormat("DIAG ANTI-REPAINT: %s duplicato bloccato (bar gia' processata: %s)",
              direction > 0 ? "BUY" : "SELL",
              TimeToString(bar1Time, TIME_DATE|TIME_MINUTES)));
       return true;  // Duplicate blocked

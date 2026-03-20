@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                         adRiskManager.mqh        |
-//|           AcquaDulza EA v1.3.0 — Risk Manager                    |
+//|           AcquaDulza EA v1.4.1 — Risk Manager                    |
 //|                                                                  |
 //|  3 lot sizing modes: FIXED_LOT, RISK_PCT, FIXED_CASH            |
 //|  Circuit breaker, daily loss limit, spread check                 |
@@ -173,21 +173,6 @@ bool HasSufficientMargin()
 }
 
 //+------------------------------------------------------------------+
-//| CalculateMarginRequired — Margin for a potential order          |
-//+------------------------------------------------------------------+
-double CalculateMarginRequired(double lots, ENUM_ORDER_TYPE orderType)
-{
-   double margin = 0;
-   if(!OrderCalcMargin(orderType, _Symbol, lots, SymbolInfoDouble(_Symbol, SYMBOL_ASK), margin))
-   {
-      AdLogE(LOG_CAT_RISK, StringFormat("OrderCalcMargin failed: lots=%.4f type=%s err=%d",
-         lots, EnumToString(orderType), GetLastError()));
-      return -1;
-   }
-   return margin;
-}
-
-//+------------------------------------------------------------------+
 //| UpdateEquityTracking — Track high water mark + max drawdown     |
 //+------------------------------------------------------------------+
 void UpdateEquityTracking()
@@ -205,13 +190,4 @@ void UpdateEquityTracking()
       g_maxDrawdownPct = ddFromPeak;
 }
 
-//+------------------------------------------------------------------+
-//| GetDrawdownFromPeak — Current drawdown from peak equity         |
-//+------------------------------------------------------------------+
-double GetDrawdownFromPeak()
-{
-   double equity = GetEquity();
-   if(g_maxEquity <= 0 || equity >= g_maxEquity) return 0;
-   return ((g_maxEquity - equity) / g_maxEquity) * 100.0;
-}
 
