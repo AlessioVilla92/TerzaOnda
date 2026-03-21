@@ -1,13 +1,13 @@
 //+------------------------------------------------------------------+
 //|                                    adRecoveryManager.mqh         |
-//|           AcquaDulza EA v1.4.1 — Recovery Manager                |
+//|           AcquaDulza EA v1.5.0 — Recovery Manager                |
 //|                                                                  |
 //|  Broker scan recovery: reconstruct cycles from positions/orders  |
 //|                                                                  |
-//|  v1.4.0: Scan hedge positions/orders (MagicNumber+1)             |
-//|    Posizioni hedge attive → hedgeActive=true, CYCLE_HEDGING      |
-//|    Ordini hedge pendenti → hedgePending=true                     |
-//|    Entrambi protetti da guard EnableHedge                         |
+//|  v1.5.0: Two-Tier hedge scan                                     |
+//|    H1 positions/orders: MagicNumber+1                             |
+//|    H2 positions/orders: MagicNumber+2                             |
+//|    H2 attivo: ripristina SL breakeven se Hedge2BreakevenSL=true  |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -155,6 +155,67 @@ void AttemptRecovery()
       }
    }
 
+   // === SCAN HEDGE 2 POSITIONS (MagicNumber + 2) ===
+   if(EnableHedge && Hedge2Enabled)
+   {
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         ulong ticket = PositionGetTicket(i);
+         if(ticket == 0) continue;
+         if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+         if(PositionGetInteger(POSITION_MAGIC) != MagicNumber + 2) continue;
+
+         string comment = PositionGetString(POSITION_COMMENT);
+         int cycleID = ParseCycleIDFromComment(comment);
+         if(cycleID < 0) continue;
+
+         for(int j = 0; j < ArraySize(g_cycles); j++)
+         {
+            if(g_cycles[j].cycleID == cycleID)
+            {
+               g_cycles[j].hedge2Ticket       = ticket;
+               g_cycles[j].hedge2Active       = true;
+               g_cycles[j].hedge2Pending      = false;
+               g_cycles[j].hedge2LotSize      = PositionGetDouble(POSITION_VOLUME);
+               g_cycles[j].hedge2TriggerPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+               g_cycles[j].hedge2TPPrice      = PositionGetDouble(POSITION_TP);
+               if(g_cycles[j].state == CYCLE_ACTIVE)
+                  g_cycles[j].state = CYCLE_HEDGING;
+
+               AdLogI(LOG_CAT_RECOVERY, StringFormat(
+                  "H2 position recovered — #%d | Ticket=%d | Entry=%s",
+                  cycleID, ticket, DoubleToString(g_cycles[j].hedge2TriggerPrice, _Digits)));
+
+               // Ripristina SL breakeven se assente
+               if(Hedge2BreakevenSL)
+               {
+                  double currentSL = PositionGetDouble(POSITION_SL);
+                  if(currentSL == 0)
+                  {
+                     double fillPrice = g_cycles[j].hedge2TriggerPrice;
+                     double buffer = g_symbolStopsLevel * g_symbolPoint + g_symbolPoint;
+                     double beSL;
+                     if(g_cycles[j].direction > 0)
+                        beSL = fillPrice + buffer;
+                     else
+                        beSL = fillPrice - buffer;
+                     beSL = NormalizeDouble(beSL, _Digits);
+
+                     g_trade.SetExpertMagicNumber(MagicNumber + 2);
+                     if(g_trade.PositionModify(ticket, beSL, g_cycles[j].hedge2TPPrice))
+                     {
+                        AdLogI(LOG_CAT_RECOVERY, StringFormat(
+                           "H2 BE SL restored #%d | SL=%s",
+                           cycleID, DoubleToString(beSL, _Digits)));
+                     }
+                  }
+               }
+               break;
+            }
+         }
+      }
+   }
+
    // === SCAN PENDING ORDERS ===
    for(int i = OrdersTotal() - 1; i >= 0; i--)
    {
@@ -216,6 +277,40 @@ void AttemptRecovery()
                AdLogI(LOG_CAT_RECOVERY, StringFormat(
                   "Hedge pending recovered — #%d | Ticket=%d | Trigger=%s",
                   cycleID, ticket, DoubleToString(g_cycles[j].hedgeTriggerPrice, _Digits)));
+               break;
+            }
+         }
+      }
+   }
+
+   // === SCAN HEDGE 2 PENDING ORDERS (MagicNumber + 2) ===
+   if(EnableHedge && Hedge2Enabled)
+   {
+      for(int i = OrdersTotal() - 1; i >= 0; i--)
+      {
+         ulong ticket = OrderGetTicket(i);
+         if(ticket == 0) continue;
+         if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
+         if(OrderGetInteger(ORDER_MAGIC) != MagicNumber + 2) continue;
+
+         string comment = OrderGetString(ORDER_COMMENT);
+         int cycleID = ParseCycleIDFromComment(comment);
+         if(cycleID < 0) continue;
+
+         for(int j = 0; j < ArraySize(g_cycles); j++)
+         {
+            if(g_cycles[j].cycleID == cycleID)
+            {
+               g_cycles[j].hedge2Ticket       = ticket;
+               g_cycles[j].hedge2Pending      = true;
+               g_cycles[j].hedge2Active       = false;
+               g_cycles[j].hedge2LotSize      = OrderGetDouble(ORDER_VOLUME_CURRENT);
+               g_cycles[j].hedge2TriggerPrice = OrderGetDouble(ORDER_PRICE_OPEN);
+               g_cycles[j].hedge2TPPrice      = OrderGetDouble(ORDER_TP);
+
+               AdLogI(LOG_CAT_RECOVERY, StringFormat(
+                  "H2 pending recovered — #%d | Ticket=%d | Trigger=%s",
+                  cycleID, ticket, DoubleToString(g_cycles[j].hedge2TriggerPrice, _Digits)));
                break;
             }
          }

@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDPCEngine.mqh         |
-//|           AcquaDulza EA v1.4.1 — DPC Engine Orchestrator         |
+//|           AcquaDulza EA v1.5.0 — DPC Engine Orchestrator         |
 //|                                                                  |
 //|  Implements the 3 contract functions from adEngineInterface.mqh: |
 //|    EngineInit()      — Create handles, init state                |

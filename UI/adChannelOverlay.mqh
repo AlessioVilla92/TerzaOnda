@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adChannelOverlay.mqh        |
-//|           AcquaDulza EA v1.4.1 — Channel Overlay                 |
+//|           AcquaDulza EA v1.5.0 — Channel Overlay                 |
 //|                                                                  |
 //|  Visualizzazione grafica del canale Donchian Predictive sul chart.|
 //|                                                                  |
@@ -133,6 +133,8 @@ void DrawChannelOverlay()
          ObjectDelete(0, pfx + "A");
          ObjectDelete(0, pfx + "HU");
          ObjectDelete(0, pfx + "HL");
+         ObjectDelete(0, pfx + "H2U");
+         ObjectDelete(0, pfx + "H2L");
       }
    }
    g_ovlLastDepth = depth;
@@ -197,15 +199,24 @@ void DrawChannelOverlay()
                          AD_CHAN_MA_CLR, STYLE_SOLID, 2);
       }
 
-      // Hedge zone lines — linee continue fuchsia esterne al canale
-      // Mostrano dove verrebbe piazzato l'hedge: banda ± HedgeATRMult × ATR
-      if(EnableHedge && ShowHedgeZone && g_atrPips > 0)
+      // Hedge 1 zone lines — linee continue fuchsia esterne al canale
+      if(EnableHedge && Hedge1Enabled && ShowHedgeZone && g_atrPips > 0)
       {
-         double hedgeOff = HedgeATRMult * PipsToPrice(g_atrPips);
+         double hedgeOff = Hedge1ATRMult * PipsToPrice(g_atrPips);
          DrawOverlayLine(prefix + "HU", t2, arrU[i + 1] + hedgeOff, t1, arrU[i] + hedgeOff,
                          AD_HEDGE_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE_ZONE_STYLE, AD_HEDGE_ZONE_WIDTH);
          DrawOverlayLine(prefix + "HL", t2, arrL[i + 1] - hedgeOff, t1, arrL[i] - hedgeOff,
                          AD_HEDGE_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE_ZONE_STYLE, AD_HEDGE_ZONE_WIDTH);
+      }
+
+      // Hedge 2 zone lines — linee continue arancioni, canale esterno
+      if(EnableHedge && Hedge2Enabled && ShowHedge2Zone && g_atrPips > 0)
+      {
+         double hedge2Off = Hedge2ATRMult * PipsToPrice(g_atrPips);
+         DrawOverlayLine(prefix + "H2U", t2, arrU[i + 1] + hedge2Off, t1, arrU[i] + hedge2Off,
+                         AD_HEDGE2_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE2_ZONE_STYLE, AD_HEDGE2_ZONE_WIDTH);
+         DrawOverlayLine(prefix + "H2L", t2, arrL[i + 1] - hedge2Off, t1, arrL[i] - hedge2Off,
+                         AD_HEDGE2_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE2_ZONE_STYLE, AD_HEDGE2_ZONE_WIDTH);
       }
    }
 
@@ -433,10 +444,10 @@ void UpdateChannelLiveEdge()
       }
    }
 
-   // Aggiorna hedge zone lines — live edge
-   if(EnableHedge && ShowHedgeZone && g_atrPips > 0)
+   // Aggiorna H1 hedge zone lines — live edge
+   if(EnableHedge && Hedge1Enabled && ShowHedgeZone && g_atrPips > 0)
    {
-      double hedgeOff = HedgeATRMult * PipsToPrice(g_atrPips);
+      double hedgeOff = Hedge1ATRMult * PipsToPrice(g_atrPips);
 
       string nameHU = prefix + "HU";
       if(ObjectFind(0, nameHU) >= 0)
@@ -450,6 +461,26 @@ void UpdateChannelLiveEdge()
       {
          ObjectSetInteger(0, nameHL, OBJPROP_TIME, 1, t0);
          ObjectSetDouble(0, nameHL, OBJPROP_PRICE, 1, lower0 - hedgeOff);
+      }
+   }
+
+   // Aggiorna H2 hedge zone lines — live edge
+   if(EnableHedge && Hedge2Enabled && ShowHedge2Zone && g_atrPips > 0)
+   {
+      double hedge2Off = Hedge2ATRMult * PipsToPrice(g_atrPips);
+
+      string nameH2U = prefix + "H2U";
+      if(ObjectFind(0, nameH2U) >= 0)
+      {
+         ObjectSetInteger(0, nameH2U, OBJPROP_TIME, 1, t0);
+         ObjectSetDouble(0, nameH2U, OBJPROP_PRICE, 1, upper0 + hedge2Off);
+      }
+
+      string nameH2L = prefix + "H2L";
+      if(ObjectFind(0, nameH2L) >= 0)
+      {
+         ObjectSetInteger(0, nameH2L, OBJPROP_TIME, 1, t0);
+         ObjectSetDouble(0, nameH2L, OBJPROP_PRICE, 1, lower0 - hedge2Off);
       }
    }
 }

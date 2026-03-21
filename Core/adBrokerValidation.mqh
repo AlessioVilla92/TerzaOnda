@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adBrokerValidation.mqh      |
-//|           AcquaDulza EA v1.4.1 — Broker Validation               |
+//|           AcquaDulza EA v1.5.0 — Broker Validation               |
 //|                                                                  |
 //|  Load broker specs, validate inputs, normalize lots              |
 //+------------------------------------------------------------------+

@@ -1,13 +1,12 @@
 //+------------------------------------------------------------------+
 //|                                        adCycleManager.mqh        |
-//|           AcquaDulza EA v1.4.1 — Cycle Manager                   |
+//|           AcquaDulza EA v1.5.0 — Cycle Manager                   |
 //|                                                                  |
 //|  Manages trade cycles: create, monitor, expire, detect fills     |
 //|  Absorbed from carnTriggerSystem + Carneval.mq5 cycle logic      |
 //|                                                                  |
-//|  v1.4.0: Hedge fields reset on cycle creation + cleanup          |
-//|    CreateCycle() — resetta 7 campi hedge (ticket, trigger, TP,   |
-//|      lot, pending, active, lineName) per ogni nuovo ciclo        |
+//|  v1.5.0: Two-Tier hedge — 9 campi H2 + 2 tracking H1             |
+//|    CreateCycle() — resetta 18 campi hedge (H1+H2+tracking)       |
 //|    InitCycleManager() — idem per inizializzazione completa       |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
@@ -141,7 +140,7 @@ int CreateCycle(const EngineSignal &sig)
    g_cycles[slot].placedTime      = iTime(_Symbol, PERIOD_CURRENT, 0);
    g_cycles[slot].quality         = sig.quality;
    g_cycles[slot].profit          = 0;
-   // Hedge fields reset
+   // Hedge 1 fields reset
    g_cycles[slot].hedgeTicket       = 0;
    g_cycles[slot].hedgeTriggerPrice = 0;
    g_cycles[slot].hedgeTPPrice      = 0;
@@ -149,6 +148,16 @@ int CreateCycle(const EngineSignal &sig)
    g_cycles[slot].hedgePending      = false;
    g_cycles[slot].hedgeActive       = false;
    g_cycles[slot].hedgeLineName     = "";
+   g_cycles[slot].hedge1BankedProfit = 0;
+   g_cycles[slot].hedge1TPHit       = false;
+   // Hedge 2 fields reset
+   g_cycles[slot].hedge2Ticket       = 0;
+   g_cycles[slot].hedge2TriggerPrice = 0;
+   g_cycles[slot].hedge2TPPrice      = 0;
+   g_cycles[slot].hedge2LotSize      = 0;
+   g_cycles[slot].hedge2Pending      = false;
+   g_cycles[slot].hedge2Active       = false;
+   g_cycles[slot].hedge2LineName     = "";
 
    // [MOD] SL rimosso — CalculateLotSize(0, quality) usa il LotSize fisso come fallback.
    // Il secondo parametro (sig.quality) applica il moltiplicatore TBS/TWS:
@@ -373,6 +382,8 @@ void MonitorActive()
       {
          // Position closed (TP/SL hit or manual close)
          double profit = GetClosedPositionProfit(g_cycles[i].ticket);
+         // Include H1 banked profit if H1 TP was hit earlier
+         profit += g_cycles[i].hedge1BankedProfit;
          g_cycles[i].profit = profit;
          g_cycles[i].state  = CYCLE_CLOSED;
 
@@ -448,7 +459,7 @@ void InitializeCycles()
       g_cycles[i].placedTime = 0;
       g_cycles[i].quality   = 0;
       g_cycles[i].profit    = 0;
-      // Hedge fields
+      // Hedge 1 fields
       g_cycles[i].hedgeTicket       = 0;
       g_cycles[i].hedgeTriggerPrice = 0;
       g_cycles[i].hedgeTPPrice      = 0;
@@ -456,6 +467,16 @@ void InitializeCycles()
       g_cycles[i].hedgePending      = false;
       g_cycles[i].hedgeActive       = false;
       g_cycles[i].hedgeLineName     = "";
+      g_cycles[i].hedge1BankedProfit = 0;
+      g_cycles[i].hedge1TPHit       = false;
+      // Hedge 2 fields
+      g_cycles[i].hedge2Ticket       = 0;
+      g_cycles[i].hedge2TriggerPrice = 0;
+      g_cycles[i].hedge2TPPrice      = 0;
+      g_cycles[i].hedge2LotSize      = 0;
+      g_cycles[i].hedge2Pending      = false;
+      g_cycles[i].hedge2Active       = false;
+      g_cycles[i].hedge2LineName     = "";
    }
 
    Log_InitComplete("Cycle Manager");

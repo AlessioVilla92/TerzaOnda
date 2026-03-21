@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adInputParameters.mqh       |
-//|           AcquaDulza EA v1.4.1 — Input Parameters                |
+//|           AcquaDulza EA v1.5.0 — Input Parameters                |
 //|                                                                  |
 //|  Sezione FRAMEWORK: parametri stabili (non cambiano con engine)  |
 //|  Sezione ENGINE:    parametri DPC-specifici (da sostituire)       |
@@ -287,50 +287,52 @@ input ENUM_TIMEFRAMES InpATR_Timeframe      = PERIOD_CURRENT; // 📋 ATR Timefr
 input int             InpATR_Period          = 14;             // 📊 ATR Period
 
 //+------------------------------------------------------------------+
-//| E9. HEDGE ENGINE                                                 |
+//| E9. HEDGING — Two-Tier Hedge System                              |
 //+------------------------------------------------------------------+
 
 input group "                                                           "
 input group "╔═══════════════════════════════════════════════════════════╗"
-input group "║  🛡️ HEDGE ENGINE — Protezione breakout su Turtle Soup    ║"
+input group "║  🛡️ HEDGING — Protezione Two-Tier su Turtle Soup        ║"
 input group "╚═══════════════════════════════════════════════════════════╝"
 
-input group "    ⚙️ HEDGE ACTIVATION"
-input bool   EnableHedge             = true;    // ✅ Abilita hedge automatico su ogni Soup
-// ↑ Se true: ogni segnale TBS/TWS genera un ordine stop opposto (BUY STOP su SELL Soup,
-//   SELL STOP su BUY Soup) piazzato a una distanza calcolata con ATR(14).
-//   L'ATR si adatta automaticamente al timeframe corrente — nessuna parametrizzazione manuale.
-//   false = sistema identico a v1.3.0, nessun ordine aggiuntivo.
+input group "    ⚙️ ATTIVAZIONE"
+input bool   EnableHedge             = true;    // ✅ Master switch: abilita sistema hedge
+// ↑ Se true: ogni segnale TBS/TWS puo' generare fino a 2 ordini stop opposti.
+//   H1 (Recovery) = incassa profitto dal dip, NON chiude la Soup.
+//   H2 (Protezione) = chiude la Soup al raggiungimento del suo TP.
+//   false = nessun hedge, sistema identico a v1.3.0.
 
-input group "    📐 HEDGE DISTANCE"
-input double HedgeATRMult            = 1.0;     // 📏 Distanza trigger hedge (× ATR14)
-// ↑ Il BUY/SELL STOP viene piazzato a: banda + HedgeATRMult × ATR(14).
-//   Esempio BTCUSD M5: ATR=170pip, mult=1.0 → trigger a +170pip dalla banda.
-//   Esempio EURUSD M15: ATR=8pip, mult=1.0 → trigger a +8pip dalla banda.
-//   Valori consigliati: 0.5 (aggressivo) | 1.0 (standard) | 2.0 (conservativo).
-//   Il valore 1.0 è il livello dove la probabilità di mean-reversion scende sotto 50%.
+input group "    📐 HEDGE 1 — Recovery (non chiude Soup)"
+input bool   Hedge1Enabled           = true;    // ✅ Abilita Hedge 1
+// ↑ H1 piazzato piu' vicino alla banda. Quando il suo TP viene colpito,
+//   il profitto viene incassato ma la Soup resta aperta per recuperare alla midline.
+input double Hedge1ATRMult           = 1.0;     // 📏 Trigger: banda ± X × ATR(14)
+// ↑ Distanza del trigger H1 dalla banda Donchian.
+//   Valori: 0.5 (aggressivo) | 1.0 (standard) | 2.0 (conservativo)
+input double Hedge1TPAtrMult         = 2.0;     // 🎯 TP: trigger ± X × ATR(14)
+// ↑ TP del H1 calcolato dal trigger. Con ATRMult=1.0, TPMult=2.0: R:R = 2:1
+input bool   Hedge1UseSameLot        = true;    // ✅ Usa lotto Soup (TBS=2x, TWS=1x)
+input double Hedge1LotFixed          = 0.01;    // 📊 Lotto fisso H1 (se UseSameLot=false)
 
-input group "    🎯 HEDGE TAKE PROFIT"
-input double HedgeTPAtrMult          = 2.0;     // 🎯 TP hedge (× ATR14 dal trigger)
-// ↑ TP = hedgeTrigger + HedgeTPAtrMult × ATR(14).
-//   Ratio R:R = HedgeTPAtrMult / 1.0 ATR (distanza trigger=1×, TP=2× → R:R 2:1).
-//   Con HedgeATRMult=1.0 e HedgeTPAtrMult=2.0: SL implicito=1 ATR, TP=2 ATR → R:R 2:1.
+input group "    📐 HEDGE 2 — Protezione (chiude Soup al TP)"
+input bool   Hedge2Enabled           = true;    // ✅ Abilita Hedge 2
+// ↑ H2 piazzato piu' lontano dalla banda. Quando il suo TP viene colpito,
+//   CHIUDE la Soup. Trigger consigliato: >= H1 trigger + H1 TP (default: 3.0).
+input double Hedge2ATRMult           = 3.0;     // 📏 Trigger: banda ± X × ATR(14)
+// ↑ Con default 3.0 e H1 default (1.0+2.0=3.0): H2 trigger = H1 TP level.
+//   Questo crea un "passaggio di consegne" pulito tra H1 e H2.
+input double Hedge2TPAtrMult         = 3.0;     // 🎯 TP: trigger ± X × ATR(14)
+// ↑ TP del H2. Con lotto 1.5x e questi default: NET breakout = +0.5×ATR
+input double Hedge2LotRatio          = 1.5;     // 📊 Lotto: X × lotto Soup
+// ↑ 1.5 = 150% del lotto Soup. Compensa il gap matematico entry→trigger.
+//   Valori: 1.0 (breakeven) | 1.5 (standard) | 2.0 (aggressivo)
+input bool   Hedge2BreakevenSL       = true;    // 🛡️ SL breakeven dopo fill
+// ↑ Dopo il fill di H2, imposta SL al prezzo di entry + buffer minimo broker.
+//   Se il prezzo reversa, H2 si chiude a ~zero perdita.
 
-input group "    💰 HEDGE LOT SIZE"
-input bool   HedgeUseSameLot         = true;    // ✅ Usa stesso lotto della Soup
-// ↑ true = hedgeLot = g_cycles[slot].lotSize (TBS=2x, TWS=1x come la Soup).
-//   false = usa HedgeLotFixed come lotto fisso indipendente dalla Soup.
-input double HedgeLotFixed           = 0.01;    // 📊 Lotto fisso hedge (se HedgeUseSameLot=false)
-
-input group "    🎨 HEDGE VISUAL"
-input bool   ShowHedgeLine           = true;    // ✅ Mostra linea fucsia trigger hedge
-// ↑ Traccia un segmento tratteggiato fucsia al livello del trigger hedge.
-//   La linea dura HedgeLineBarWidth barre poi scompare (se non colpita).
-//   Cancellata automaticamente quando la Soup chiude o il trigger viene riempito.
-input int    HedgeLineBarWidth       = 6;       // 📏 Durata linea fucsia (barre)
-// ↑ Quante barre dura la visualizzazione del livello hedge sul grafico.
-//   Valore consigliato: 5-8 barre. Non influenza il comportamento dell'ordine.
-input bool   ShowHedgeZone           = true;    // ✅ Mostra zona hedge (linee continue)
-// ↑ Due linee fuchsia continue sopra e sotto il canale Donchian che mostrano
-//   in tempo reale dove verrebbe piazzato l'hedge: banda ± HedgeATRMult × ATR(14).
-//   Richiede EnableHedge=true e ShowChannelOverlay=true.
+input group "    🎨 VISUALIZZAZIONE HEDGE"
+input bool   ShowHedgeLine           = true;    // ✅ Linea tratteggiata fucsia (trigger H1)
+input bool   ShowHedge2Line          = true;    // ✅ Linea tratteggiata arancione (trigger H2)
+input int    HedgeLineBarWidth       = 6;       // 📏 Durata linee trigger (barre)
+input bool   ShowHedgeZone           = true;    // ✅ Zone continue fucsia (canale H1)
+input bool   ShowHedge2Zone          = true;    // ✅ Zone continue arancioni (canale H2)

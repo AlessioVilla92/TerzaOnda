@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                         adRiskManager.mqh        |
-//|           AcquaDulza EA v1.4.1 — Risk Manager                    |
+//|           AcquaDulza EA v1.5.0 — Risk Manager                    |
 //|                                                                  |
 //|  3 lot sizing modes: FIXED_LOT, RISK_PCT, FIXED_CASH            |
 //|  Circuit breaker, daily loss limit, spread check                 |

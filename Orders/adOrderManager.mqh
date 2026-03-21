@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adOrderManager.mqh        |
-//|           AcquaDulza EA v1.4.1 — Order Manager                   |
+//|           AcquaDulza EA v1.5.0 — Order Manager                   |
 //|                                                                  |
 //|  3 entry modes: MARKET, LIMIT, STOP                              |
 //|  Retry logic. MagicNumber + MagicNumber+1 (hedge).               |

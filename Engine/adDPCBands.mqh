@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                           adDPCBands.mqh         |
-//|           AcquaDulza EA v1.4.1 — DPC Band Calculation            |
+//|           AcquaDulza EA v1.5.0 — DPC Band Calculation            |
 //|                                                                  |
 //|  Calcolo Donchian bands + EMA ATR. Math puro.                    |
 //+------------------------------------------------------------------+

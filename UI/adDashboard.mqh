@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDashboard.mqh         |
-//|           AcquaDulza EA v1.4.1 — Dashboard Display               |
+//|           AcquaDulza EA v1.5.0 — Dashboard Display               |
 //|                                                                  |
 //|  Ocean theme dashboard — Pragmatic approach.                     |
 //|  Layout: Header (logo+ver+engine) | TitleBar (pair+state)        |

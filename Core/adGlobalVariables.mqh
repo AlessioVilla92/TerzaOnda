@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adGlobalVariables.mqh       |
-//|           AcquaDulza EA v1.4.1 — Global Variables                |
+//|           AcquaDulza EA v1.5.0 — Global Variables                |
 //|                                                                  |
 //|  Stato macchina + array cicli + tracking + trade object          |
 //|  NO variabili engine-specifiche (vivono in Engine/)              |

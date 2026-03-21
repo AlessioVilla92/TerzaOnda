@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                                adEnums.mqh       |
-//|           AcquaDulza EA v1.4.1 — Enumerations & Structs          |
+//|           AcquaDulza EA v1.5.0 — Enumerations & Structs          |
 //|                                                                  |
 //|  Enum FRAMEWORK (stabili, non cambiano con engine swap)          |
 //|  + struct CycleRecord                                            |
@@ -211,18 +211,29 @@ struct CycleRecord
    datetime           placedTime;      // Tempo piazzamento ordine
    double             profit;          // P&L (floating o realized)
 
-   // === HEDGE FIELDS (EnableHedge=true) ===
-   ulong              hedgeTicket;     // Ticket ordine hedge (0 se non attivo)
-   double             hedgeTriggerPrice; // Livello BUY/SELL STOP hedge
-   double             hedgeTPPrice;    // TP dell'ordine hedge
-   double             hedgeLotSize;    // Lotto specifico hedge
-   bool               hedgePending;    // true = ordine pendente broker non ancora riempito
-   bool               hedgeActive;     // true = hedge riempito, stato HEDGING
+   // === HEDGE 1 FIELDS (Recovery — non chiude Soup) ===
+   ulong              hedgeTicket;     // Ticket ordine H1 (0 se non attivo)
+   double             hedgeTriggerPrice; // Livello BUY/SELL STOP H1
+   double             hedgeTPPrice;    // TP dell'ordine H1
+   double             hedgeLotSize;    // Lotto specifico H1
+   bool               hedgePending;    // true = H1 pendente broker
+   bool               hedgeActive;     // true = H1 riempito
    string             hedgeLineName;   // Nome oggetto linea fucsia sul grafico
+   double             hedge1BankedProfit; // Profitto H1 incassato (quando H1 TP hit)
+   bool               hedge1TPHit;     // true = H1 ha gia' colpito il TP
+
+   // === HEDGE 2 FIELDS (Protezione — chiude Soup al TP) ===
+   ulong              hedge2Ticket;    // Ticket ordine H2 (0 se non attivo)
+   double             hedge2TriggerPrice; // Livello BUY/SELL STOP H2
+   double             hedge2TPPrice;   // TP dell'ordine H2
+   double             hedge2LotSize;   // Lotto specifico H2
+   bool               hedge2Pending;   // true = H2 pendente broker
+   bool               hedge2Active;    // true = H2 riempito
+   string             hedge2LineName;  // Nome oggetto linea arancione sul grafico
 };
 
 //+------------------------------------------------------------------+
 //| COSTANTI GLOBALI                                                 |
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
-const string EA_VERSION         = "1.4.1";
+const string EA_VERSION         = "1.5.0";

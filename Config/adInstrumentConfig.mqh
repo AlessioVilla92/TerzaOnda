@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                     adInstrumentConfig.mqh        |
-//|           AcquaDulza EA v1.4.1 — Instrument Classification        |
+//|           AcquaDulza EA v1.5.0 — Instrument Classification        |
 //|                                                                    |
 //|  Sistema multi-prodotto CFD: rileva la classe dello strumento      |
 //|  e auto-scala tutti i parametri pip-dipendenti.                    |

@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adDPCCooldown.mqh         |
-//|           AcquaDulza EA v1.4.1 — DPC SmartCooldown               |
+//|           AcquaDulza EA v1.5.0 — DPC SmartCooldown               |
 //|                                                                  |
 //|  SmartCooldown state machine:                                    |
 //|    - First signal: always accepted                               |
