@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                    adStatePersistence.mqh        |
-//|           AcquaDulza EA v1.5.0 — State Persistence               |
+//|           AcquaDulza EA v1.5.1 — State Persistence               |
 //|                                                                  |
 //|  Auto-save & restore CycleRecord array via GlobalVariables       |
 //|                                                                  |
@@ -86,7 +86,7 @@ bool HasSavedState()
       if(ticket == 0) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
       long posMagic = PositionGetInteger(POSITION_MAGIC);
-      if(posMagic == MagicNumber || posMagic == MagicNumber + 1)
+      if(posMagic == MagicNumber || posMagic == MagicNumber + 1 || posMagic == MagicNumber + 2)
       { hasOrders = true; break; }
    }
    if(!hasOrders)
@@ -97,7 +97,7 @@ bool HasSavedState()
          if(ticket == 0) continue;
          if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
          long ordMagic = OrderGetInteger(ORDER_MAGIC);
-         if(ordMagic == MagicNumber || ordMagic == MagicNumber + 1)
+         if(ordMagic == MagicNumber || ordMagic == MagicNumber + 1 || ordMagic == MagicNumber + 2)
          { hasOrders = true; break; }
       }
    }

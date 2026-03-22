@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adCycleManager.mqh        |
-//|           AcquaDulza EA v1.5.0 — Cycle Manager                   |
+//|           AcquaDulza EA v1.5.1 — Cycle Manager                   |
 //|                                                                  |
 //|  Manages trade cycles: create, monitor, expire, detect fills     |
 //|  Absorbed from carnTriggerSystem + Carneval.mq5 cycle logic      |
@@ -381,43 +381,43 @@ void MonitorActive()
       if(!IsPositionOpen(g_cycles[i].ticket))
       {
          // Position closed (TP/SL hit or manual close)
-         double profit = GetClosedPositionProfit(g_cycles[i].ticket);
-         // Include H1 banked profit if H1 TP was hit earlier
-         profit += g_cycles[i].hedge1BankedProfit;
-         g_cycles[i].profit = profit;
+         double soupPL = GetClosedPositionProfit(g_cycles[i].ticket);
+         // Cycle NET include H1 banked (per display), ma session no (gia' contabilizzato)
+         g_cycles[i].profit = soupPL + g_cycles[i].hedge1BankedProfit;
          g_cycles[i].state  = CYCLE_CLOSED;
 
-         // Update counters
-         g_sessionRealizedProfit += profit;
-         g_dailyRealizedProfit   += profit;
-         if(profit > 0) { g_sessionWins++; g_dailyWins++; }
-         else           { g_sessionLosses++; g_dailyLosses++; }
+         // Update counters — solo soupPL, hedge1BankedProfit gia' in session quando bankato
+         g_sessionRealizedProfit += soupPL;
+         g_dailyRealizedProfit   += soupPL;
+         double netPL = g_cycles[i].profit;  // NET = soupPL + hedge1BankedProfit
+         if(netPL > 0) { g_sessionWins++; g_dailyWins++; }
+         else          { g_sessionLosses++; g_dailyLosses++; }
 
-         string result = profit > 0 ? "WIN" : "LOSS";
+         string result = netPL > 0 ? "WIN" : "LOSS";
          AdLogI(LOG_CAT_CYCLE, StringFormat("=== CLOSED #%d — %s === %s | Profit=%.2f | Session: W=%d L=%d PL=%.2f",
                 g_cycles[i].cycleID, result,
-                g_cycles[i].direction > 0 ? "BUY" : "SELL", profit,
+                g_cycles[i].direction > 0 ? "BUY" : "SELL", netPL,
                 g_sessionWins, g_sessionLosses, g_sessionRealizedProfit));
 
          // Alert popup + Feed item for dashboard
-         if(profit > 0)
+         if(netPL > 0)
          {
             Alert(StringFormat("AcquaDulza TP HIT #%d %s | Profit=+%.2f | TP=%s | %s",
                   g_cycles[i].cycleID,
                   g_cycles[i].direction > 0 ? "BUY" : "SELL",
-                  profit, FormatPrice(g_cycles[i].tpPrice), _Symbol));
-            AddFeedItem("TP hit " + FormatPrice(g_cycles[i].tpPrice) + " +$" + DoubleToString(profit, 2), AD_BUY);
+                  netPL, FormatPrice(g_cycles[i].tpPrice), _Symbol));
+            AddFeedItem("TP hit " + FormatPrice(g_cycles[i].tpPrice) + " +$" + DoubleToString(netPL, 2), AD_BUY);
          }
          else
          {
             Alert(StringFormat("AcquaDulza CLOSED #%d %s | Loss=%.2f | %s",
                   g_cycles[i].cycleID,
                   g_cycles[i].direction > 0 ? "BUY" : "SELL",
-                  profit, _Symbol));
-            AddFeedItem("SL hit -$" + DoubleToString(MathAbs(profit), 2), AD_SELL);
+                  netPL, _Symbol));
+            AddFeedItem("SL hit -$" + DoubleToString(MathAbs(netPL), 2), AD_SELL);
          }
 
-         Log_PositionClosed(g_cycles[i].ticket, result, profit,
+         Log_PositionClosed(g_cycles[i].ticket, result, netPL,
                            g_cycles[i].entryPrice);
 
          // Cleanup chart objects: TP hit marker + remove TP line/dot

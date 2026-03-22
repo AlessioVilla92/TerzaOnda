@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adHedgeManager.mqh          |
-//|           AcquaDulza EA v1.5.0 — Two-Tier Hedge Manager          |
+//|           AcquaDulza EA v1.5.1 — Two-Tier Hedge Manager          |
 //|                                                                  |
 //|  Two-Tier Hedge System:                                          |
 //|    H1 (Recovery): incassa profitto dal dip, NON chiude Soup      |
@@ -814,66 +814,87 @@ void HedgeMonitor(int slot)
             g_cycles[slot].state = CYCLE_ACTIVE;
       }
 
-      // ── CASO: H2 TP hit (H2 chiusa ma era attiva) → CHIUDI Soup ──
+      // ── CASO: H2 chiusa ma era attiva → distingui TP da SL breakeven ──
       if(!h2Open && g_cycles[slot].hedge2Active)
       {
          double h2PL = GetClosedHedge2Profit(g_cycles[slot].hedge2Ticket);
          g_cycles[slot].hedge2Active = false;
          g_cycles[slot].hedge2Ticket = 0;
 
-         AdLogI(LOG_CAT_HEDGE, StringFormat(
-            "=== H2 PROTECTION #%d === H2 Profit=%.2f → CHIUDO SOUP",
-            g_cycles[slot].cycleID, h2PL));
-
-         // Chiudi Soup a mercato
-         double soupPL = 0;
-         if(soupOpen)
+         if(h2PL > 0)
          {
-            g_trade.SetExpertMagicNumber(MagicNumber);
-            if(g_trade.PositionClose(g_cycles[slot].ticket))
-            {
-               AdLogI(LOG_CAT_HEDGE, StringFormat("Soup CLOSED (H2 TP hit) #%d",
-                      g_cycles[slot].cycleID));
-               soupPL = GetClosedPositionProfit(g_cycles[slot].ticket);
-            }
-            else
-            {
-               AdLogE(LOG_CAT_HEDGE, StringFormat("Soup CLOSE FAILED #%d | Error: %s",
-                      g_cycles[slot].cycleID, g_trade.ResultRetcodeDescription()));
-            }
-         }
+            // ── H2 TP hit (profitto positivo) → CHIUDI Soup ──
+            AdLogI(LOG_CAT_HEDGE, StringFormat(
+               "=== H2 PROTECTION #%d === H2 Profit=%.2f → CHIUDO SOUP",
+               g_cycles[slot].cycleID, h2PL));
 
-         // Chiudi/cancella H1 se ancora vivo
-         if(g_cycles[slot].hedgePending)
-            Hedge1CancelPending(slot);
-         if(g_cycles[slot].hedgeActive)
+            // Chiudi Soup a mercato
+            double soupPL = 0;
+            if(soupOpen)
+            {
+               g_trade.SetExpertMagicNumber(MagicNumber);
+               if(g_trade.PositionClose(g_cycles[slot].ticket))
+               {
+                  AdLogI(LOG_CAT_HEDGE, StringFormat("Soup CLOSED (H2 TP hit) #%d",
+                         g_cycles[slot].cycleID));
+                  soupPL = GetClosedPositionProfit(g_cycles[slot].ticket);
+               }
+               else
+               {
+                  AdLogE(LOG_CAT_HEDGE, StringFormat("Soup CLOSE FAILED #%d | Error: %s",
+                         g_cycles[slot].cycleID, g_trade.ResultRetcodeDescription()));
+               }
+            }
+
+            // Chiudi/cancella H1 se ancora vivo
+            if(g_cycles[slot].hedgePending)
+               Hedge1CancelPending(slot);
+            if(g_cycles[slot].hedgeActive)
+            {
+               ulong h1Tkt = g_cycles[slot].hedgeTicket;
+               Hedge1ClosePosition(slot);
+               double h1PL = GetClosedHedgeProfit(h1Tkt);
+               g_cycles[slot].hedge1BankedProfit += h1PL;
+               g_sessionRealizedProfit += h1PL;
+               g_dailyRealizedProfit   += h1PL;
+            }
+
+            // Calcola NET = Soup + H1 banked + H2
+            double netPL = soupPL + g_cycles[slot].hedge1BankedProfit + h2PL;
+            g_cycles[slot].profit = netPL;
+            g_sessionRealizedProfit += soupPL + h2PL;
+            g_dailyRealizedProfit   += soupPL + h2PL;
+            if(netPL > 0) { g_sessionWins++; g_dailyWins++; }
+            else { g_sessionLosses++; g_dailyLosses++; }
+
+            AdLogI(LOG_CAT_HEDGE, StringFormat(
+               "=== HEDGED CLOSED #%d === Soup=%.2f | H1bank=%.2f | H2=%.2f | NET=%.2f",
+               g_cycles[slot].cycleID, soupPL, g_cycles[slot].hedge1BankedProfit, h2PL, netPL));
+
+            Alert(StringFormat("AcquaDulza H2 CLOSED #%d | Soup=%+.2f | H1=%+.2f | H2=%+.2f | NET=%+.2f | %s",
+                  g_cycles[slot].cycleID, soupPL, g_cycles[slot].hedge1BankedProfit, h2PL, netPL, _Symbol));
+
+            g_cycles[slot].state = CYCLE_CLOSED;
+            RemoveTPLine(g_cycles[slot].cycleID);
+            return;
+         }
+         else
          {
-            ulong h1Tkt = g_cycles[slot].hedgeTicket;
-            Hedge1ClosePosition(slot);
-            double h1PL = GetClosedHedgeProfit(h1Tkt);
-            g_cycles[slot].hedge1BankedProfit += h1PL;
-            g_sessionRealizedProfit += h1PL;
-            g_dailyRealizedProfit   += h1PL;
+            // ── H2 SL breakeven hit (P&L <= 0) → Soup RESTA aperta ──
+            g_sessionRealizedProfit += h2PL;
+            g_dailyRealizedProfit   += h2PL;
+
+            AdLogI(LOG_CAT_HEDGE, StringFormat(
+               "=== H2 BE SL HIT #%d === H2 P&L=%.2f | Soup RESTA APERTA",
+               g_cycles[slot].cycleID, h2PL));
+
+            Alert(StringFormat("AcquaDulza H2 BE SL #%d | H2=%+.2f | Soup aperta | %s",
+                  g_cycles[slot].cycleID, h2PL, _Symbol));
+
+            // Nessun hedge attivo/pendente → torna a CYCLE_ACTIVE
+            if(!g_cycles[slot].hedgeActive && !g_cycles[slot].hedgePending)
+               g_cycles[slot].state = CYCLE_ACTIVE;
          }
-
-         // Calcola NET = Soup + H1 banked + H2
-         double netPL = soupPL + g_cycles[slot].hedge1BankedProfit + h2PL;
-         g_cycles[slot].profit = netPL;
-         g_sessionRealizedProfit += soupPL + h2PL;
-         g_dailyRealizedProfit   += soupPL + h2PL;
-         if(netPL > 0) { g_sessionWins++; g_dailyWins++; }
-         else { g_sessionLosses++; g_dailyLosses++; }
-
-         AdLogI(LOG_CAT_HEDGE, StringFormat(
-            "=== HEDGED CLOSED #%d === Soup=%.2f | H1bank=%.2f | H2=%.2f | NET=%.2f",
-            g_cycles[slot].cycleID, soupPL, g_cycles[slot].hedge1BankedProfit, h2PL, netPL));
-
-         Alert(StringFormat("AcquaDulza H2 CLOSED #%d | Soup=%+.2f | H1=%+.2f | H2=%+.2f | NET=%+.2f | %s",
-               g_cycles[slot].cycleID, soupPL, g_cycles[slot].hedge1BankedProfit, h2PL, netPL, _Symbol));
-
-         g_cycles[slot].state = CYCLE_CLOSED;
-         RemoveTPLine(g_cycles[slot].cycleID);
-         return;
       }
 
       // ── CASO: Soup chiusa (TP broker) → cleanup H1+H2 ──
@@ -909,8 +930,9 @@ void HedgeMonitor(int slot)
 
          double netPL = soupPL + g_cycles[slot].hedge1BankedProfit + h1ClosePL + h2ClosePL;
          g_cycles[slot].profit = netPL;
-         g_sessionRealizedProfit += netPL;
-         g_dailyRealizedProfit   += netPL;
+         // Session: solo componenti NON gia' contabilizzate (h1Banked gia' in session quando bankato)
+         g_sessionRealizedProfit += soupPL + h1ClosePL + h2ClosePL;
+         g_dailyRealizedProfit   += soupPL + h1ClosePL + h2ClosePL;
          if(netPL > 0) { g_sessionWins++; g_dailyWins++; }
          else { g_sessionLosses++; g_dailyLosses++; }
 
@@ -938,8 +960,9 @@ void HedgeMonitor(int slot)
          g_cycles[slot].hedgeActive  = false;
          g_cycles[slot].hedge2Active = false;
          g_cycles[slot].profit = netPL;
-         g_sessionRealizedProfit += netPL;
-         g_dailyRealizedProfit   += netPL;
+         // Session: solo componenti NON gia' contabilizzate (h1Banked gia' in session quando bankato)
+         g_sessionRealizedProfit += soupPL + h1PL + h2PL;
+         g_dailyRealizedProfit   += soupPL + h1PL + h2PL;
          if(netPL > 0) { g_sessionWins++; g_dailyWins++; }
          else { g_sessionLosses++; g_dailyLosses++; }
 

@@ -3,7 +3,7 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.5.0                                                  |
+//|  Version: 1.5.1                                                  |
 //|  Engine: DPC (Donchian Predictive Channel) — swappable           |
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -35,6 +35,13 @@
 //|    Forex, Crypto (BTC/ETH), Gold, Silver, Oil, Indices            |
 //|    Auto-detection della classe strumento dal nome simbolo          |
 //|                                                                  |
+//|  CHANGELOG v1.5.1:                                               |
+//|    - FIX: H2 BE SL hit distingue da TP (h2PL>0 = TP, <=0 = SL)  |
+//|      Soup resta aperta quando H2 breakeven SL viene colpito       |
+//|    - FIX: hedge1BankedProfit double-counting in session P&L       |
+//|      Session contabilizza h1Banked solo quando bankato, non ripete|
+//|    - FIX: HasSavedState ora controlla anche MagicNumber+2 (H2)    |
+//|                                                                  |
 //|  CHANGELOG v1.5.0:                                               |
 //|    - TWO-TIER HEDGE SYSTEM: H1 Recovery + H2 Protezione          |
 //|      H1: banda +/- Hedge1ATRMult*ATR, TP=Hedge1TPAtrMult*ATR    |
@@ -60,8 +67,8 @@
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.50"
-#property description "AcquaDulza EA v1.5.0 — Reusable Trading Framework"
+#property version   "1.51"
+#property description "AcquaDulza EA v1.5.1 — Reusable Trading Framework"
 #property description "Engine: DPC v7.19 (Donchian Predictive Channel)"
 #property description "Segnali: Turtle Soup (TBS forte 2x / TWS debole 1x)"
 #property description "Hedge: Two-Tier (H1 Recovery + H2 Protezione)"
