@@ -41,6 +41,9 @@
 //|    - FIX: hedge1BankedProfit double-counting in session P&L       |
 //|      Session contabilizza h1Banked solo quando bankato, non ripete|
 //|    - FIX: HasSavedState ora controlla anche MagicNumber+2 (H2)    |
+//|    - FIX: MonitorActive usava variabile 'profit' rinominata       |
+//|    - FIX: Recovery ripristina H1 banked profit da deal history    |
+//|    - FIX: g_nextCycleID off-by-one dopo recovery (maxID+1→maxID) |
 //|                                                                  |
 //|  CHANGELOG v1.5.0:                                               |
 //|    - TWO-TIER HEDGE SYSTEM: H1 Recovery + H2 Protezione          |

@@ -1,8 +1,12 @@
 //+------------------------------------------------------------------+
 //|                                    adRecoveryManager.mqh         |
-//|           AcquaDulza EA v1.5.0 — Recovery Manager                |
+//|           AcquaDulza EA v1.5.1 — Recovery Manager                |
 //|                                                                  |
 //|  Broker scan recovery: reconstruct cycles from positions/orders  |
+//|                                                                  |
+//|  v1.5.1: H1 banked profit recovery from deal history             |
+//|    Se H1 TP gia' colpito, ripristina hedge1BankedProfit/TPHit    |
+//|    Fix: g_nextCycleID off-by-one (era maxCycleID+1, ora maxID)   |
 //|                                                                  |
 //|  v1.5.0: Two-Tier hedge scan                                     |
 //|    H1 positions/orders: MagicNumber+1                             |
@@ -317,8 +321,60 @@ void AttemptRecovery()
       }
    }
 
+   // === SCAN H1 DEAL HISTORY (banked profit recovery) ===
+   // Se un ciclo ha Soup attiva ma nessun H1 (posizione o pendente),
+   // H1 potrebbe aver gia' colpito il TP. Cerchiamo nei deal storici
+   // per ripristinare hedge1BankedProfit e hedge1TPHit.
+   if(EnableHedge && Hedge1Enabled)
+   {
+      datetime histFrom = TimeCurrent() - 86400 * 7;
+      if(HistorySelect(histFrom, TimeCurrent()))
+      {
+         for(int j = 0; j < ArraySize(g_cycles); j++)
+         {
+            // Solo cicli attivi/hedging senza H1 recuperato
+            if(g_cycles[j].state != CYCLE_ACTIVE && g_cycles[j].state != CYCLE_HEDGING) continue;
+            if(g_cycles[j].hedgeActive || g_cycles[j].hedgePending) continue;
+            if(g_cycles[j].hedge1BankedProfit != 0) continue;
+
+            string searchTag = StringFormat("#%d", g_cycles[j].cycleID);
+            double bankedPL = 0;
+            bool found = false;
+
+            for(int d = HistoryDealsTotal() - 1; d >= 0; d--)
+            {
+               ulong dealTicket = HistoryDealGetTicket(d);
+               if(dealTicket == 0) continue;
+               if(HistoryDealGetInteger(dealTicket, DEAL_MAGIC) != MagicNumber + 1) continue;
+               if(HistoryDealGetString(dealTicket, DEAL_SYMBOL) != _Symbol) continue;
+
+               long entry = HistoryDealGetInteger(dealTicket, DEAL_ENTRY);
+               if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_OUT_BY) continue;
+
+               string dealComment = HistoryDealGetString(dealTicket, DEAL_COMMENT);
+               if(StringFind(dealComment, searchTag) >= 0)
+               {
+                  bankedPL += HistoryDealGetDouble(dealTicket, DEAL_PROFIT)
+                            + HistoryDealGetDouble(dealTicket, DEAL_SWAP)
+                            + HistoryDealGetDouble(dealTicket, DEAL_COMMISSION);
+                  found = true;
+               }
+            }
+
+            if(found && bankedPL != 0)
+            {
+               g_cycles[j].hedge1BankedProfit = bankedPL;
+               g_cycles[j].hedge1TPHit = (bankedPL > 0);
+               AdLogI(LOG_CAT_RECOVERY, StringFormat(
+                  "H1 banked profit recovered from history — #%d | P&L=%.2f | TPHit=%s",
+                  g_cycles[j].cycleID, bankedPL, bankedPL > 0 ? "YES" : "NO"));
+            }
+         }
+      }
+   }
+
    // Update next cycle ID
-   g_nextCycleID = maxCycleID + 1;
+   g_nextCycleID = maxCycleID;
 
    // Summary
    int activeCycles = CountActiveCycles();

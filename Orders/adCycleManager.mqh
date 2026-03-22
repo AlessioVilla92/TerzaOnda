@@ -421,7 +421,7 @@ void MonitorActive()
                            g_cycles[i].entryPrice);
 
          // Cleanup chart objects: TP hit marker + remove TP line/dot
-         if(profit > 0 && ShowTPTargetLines)
+         if(netPL > 0 && ShowTPTargetLines)
             DrawTPHitMarker(g_cycles[i].cycleID, g_cycles[i].tpPrice, TimeCurrent());
          RemoveTPLine(g_cycles[i].cycleID);
       }
