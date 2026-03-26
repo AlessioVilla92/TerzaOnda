@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                     adInstrumentConfig.mqh        |
-//|           AcquaDulza EA v1.5.0 — Instrument Classification        |
+//|           AcquaDulza EA v1.6.1 — Instrument Classification        |
 //|                                                                    |
 //|  Sistema multi-prodotto CFD: rileva la classe dello strumento      |
 //|  e auto-scala tutti i parametri pip-dipendenti.                    |
@@ -12,7 +12,7 @@
 //|                                                                    |
 //|  CLASSI SUPPORTATE:                                                |
 //|    FOREX (5d), FOREX_JPY (3d), CRYPTO, INDEX_US, INDEX_EU,         |
-//|    GOLD, SILVER, OIL, CUSTOM                                       |
+//|    GOLD, SILVER, OIL, STOCK, CUSTOM                                |
 //|                                                                    |
 //|  TABELLA PRESET:                                                   |
 //|  Classe    | pipSize | maxSprd | minW | slip | stopOff | limOff   |
@@ -24,6 +24,7 @@
 //|  GOLD      | 0.10    |   5.0   |  5.0 |  10  |   2.0   |  1.5    |
 //|  SILVER    | 0.010   |   5.0   |  3.0 |  10  |   2.0   |  1.5    |
 //|  OIL       | 0.10    |   5.0   | 15.0 |   5  |   3.0   |  2.0    |
+//|  STOCK     | pt      |  15.0   |  x3  |   5  |   5.0   |  3.0    |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -39,7 +40,12 @@ ENUM_INSTRUMENT_CLASS DetectInstrumentClass()
    string sym = _Symbol;
    StringToUpper(sym);  // Normalizza a maiuscolo per matching
 
+   AdLogD(LOG_CAT_INIT, StringFormat(
+      "DIAG InstrumentDetect: sym=%s | digits=%d | point=%.8f",
+      sym, g_symbolDigits, g_symbolPoint));
+
    //--- Crypto: BTC, ETH, XBT, LTC, XRP, SOL, ADA, DOGE, BNB
+   //    PRIORITA' ALTA: crypto prima di JPY per evitare match "BTCJPY" come forex JPY
    if(StringFind(sym, "BTC") >= 0 || StringFind(sym, "XBT") >= 0 ||
       StringFind(sym, "ETH") >= 0 || StringFind(sym, "LTC") >= 0 ||
       StringFind(sym, "XRP") >= 0 || StringFind(sym, "SOL") >= 0 ||
@@ -85,7 +91,22 @@ ENUM_INSTRUMENT_CLASS DetectInstrumentClass()
    if(StringFind(sym, "JPY") >= 0)
       return INSTRUMENT_FOREX_JPY;
 
-   //--- Default: Forex Major
+   //--- Stock CFD: rilevamento via MT5 API (dopo fallimento pattern matching)
+   //    Se il simbolo non e' forex/crypto/gold/silver/oil/indice ma e' CFD → probabilmente stock
+   //    Filtro digits<=2: esclude forex CFD (5 digits) che alcuni broker catalogano come CFD
+   long calcMode = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_CALC_MODE);
+   AdLogD(LOG_CAT_INIT, StringFormat(
+      "DIAG InstrumentDetect: no pattern match — checking MT5 API | calcMode=%d | digits=%d",
+      calcMode, g_symbolDigits));
+
+   if((calcMode == SYMBOL_CALC_MODE_CFD ||
+       calcMode == SYMBOL_CALC_MODE_CFDLEVERAGE ||
+       calcMode == SYMBOL_CALC_MODE_EXCH_STOCKS) &&
+      g_symbolDigits <= 2)
+      return INSTRUMENT_STOCK;
+
+   //--- Default: Forex Major (nessun pattern o API match)
+   AdLogD(LOG_CAT_INIT, "DIAG InstrumentDetect: fallback to FOREX");
    return INSTRUMENT_FOREX;
 }
 
@@ -106,6 +127,7 @@ string GetInstrumentClassName(ENUM_INSTRUMENT_CLASS cls)
       case INSTRUMENT_SILVER:    return "Silver";
       case INSTRUMENT_OIL:       return "Oil";
       case INSTRUMENT_CUSTOM:    return "Custom";
+      case INSTRUMENT_STOCK:     return "Stock CFD";
    }
    return "Unknown";
 }
@@ -227,6 +249,19 @@ void ApplyInstrumentPresets(ENUM_INSTRUMENT_CLASS cls)
          g_inst_stopOffset  = 3.0;       // $0.30 offset
          g_inst_limitOffset = 2.0;       // $0.20 offset
          g_inst_widthFactor = 2.0;       // TF preset × 2
+         break;
+
+      //--- STOCK CFD (AAPL, MSFT, TSLA, AMZN, NVDA...)
+      //    Tipicamente 2 digits: 1 pip = $0.01
+      //    Spread tipico: $0.02-$0.15, canali: $2-$20
+      case INSTRUMENT_STOCK:
+         g_pipSize          = g_symbolPoint;    // 0.01 = 1 cent
+         g_inst_maxSpread   = 15.0;     // Max $0.15 spread (15 × 0.01)
+
+         g_inst_slippage    = 5;        // 5 points = $0.05
+         g_inst_stopOffset  = 5.0;      // $0.05 offset
+         g_inst_limitOffset = 3.0;      // $0.03 offset
+         g_inst_widthFactor = 3.0;      // TF preset × 3 (10pip forex → 30 cent stock)
          break;
 
       //--- CUSTOM: usa i valori input dell'utente senza override

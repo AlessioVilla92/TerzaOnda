@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adCycleManager.mqh        |
-//|           AcquaDulza EA v1.5.1 — Cycle Manager                   |
+//|           AcquaDulza EA v1.6.1 — Cycle Manager                   |
 //|                                                                  |
 //|  Manages trade cycles: create, monitor, expire, detect fills     |
 //|  Absorbed from carnTriggerSystem + Carneval.mq5 cycle logic      |
@@ -25,12 +25,22 @@ bool IsPositionOpen(ulong ticket)
 }
 
 //+------------------------------------------------------------------+
-//| GetClosedPositionProfit — Get realized P&L from history         |
+//| GetClosedPositionProfit — P&L realizzato da deal history         |
+//|                                                                  |
+//| Cerca negli ultimi 7 giorni di deal history per trovare          |
+//| le uscite (DEAL_ENTRY_OUT) associate al posTicket.               |
+//| Include: DEAL_PROFIT + DEAL_SWAP + DEAL_COMMISSION per il       |
+//| P&L netto reale (non solo il delta prezzo).                     |
+//|                                                                  |
+//| NOTA: 7 giorni copre la vita massima ragionevole di un ciclo.   |
+//| Se un ciclo dura piu' di 7 giorni, il P&L non sara' trovato.   |
+//| Match by DEAL_POSITION_ID == posTicket (non per magic, perche'  |
+//| il position ID e' univoco per posizione).                        |
 //+------------------------------------------------------------------+
 double GetClosedPositionProfit(ulong posTicket)
 {
-   // Search in deal history
-   datetime from = TimeCurrent() - 86400 * 7;  // Last 7 days
+   // Search in deal history — finestra 7 giorni
+   datetime from = TimeCurrent() - 86400 * 7;
    if(!HistorySelect(from, TimeCurrent()))
    {
       AdLogW(LOG_CAT_CYCLE, StringFormat("GetClosedPositionProfit: HistorySelect failed for ticket=%d", posTicket));
@@ -254,6 +264,14 @@ void DetectFill(const MqlTradeTransaction& trans,
 
 //+------------------------------------------------------------------+
 //| PollFills — Layer 2: Polling backup for missed fills            |
+//|                                                                  |
+//| DetectFill (Layer 1) usa OnTradeTransaction per fill istantaneo. |
+//| Questo polling e' il FALLBACK: se la transazione manca           |
+//| (broker lag, riconnessione), PollFills rileva il fill cercando   |
+//| il ticket tra le posizioni aperte.                               |
+//|                                                                  |
+//| Se il pending e' sparito e la posizione NON esiste, il ciclo    |
+//| viene chiuso come DISAPPEARED (ordine rifiutato silenziosamente).|
 //+------------------------------------------------------------------+
 void PollFills()
 {
@@ -307,10 +325,15 @@ void PollFills()
 
 //+------------------------------------------------------------------+
 //| CheckExpiry — Cancel pending orders after N bars                |
+//|                                                                  |
+//| Cancella ordini pendenti che non sono stati riempiti entro       |
+//| g_dpc_pendingExpiry barre. Il valore e' TF-aware:               |
+//|   M5=3 (15min), M15=3 (45min), M30=3 (90min)                   |
+//| Se pendingExpiry=0, la scadenza e' disabilitata.                 |
 //+------------------------------------------------------------------+
 void CheckExpiry()
 {
-   if(PendingExpiryBars <= 0) return;
+   if(g_dpc_pendingExpiry <= 0) return;
 
    for(int i = 0; i < ArraySize(g_cycles); i++)
    {
@@ -318,10 +341,16 @@ void CheckExpiry()
       if(g_cycles[i].placedTime == 0) continue;
 
       int barsElapsed = iBarShift(_Symbol, PERIOD_CURRENT, g_cycles[i].placedTime);
-      if(barsElapsed >= PendingExpiryBars)
+
+      // Log check pre-expiry per debugging (ogni barra per ogni pending)
+      AdLogD(LOG_CAT_CYCLE, StringFormat(
+         "DIAG Expiry check #%d: barsElapsed=%d / max=%d",
+         g_cycles[i].cycleID, barsElapsed, g_dpc_pendingExpiry));
+
+      if(barsElapsed >= g_dpc_pendingExpiry)
       {
          AdLogI(LOG_CAT_CYCLE, StringFormat("EXPIRING #%d after %d/%d bars",
-                g_cycles[i].cycleID, barsElapsed, PendingExpiryBars));
+                g_cycles[i].cycleID, barsElapsed, g_dpc_pendingExpiry));
 
          DeletePendingOrder(g_cycles[i].ticket);
          g_cycles[i].state = CYCLE_CLOSED;
@@ -371,6 +400,14 @@ void UpdatePending(const EngineSignal &sig)
 
 //+------------------------------------------------------------------+
 //| MonitorActive — Monitor active positions, detect closes         |
+//|                                                                  |
+//| P&L ACCOUNTING:                                                  |
+//|   g_cycles[i].profit = soupPL + hedge1BankedProfit              |
+//|     → include H1 banked per display NET nel dashboard            |
+//|   g_sessionRealizedProfit += soupPL ONLY                         |
+//|     → H1 banked e' gia' stato aggiunto a session quando          |
+//|       HedgeMonitor ha fatto il banking (linea ~798)              |
+//|   Questo previene il double-counting scoperto in v1.5.1          |
 //+------------------------------------------------------------------+
 void MonitorActive()
 {
@@ -382,7 +419,8 @@ void MonitorActive()
       {
          // Position closed (TP/SL hit or manual close)
          double soupPL = GetClosedPositionProfit(g_cycles[i].ticket);
-         // Cycle NET include H1 banked (per display), ma session no (gia' contabilizzato)
+         // Cycle NET = soupPL + h1Banked (per display dashboard)
+         // Session += soupPL ONLY (h1Banked gia' contabilizzato al momento del banking)
          g_cycles[i].profit = soupPL + g_cycles[i].hedge1BankedProfit;
          g_cycles[i].state  = CYCLE_CLOSED;
 

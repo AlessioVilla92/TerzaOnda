@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                                adEnums.mqh       |
-//|           AcquaDulza EA v1.5.0 — Enumerations & Structs          |
+//|           AcquaDulza EA v1.6.1 — Enumerations & Structs          |
 //|                                                                  |
 //|  Enum FRAMEWORK (stabili, non cambiano con engine swap)          |
 //|  + struct CycleRecord                                            |
@@ -133,7 +133,8 @@ enum ENUM_INSTRUMENT_CLASS
    INSTRUMENT_GOLD        = 6,   // Gold (XAUUSD)
    INSTRUMENT_SILVER      = 7,   // Silver (XAGUSD)
    INSTRUMENT_OIL         = 8,   // Oil (WTI, BRENT...)
-   INSTRUMENT_CUSTOM      = 9    // Custom (valori manuali)
+   INSTRUMENT_CUSTOM      = 9,   // Custom (valori manuali)
+   INSTRUMENT_STOCK       = 10   // Stock CFD (AAPL, MSFT, TSLA...)
 };
 
 //+------------------------------------------------------------------+
@@ -236,4 +237,4 @@ struct CycleRecord
 //| COSTANTI GLOBALI                                                 |
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
-const string EA_VERSION         = "1.5.1";
+const string EA_VERSION         = "1.6.1";

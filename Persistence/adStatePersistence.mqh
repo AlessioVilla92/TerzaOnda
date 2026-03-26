@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                    adStatePersistence.mqh        |
-//|           AcquaDulza EA v1.5.1 — State Persistence               |
+//|           AcquaDulza EA v1.6.1 — State Persistence               |
 //|                                                                  |
 //|  Auto-save & restore CycleRecord array via GlobalVariables       |
 //|                                                                  |
@@ -12,11 +12,20 @@
 
 //+------------------------------------------------------------------+
 //| Global Variable Prefix                                           |
+//|                                                                  |
+//| Namespace: AD_STATE_{SYMBOL}_{MAGIC}_{varName}                   |
+//| Es: AD_STATE_EURUSD_12345_sessionProfit                          |
+//| Ogni combinazione Symbol+Magic ha il suo namespace isolato,      |
+//| permettendo EA multipli sullo stesso terminale.                  |
 //+------------------------------------------------------------------+
 #define AD_GV_PREFIX "AD_STATE_"
 
 //+------------------------------------------------------------------+
 //| Persistence State Variables                                      |
+//|                                                                  |
+//| g_lastAutoSaveTime:   timestamp ultimo auto-save riuscito        |
+//| g_savedVariableCount: contatore vars salvate nell'ultimo save    |
+//| g_saveErrors:         errori GlobalVariableSet nell'ultimo save  |
 //+------------------------------------------------------------------+
 datetime g_lastAutoSaveTime    = 0;
 int      g_savedVariableCount  = 0;
@@ -58,6 +67,15 @@ bool  RestoreStateBool(string name, bool defaultValue = false)  { return Restore
 
 //+------------------------------------------------------------------+
 //| HasSavedState — Check for valid saved state                     |
+//|                                                                  |
+//| Verifica 3 condizioni per uno stato valido:                      |
+//|  1. EnableAutoRecovery=true E lastSaveTime esiste                |
+//|  2. Eta' < 7 giorni (stato piu' vecchio = probabilmente stale)   |
+//|  3. Almeno una posizione/ordine AD esiste nel broker             |
+//|     (Magic, Magic+1, Magic+2)                                   |
+//|                                                                  |
+//| Se condizione 3 fallisce → "fresh start" (stato orfano).        |
+//| L'EA si era chiuso normalmente, lo stato non serve.              |
 //+------------------------------------------------------------------+
 bool HasSavedState()
 {
@@ -115,7 +133,19 @@ bool HasSavedState()
 }
 
 //+------------------------------------------------------------------+
-//| SaveState — Save complete state (called from OnTimer)           |
+//| SaveState — Save complete state via GlobalVariables              |
+//|                                                                  |
+//| Chiamato da ExecuteAutoSave() ogni AutoSaveIntervalMin minuti.   |
+//| Salva solo in STATE_ACTIVE o STATE_PAUSED (non in IDLE/STOPPED). |
+//|                                                                  |
+//| CAMPI SALVATI:                                                   |
+//|  - Core: systemState, nextCycleID                                |
+//|  - P&L: sessionProfit, wins, losses                              |
+//|  - Signals: totalSignals, buySignals, sellSignals                |
+//|  - Equity: maxEquity, maxDrawdown                                |
+//|  - Daily: dailyProfit, dailyWins, dailyLosses                    |
+//|  - Cycles[i]: 12 campi base + 8 H1 + 6 H2 = 26 per ciclo       |
+//|  - Timestamp: lastSaveTime                                       |
 //+------------------------------------------------------------------+
 void SaveState()
 {
@@ -196,7 +226,17 @@ void SaveState()
 }
 
 //+------------------------------------------------------------------+
-//| RestoreState — Restore complete state                           |
+//| RestoreState — Restore complete state from GlobalVariables       |
+//|                                                                  |
+//| Ripristina tutti i campi salvati da SaveState().                  |
+//| Dopo il restore, VALIDA ogni ciclo contro il broker:             |
+//|  - CYCLE_ACTIVE: la posizione esiste ancora?                     |
+//|  - CYCLE_PENDING: l'ordine esiste ancora?                        |
+//|  - CYCLE_HEDGING: soup + hedge ancora vivi?                      |
+//| Cicli con posizioni/ordini spariti vengono chiusi.               |
+//|                                                                  |
+//| NOTA: hedgeLineName/hedge2LineName non sono persistiti            |
+//| (oggetti grafici vengono ricreati da HedgeMonitor).              |
 //+------------------------------------------------------------------+
 bool RestoreState()
 {
@@ -205,6 +245,9 @@ bool RestoreState()
    // Core state
    g_systemState   = (ENUM_SYSTEM_STATE)RestoreStateInt("systemState", (int)STATE_IDLE);
    g_nextCycleID   = RestoreStateInt("nextCycleID", 1);
+
+   AdLogI(LOG_CAT_PERSIST, StringFormat(
+      "Core: state=%d | nextCycleID=%d", (int)g_systemState, g_nextCycleID));
 
    // P&L
    g_sessionRealizedProfit = RestoreStateDouble("sessionProfit");
@@ -224,6 +267,12 @@ bool RestoreState()
    g_dailyRealizedProfit = RestoreStateDouble("dailyProfit");
    g_dailyWins   = RestoreStateInt("dailyWins");
    g_dailyLosses = RestoreStateInt("dailyLosses");
+
+   AdLogI(LOG_CAT_PERSIST, StringFormat(
+      "P&L: session=%.2f W=%d L=%d | daily=%.2f W=%d L=%d | equity=%.2f dd=%.2f%%",
+      g_sessionRealizedProfit, g_sessionWins, g_sessionLosses,
+      g_dailyRealizedProfit, g_dailyWins, g_dailyLosses,
+      g_maxEquity, g_maxDrawdownPct));
 
    // Cycles
    int cycleCount = RestoreStateInt("cycleCount", 0);
@@ -346,6 +395,10 @@ bool RestoreState()
 
 //+------------------------------------------------------------------+
 //| ExecuteAutoSave — Periodic save (check interval)                |
+//|                                                                  |
+//| Chiamato da OnTimer(). Verifica se sono passati abbastanza      |
+//| minuti (AutoSaveIntervalMin) dall'ultimo save.                   |
+//| Il primo tick dopo OnInit() forza un save immediato.             |
 //+------------------------------------------------------------------+
 void ExecuteAutoSave()
 {

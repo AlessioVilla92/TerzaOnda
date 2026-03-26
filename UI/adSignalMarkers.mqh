@@ -1,11 +1,40 @@
 //+------------------------------------------------------------------+
 //|                                       adSignalMarkers.mqh        |
-//|           AcquaDulza EA v1.5.0 — Signal Markers                  |
+//|           AcquaDulza EA v1.6.1 — Signal Markers                  |
 //|                                                                  |
-//|  Replica indicatore DonchianPredictiveChannel.mq5:               |
-//|  TBS arrows (bright lime/red) + TWS arrows (dark green/red)      |
-//|  ATR offset, signal text labels, entry dots                      |
-//|  Engine-agnostic: reads EngineSignal only.                       |
+//|  Visualizzazione segnali DPC sul chart — frecce, dot e labels.   |
+//|                                                                  |
+//|  DUE MODALITA' DI DISEGNO:                                       |
+//|                                                                  |
+//|  1. REAL-TIME (DrawSignalMarkers) — segnali nuovi in tempo reale |
+//|     Chiamata da OnTick() quando engine genera un nuovo segnale.  |
+//|     Oggetti: AD_SIG_*, AD_DOT_*, AD_LBL_*, AD_TRIG_*            |
+//|                                                                  |
+//|  2. SCAN STORICO (ScanHistoricalSignals) — frecce passate        |
+//|     Chiamata su ogni nuova barra (pre-gate, indipendente dallo   |
+//|     stato EA). Replica la pipeline COMPLETA di EngineCalculate() |
+//|     per allineare frecce storiche ai trigger reali.              |
+//|     Oggetti: AD_HSIG_*, AD_HDOT_*, AD_HLBL_*                    |
+//|                                                                  |
+//|  COLORI FRECCE:                                                   |
+//|     TBS (Turtle Breakout Soup): lime/rosso brillante             |
+//|     TWS (Turtle Wick Soup): verde/rosso scuro (attenuato)        |
+//|                                                                  |
+//|  ARROW PLACEMENT (offset verticale):                              |
+//|     offset = ATR * AD_ARROW_OFFSET (0.15)                        |
+//|     BUY: sotto la lower band (bandPrice - offset)                |
+//|     SELL: sopra la upper band (bandPrice + offset)                |
+//|     Con ATR scaling l'offset e' proporzionale alla volatilita'.   |
+//|                                                                  |
+//|  Z-ORDER LAYERING:                                                |
+//|     Signal arrows: Z=400 (sotto trigger)                          |
+//|     Trigger arrows: Z=600 (sopra signal, cyan brillante)          |
+//|     Entry dots: default Z (centro sulla banda)                    |
+//|                                                                  |
+//|  DIPENDENZE:                                                      |
+//|     Config/adVisualTheme.mqh: AD_ARROW_*, AD_ENTRY_*_CLR         |
+//|     Engine/adDPCBands.mqh: DPCComputeBands, DPCGetATR, etc.      |
+//|     Engine/adDPCFilters.mqh: DPCCheckFlatness, DPCClassifySignal |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -135,8 +164,14 @@ void DrawEntryDot(const EngineSignal &sig)
 }
 
 //+------------------------------------------------------------------+
-//| DrawTriggerArrow — Cyan overlay arrow when order is placed        |
-//|  Above signal arrows (z=600)                                     |
+//| DrawTriggerArrow — Freccia cyan quando ordine piazzato            |
+//|                                                                  |
+//| Sovrapposta alla freccia segnale (Z=600 > Z=400) per indicare    |
+//| che l'ordine e' stato effettivamente piazzato dal CycleManager.  |
+//| Colore AD_BIOLUM (cyan brillante), spessore 3 — risalta sopra    |
+//| le frecce TBS/TWS piu' piccole.                                  |
+//|                                                                  |
+//| CHIAMATA DA: AcquaDulza.mq5 OnTick() dopo CreateCycle()          |
 //+------------------------------------------------------------------+
 void DrawTriggerArrow(int cycleID, double price, datetime barTime, bool isBuy)
 {
@@ -317,10 +352,10 @@ void ScanHistoricalSignals()
       // ══════════════════════════════════════════════════════════
       // Replica DPCCheckLevelAge_Sell/Buy() di adDPCFilters.mqh.
       // Richiede che la banda toccata sia allo stesso prezzo esatto
-      // (±2 points) per almeno InpMinLevelAge barre consecutive.
+      // (±2 points) per almeno g_dpc_minLevelAge barre consecutive.
       // Una banda "giovane" (appena formata da un nuovo max/min)
       // non e' un livello affidabile per il pattern Turtle Soup.
-      if(InpUseLevelAge)
+      if(g_dpc_useLevelAge)
       {
          if(bearBase)
          {
@@ -554,7 +589,7 @@ void ScanHistoricalSignals()
 
       // DIAG: Log posizionamento freccia (solo prime 3 per non inondare il log)
       if(signalCount < 3)
-         AdLogI(LOG_CAT_UI, StringFormat(
+         AdLogD(LOG_CAT_UI, StringFormat(
             "DIAG Arrow #%d: %s @ bar=%d | band=%.2f | atr=%.2f | offset=%.2f | arrowPrice=%.2f",
             signalCount + 1, isBuy ? "BUY" : "SELL", i, bandPrice, atrPrice, offset,
             isBuy ? (bandPrice - offset) : (bandPrice + offset)));
@@ -570,7 +605,18 @@ void ScanHistoricalSignals()
 }
 
 //+------------------------------------------------------------------+
-//| CleanupSignalMarkers — Remove all signal marker objects          |
+//| CleanupSignalMarkers — Rimuove tutti i marker segnale            |
+//|                                                                  |
+//| Cancella 7 famiglie di oggetti per prefisso:                     |
+//|   AD_SIG_  — frecce segnale real-time                            |
+//|   AD_DOT_  — entry dots real-time                                |
+//|   AD_LBL_  — labels testo real-time                              |
+//|   AD_TRIG_ — frecce trigger cyan (ordine piazzato)               |
+//|   AD_HSIG_ — frecce storiche (scan)                              |
+//|   AD_HDOT_ — entry dots storici                                  |
+//|   AD_HLBL_ — labels testo storici                                |
+//|                                                                  |
+//| CHIAMATA DA: OnDeinit() in AcquaDulza.mq5                       |
 //+------------------------------------------------------------------+
 void CleanupSignalMarkers()
 {

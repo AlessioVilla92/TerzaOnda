@@ -1,14 +1,19 @@
 //+------------------------------------------------------------------+
 //|                                        adOrderManager.mqh        |
-//|           AcquaDulza EA v1.5.0 — Order Manager                   |
+//|           AcquaDulza EA v1.6.1 — Order Manager                   |
 //|                                                                  |
 //|  3 entry modes: MARKET, LIMIT, STOP                              |
-//|  Retry logic. MagicNumber + MagicNumber+1 (hedge).               |
+//|  Retry logic con MaxRetries e RetryDelayMs.                      |
 //|  Absorbed from carnOrderManager + carnTriggerSystem              |
 //|                                                                  |
-//|  v1.4.0: CloseAll/DeleteAll gestiscono MagicNumber+1 (hedge)     |
-//|    CloseAllPositions() — chiude sia Soup che Hedge positions      |
-//|    DeleteAllPendingOrders() — cancella pendenti Soup + Hedge      |
+//|  MAGIC NUMBERS:                                                  |
+//|    MagicNumber     = Soup (ordine principale)                    |
+//|    MagicNumber + 1 = H1 Recovery Hedge                           |
+//|    MagicNumber + 2 = H2 Protection Hedge                         |
+//|                                                                  |
+//|  v1.5.0: CloseAll/DeleteAll gestiscono Magic+1 e Magic+2         |
+//|    CloseAllPositions() — chiude Soup + H1 + H2 positions         |
+//|    DeleteAllPendingOrders() — cancella pendenti Soup + H1 + H2   |
 //|    Magic number restaurato a MagicNumber dopo ogni operazione     |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
@@ -374,11 +379,20 @@ bool DeletePendingOrder(ulong ticket)
 
 //+------------------------------------------------------------------+
 //| ClosePosition — Close by ticket with retry logic                |
+//|                                                                  |
+//| Chiude una posizione a mercato con slippage g_inst_slippage.     |
+//| Se gia' chiusa (PositionSelectByTicket fail) ritorna true.       |
+//| Retry fino a MaxRetries con delay RetryDelayMs.                  |
 //+------------------------------------------------------------------+
 bool ClosePosition(ulong ticket)
 {
    if(ticket == 0) return false;
    if(!PositionSelectByTicket(ticket)) return true;  // Already closed
+
+   double closePrice = PositionGetDouble(POSITION_PRICE_CURRENT);
+   AdLogI(LOG_CAT_ORDER, StringFormat(
+      "CLOSING position #%d | CurrentPrice=%s | Slippage=%d",
+      ticket, FormatPrice(closePrice), g_inst_slippage));
 
    int retries = 0;
    while(retries < MaxRetries)
@@ -406,7 +420,8 @@ int CloseAllPositions()
       ulong ticket = PositionGetTicket(i);
       if(!PositionSelectByTicket(ticket)) continue;
       long posMagic = PositionGetInteger(POSITION_MAGIC);
-      if(posMagic != MagicNumber && posMagic != MagicNumber + 1) continue;
+      // Chiude Soup (Magic), H1 (Magic+1), H2 (Magic+2)
+      if(posMagic != MagicNumber && posMagic != MagicNumber + 1 && posMagic != MagicNumber + 2) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
 
       g_trade.SetExpertMagicNumber((int)posMagic);
@@ -427,7 +442,8 @@ int DeleteAllPendingOrders()
       ulong ticket = OrderGetTicket(i);
       if(!OrderSelect(ticket)) continue;
       long ordMagic = OrderGetInteger(ORDER_MAGIC);
-      if(ordMagic != MagicNumber && ordMagic != MagicNumber + 1) continue;
+      // Cancella pendenti Soup (Magic), H1 (Magic+1), H2 (Magic+2)
+      if(ordMagic != MagicNumber && ordMagic != MagicNumber + 1 && ordMagic != MagicNumber + 2) continue;
       if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
 
       g_trade.SetExpertMagicNumber((int)ordMagic);
@@ -450,9 +466,17 @@ void CloseAllOrders()
 
 //+------------------------------------------------------------------+
 //| ModifyPendingOrder — Update entry/SL/TP of pending order        |
+//|                                                                  |
+//| Usato da UpdatePending() quando le bande DPC si muovono e        |
+//| l'entry/TP del pending deve essere aggiornato.                   |
+//| Valida il TP con ValidateTakeProfit() prima di inviare.          |
 //+------------------------------------------------------------------+
 bool ModifyPendingOrder(ulong ticket, double newPrice, double newSL, double newTP)
 {
+   AdLogD(LOG_CAT_ORDER, StringFormat(
+      "DIAG ModifyPending: ticket=%d | newPrice=%s | newSL=%s | newTP=%s",
+      ticket, FormatPrice(newPrice), FormatPrice(newSL), FormatPrice(newTP)));
+
    if(!OrderSelect(ticket)) return false;
 
    newPrice = NormalizeDouble(newPrice, (int)g_symbolDigits);
@@ -468,7 +492,12 @@ bool ModifyPendingOrder(ulong ticket, double newPrice, double newSL, double newT
 
    g_trade.SetExpertMagicNumber(MagicNumber);
    if(g_trade.OrderModify(ticket, newPrice, newSL, newTP, ORDER_TIME_GTC, 0))
+   {
+      AdLogI(LOG_CAT_ORDER, StringFormat(
+         "MODIFY OK #%d | Price=%s | SL=%s | TP=%s",
+         ticket, FormatPrice(newPrice), FormatPrice(newSL), FormatPrice(newTP)));
       return true;
+   }
 
    AdLogW(LOG_CAT_ORDER, StringFormat("Modify failed #%d: %s",
           ticket, g_trade.ResultRetcodeDescription()));

@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                          adDPCEngine.mqh         |
-//|           AcquaDulza EA v1.5.0 — DPC Engine Orchestrator         |
+//|           AcquaDulza EA v1.6.1 — DPC Engine Orchestrator         |
 //|                                                                  |
 //|  Implements the 3 contract functions from adEngineInterface.mqh: |
 //|    EngineInit()      — Create handles, init state                |
@@ -36,6 +36,10 @@ bool EngineInit()
 {
    // 1. Apply TF preset (sets g_dpc_dcLen, g_dpc_maLen, etc.)
    DPCPresetsInit();
+
+   // v1.6.1: Avviso loop LTF su M1
+   if(Period() == PERIOD_M1 && InpUseLTFEntry)
+      AdLogW(LOG_CAT_DPC, "AVVISO: InpUseLTFEntry=true su M1 — disabilitare (LTF mapping M1→M1 = loop)");
 
    // 2. Create handles
    if(!DPCCreateHandles())
@@ -78,17 +82,17 @@ bool EngineInit()
    }
 
    // Log configuration
-   AdLogI(LOG_CAT_DPC, StringFormat("Params: Period=%d MAType=%s MALen=%d",
-            g_dpc_dcLen, EnumToString(InpMAType), g_dpc_maLen));
+   AdLogI(LOG_CAT_DPC, StringFormat("Params: Period=%d MAType=%s MALen=%d MinLevelAge=%d",
+            g_dpc_dcLen, EnumToString(InpMAType), g_dpc_maLen, g_dpc_minLevelAge));
    AdLogI(LOG_CAT_DPC, StringFormat("SmartCooldown=%s MidTouch=%s SameDir=%d OppDir=%d",
             InpUseSmartCooldown ? "ON" : "OFF", InpRequireMidTouch ? "YES" : "NO",
             g_dpc_nSame, g_dpc_nOpp));
    AdLogI(LOG_CAT_DPC, StringFormat("Filters: Flatness=%s Trend=%s LevelAge=%s Width=%s Time=%s",
             InpUseBandFlatness ? "ON" : "OFF", InpUseTrendContext ? "ON" : "OFF",
-            InpUseLevelAge ? "ON" : "OFF", InpUseWidthFilter ? "ON" : "OFF",
+            g_dpc_useLevelAge ? "ON" : "OFF", InpUseWidthFilter ? "ON" : "OFF",
             InpUseTimeFilter ? "ON" : "OFF"));
    AdLogI(LOG_CAT_DPC, StringFormat("LTF Entry=%s (OnlyTBS=%s) | TriggerMode=%s",
-            InpUseLTFEntry ? "ON" : "OFF", InpLTFOnlyTBS ? "YES" : "NO",
+            g_dpc_useLTFEntry ? "ON" : "OFF", g_dpc_ltfOnlyTBS ? "YES" : "NO",
             EnumToString(InpTriggerMode)));
 
    Log_InitComplete("DPC Engine");
@@ -160,7 +164,7 @@ bool EngineCalculate(EngineSignal &sig)
    sig.extraLabels[2] = "MA";         sig.extraValues[2] = ma1;
    sig.extraLabels[3] = "Mid Color";  sig.extraValues[3] = (double)DPCGetMidlineColor(1);
 
-   if(InpUseLTFEntry)
+   if(g_dpc_useLTFEntry)
    {
       sig.extraLabels[4] = "LTF";
       sig.extraValues[4] = g_ltfWindowOpen ? 1.0 : 0.0;
@@ -279,7 +283,7 @@ bool EngineCalculate(EngineSignal &sig)
 
    // --- Filter 3: Level Age ---
    bool agePass_sell = true, agePass_buy = true;
-   if(InpUseLevelAge)
+   if(g_dpc_useLevelAge)
    {
       if(bearBase) agePass_sell = DPCCheckLevelAge_Sell(1);
       if(bullBase) agePass_buy  = DPCCheckLevelAge_Buy(1);
@@ -287,17 +291,17 @@ bool EngineCalculate(EngineSignal &sig)
       {
          bearBase = false;
          rejectedBy += "LevelAge(SELL) ";
-         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: LevelAge — SELL bloccato (upper band non flat per min %d barre)", InpMinLevelAge));
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: LevelAge — SELL bloccato (upper band non flat per min %d barre)", g_dpc_minLevelAge));
       }
       if(bullBase && !agePass_buy)
       {
          bullBase = false;
          rejectedBy += "LevelAge(BUY) ";
-         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: LevelAge — BUY bloccato (lower band non flat per min %d barre)", InpMinLevelAge));
+         AdLogD(LOG_CAT_FILTER, StringFormat("DIAG FILTRO BLOCCA: LevelAge — BUY bloccato (lower band non flat per min %d barre)", g_dpc_minLevelAge));
       }
    }
    sig.filterNames[sig.filterCount]  = "Age";
-   sig.filterStates[sig.filterCount] = InpUseLevelAge ? ((agePass_sell || agePass_buy) ? 1 : -1) : 0;
+   sig.filterStates[sig.filterCount] = g_dpc_useLevelAge ? ((agePass_sell || agePass_buy) ? 1 : -1) : 0;
    sig.filterCount++;
 
    // --- Filter 4: Channel Width ---
@@ -409,7 +413,7 @@ bool EngineCalculate(EngineSignal &sig)
       }
 
       // Check LTF window if still open
-      if(InpUseLTFEntry && g_ltfWindowOpen)
+      if(g_dpc_useLTFEntry && g_ltfWindowOpen)
          sig.ltfConfirm = DPCLTFCheckConfirmation();
       return true;  // Return true (data populated) but direction=0
    }
@@ -537,7 +541,7 @@ bool EngineCalculate(EngineSignal &sig)
 
    // === 11. LTF ENTRY ===
    sig.ltfConfirm = 0;
-   if(InpUseLTFEntry && DPCLTFShouldFilter(quality))
+   if(g_dpc_useLTFEntry && DPCLTFShouldFilter(quality))
    {
       // Open LTF window for this signal
       DPCLTFOpenWindow(direction, sig.bandLevel, iTime(_Symbol, PERIOD_CURRENT, 0));

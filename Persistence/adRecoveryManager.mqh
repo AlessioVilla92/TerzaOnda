@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                    adRecoveryManager.mqh         |
-//|           AcquaDulza EA v1.5.1 — Recovery Manager                |
+//|           AcquaDulza EA v1.6.1 — Recovery Manager                |
 //|                                                                  |
 //|  Broker scan recovery: reconstruct cycles from positions/orders  |
 //|                                                                  |
@@ -24,7 +24,14 @@ int      g_recoveredPendings  = 0;
 
 //+------------------------------------------------------------------+
 //| ParseCycleIDFromComment — Extract cycle ID from order comment   |
-//|  Format: "AD_BUY_#12", "AD_SELL_#3"                             |
+//|                                                                  |
+//| Il comment di ogni ordine/posizione AcquaDulza segue il formato: |
+//|   Soup: "AD_BUY_#12" / "AD_SELL_#3"                             |
+//|   H1:   "AD_HEDGE1_BUY_#12"                                     |
+//|   H2:   "AD_HEDGE2_SELL_#3"                                     |
+//| Questa funzione estrae il numero dopo "#".                       |
+//| Il cycleID e' l'unico modo affidabile per collegare              |
+//| Soup → H1 → H2 durante il recovery (non il ticket).             |
 //+------------------------------------------------------------------+
 int ParseCycleIDFromComment(string comment)
 {
@@ -81,6 +88,20 @@ int FindOrCreateCycleSlot(int cycleID)
 
 //+------------------------------------------------------------------+
 //| AttemptRecovery — Scan broker positions/orders, rebuild cycles  |
+//|                                                                  |
+//| ORDINE DI SCAN:                                                  |
+//|  1. Soup positions (Magic) → crea cicli ACTIVE                   |
+//|  2. H1 positions (Magic+1) → associa ad existing cycle           |
+//|  3. H2 positions (Magic+2) → associa + ripristina BE SL         |
+//|  4. Soup pending (Magic) → crea cicli PENDING                    |
+//|  5. H1 pending (Magic+1) → associa                              |
+//|  6. H2 pending (Magic+2) → associa                              |
+//|  7. H1 deal history → ripristina hedge1BankedProfit              |
+//|                                                                  |
+//| L'ordine importa: prima le positions (Soup crea lo slot),        |
+//| poi gli hedge si associano allo slot gia' creato.                |
+//| H1 deal history e' l'ultimo passo perche' serve che lo slot     |
+//| esista gia' e che H1 non sia stato trovato come posizione.       |
 //+------------------------------------------------------------------+
 void AttemptRecovery()
 {
@@ -322,9 +343,12 @@ void AttemptRecovery()
    }
 
    // === SCAN H1 DEAL HISTORY (banked profit recovery) ===
-   // Se un ciclo ha Soup attiva ma nessun H1 (posizione o pendente),
-   // H1 potrebbe aver gia' colpito il TP. Cerchiamo nei deal storici
-   // per ripristinare hedge1BankedProfit e hedge1TPHit.
+   // v1.5.1 fix: Se un ciclo ha Soup attiva ma nessun H1 (posizione o pendente),
+   // H1 potrebbe aver gia' colpito il TP prima del restart.
+   // Cerchiamo nei deal storici (ultimi 7 giorni) per exit deals con:
+   //   DEAL_MAGIC = MagicNumber+1 E comment contiene "#cycleID"
+   // Questo ripristina hedge1BankedProfit e hedge1TPHit, evitando
+   // che il NET profit del ciclo ignori il profitto H1 gia' bankato.
    if(EnableHedge && Hedge1Enabled)
    {
       datetime histFrom = TimeCurrent() - 86400 * 7;

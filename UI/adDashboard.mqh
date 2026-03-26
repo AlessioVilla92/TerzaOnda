@@ -1,13 +1,46 @@
 //+------------------------------------------------------------------+
 //|                                          adDashboard.mqh         |
-//|           AcquaDulza EA v1.5.0 — Dashboard Display               |
+//|           AcquaDulza EA v1.6.1 — Dashboard Display               |
 //|                                                                  |
 //|  Ocean theme dashboard — Pragmatic approach.                     |
-//|  Layout: Header (logo+ver+engine) | TitleBar (pair+state)        |
-//|          SysStatus | Engine | Filters | LastSignals              |
-//|          ActiveCycles | P&L | Controls | StatusBar               |
-//|  Side panel: Engine Monitor + Signal Feed                        |
-//|  Dashboard foreground (BACK=false, Z=15000+) — overlay behind    |
+//|                                                                  |
+//|  LAYOUT VERTICALE (top → bottom, ogni pannello ha altezza fissa):|
+//|    1. Header     (36px) — Logo ACQUADULZA + versione + ENGINE    |
+//|    2. TitleBar   (32px) — Pair + prezzo + spread + TF + state    |
+//|    3. SysStatus  (80px) — 3x3 grid: session/uptime/margin/etc.  |
+//|    4. EnginePanel(88px) — Bande + width + regime + SmartCD       |
+//|    5. FilterBar  (22px) — Pills colorate per ogni filtro attivo  |
+//|    6. LastSignals(76px) — Ultimi 3 segnali con direzione + TBS   |
+//|    7. ActiveCycles(100px)— Fino a 4 cicli con P&L floating      |
+//|    8. PLSession  (90px) — P&L, WinRate, MaxDD, Float, Daily     |
+//|    9. Controls   (52px) — Titolo + ora + button feedback         |
+//|   10. StatusBar  (20px) — Barra riassuntiva EA state + features  |
+//|                                                                  |
+//|  SIDE PANEL (a destra del dashboard, offset +10px):              |
+//|    - Engine Monitor (13 righe): DPC Engine, ATR, SmartCD, etc.   |
+//|    - Signal Feed (6 righe): ultime azioni EA in tempo reale      |
+//|                                                                  |
+//|  CORNICE PERIMETRALE (stile SugamaraPivot):                      |
+//|    - Sfondo scuro (AD_BG_DEEP) creato PRIMO (sotto tutto)        |
+//|    - 4 rettangoli solidi (T/B/L/R) creati ULTIMI (sopra tutto)   |
+//|    - Titoli decorativi "────── ACQUADULZA ──────" top/bottom      |
+//|                                                                  |
+//|  Z-ORDER e VISUAL STACKING:                                      |
+//|    - AD_Z_RECT (adVisualTheme): Z-order per rettangoli pannello  |
+//|    - AD_Z_LABEL: Z-order per etichette testo (sopra rettangoli)  |
+//|    - Frame border Z = AD_Z_LABEL + 1000: sempre in primo piano   |
+//|    - BACK=false su tutti: dashboard SOPRA il chart (foreground)   |
+//|    - Overlay (adChannelOverlay) usa BACK=true: DIETRO le candele |
+//|                                                                  |
+//|  THEME COLORS (da adVisualTheme.mqh):                            |
+//|    AD_BIOLUM      — cyan brillante C'0,212,255' (accento)        |
+//|    AD_BIOLUM_DIM  — cyan attenuato (titoli secondari)            |
+//|    AD_BUY/AD_SELL — lime/rosso (P&L positivo/negativo)           |
+//|    AD_AMBER       — giallo/ambra (warning, TWS, pending)         |
+//|    AD_HEDGE       — fucsia (stato HEDG e H1)                     |
+//|    AD_BG_DEEP     — blu scuro profondo (sfondo pannelli)         |
+//|    AD_PANEL_BG    — grigio scuro (sfondo sezioni alternate)      |
+//|    AD_TEXT_HI/MID/LO/MUTED — gerarchia testo (bianco→grigio)     |
 //|                                                                  |
 //|  v1.4.0: Integrazione hedge nel dashboard (6 punti)              |
 //|    DrawActiveCycles — stato "HEDG" fucsia + P&L combinato        |
@@ -19,7 +52,16 @@
 #property copyright "AcquaDulza (C) 2026"
 
 //+------------------------------------------------------------------+
-//| Dashboard Helper Functions                                       |
+//| DashRectangle — Crea/aggiorna un pannello rettangolare           |
+//|                                                                  |
+//| Helper: ogni pannello del dashboard e' un OBJ_RECTANGLE_LABEL.  |
+//| Alla prima chiamata crea l'oggetto; le successive aggiornano     |
+//| solo posizione, dimensione e colori (no delete+recreate).        |
+//|                                                                  |
+//| NAMING: Tutti i rettangoli hanno prefisso "AD_" (per cleanup).   |
+//| STACKING: BACK=false + ZORDER=AD_Z_RECT → foreground chart,     |
+//|           ma sotto le etichette testo (AD_Z_LABEL > AD_Z_RECT).  |
+//| BORDER: BORDER_FLAT = bordo 1px piatto (colore borderClr).       |
 //+------------------------------------------------------------------+
 void DashRectangle(string name, int x, int y, int width, int height,
                    color bgClr, color borderClr)
@@ -45,6 +87,14 @@ void DashRectangle(string name, int x, int y, int width, int height,
    ObjectSetInteger(0, objName, OBJPROP_BORDER_COLOR, borderClr);
 }
 
+//+------------------------------------------------------------------+
+//| DashLabel — Crea/aggiorna un'etichetta testo                     |
+//|                                                                  |
+//| NAMING: Prefisso "AD_DASH_" + id univoco (es. "AD_DASH_H_PAIR").|
+//| STACKING: ZORDER=AD_Z_LABEL → sopra i rettangoli pannello.      |
+//| Font default: AD_FONT_BODY / AD_FONT_SIZE_BODY (adVisualTheme). |
+//| Testo vuoto: sostituito con " " per evitare artefatti MT5.       |
+//+------------------------------------------------------------------+
 void DashLabel(string id, int x, int y, string text, color clr,
                int fontSize = AD_FONT_SIZE_BODY, string fontName = "")
 {
@@ -84,8 +134,8 @@ void DrawHeaderRow(int x, int y, int w)
    // Versione
    DashLabel("HDR_VER", x + AD_PAD + 175, y + 12, "v" + EA_VERSION, AD_TEXT_MUTED, 9);
 
-   // ENGINE: DonchianPredictiveChannel
-   DashLabel("HDR_ENG", x + w - 280, y + 12, "ENGINE: DonchianPredictiveChannel", AD_BIOLUM_DIM, 9, AD_FONT_SECTION);
+   // ENGINE: DPC v2.0
+   DashLabel("HDR_ENG", x + w - 280, y + 12, "ENGINE: DPC v2.0", AD_BIOLUM_DIM, 9, AD_FONT_SECTION);
 }
 
 //+------------------------------------------------------------------+
@@ -339,8 +389,19 @@ void DrawLastSignals(int x, int y, int w)
 }
 
 //+------------------------------------------------------------------+
-//| DrawActiveCycles — Header + max 4 cycle rows                   |
-//|  Per ciclo: ID Dir State Lot Entry  TP_dist  P&L (Soup/Hedge)  |
+//| DrawActiveCycles — Header + max 4 cycle rows (100px)             |
+//|                                                                  |
+//| Mostra fino a 4 cicli attivi con: ID Dir State Lot Entry toTP PL |
+//| STATI CICLO (colori):                                            |
+//|   PEND (AD_AMBER) — ordine pending stop, in attesa di fill       |
+//|   LIVE (AD_BUY/AD_SELL) — posizione aperta, colore per direzione |
+//|   HEDG (AD_HEDGE/fucsia) — hedge attivo, P&L separato S: e H:   |
+//|                                                                  |
+//| P&L DISPLAY (HEDGING):                                           |
+//|   Quando state=HEDG, mostra "S:+12 H:-8" con colori separati    |
+//|   per Soup e Hedge. GetFloatingProfit legge dal broker in RT.    |
+//|   Nota: hedge1BankedProfit NON e' incluso nel float display —    |
+//|   e' gia' conteggiato nel P&L SESSION (vedi DrawPLSession).      |
 //+------------------------------------------------------------------+
 void DrawActiveCycles(int x, int y, int w)
 {
@@ -447,7 +508,22 @@ void DrawActiveCycles(int x, int y, int w)
 }
 
 //+------------------------------------------------------------------+
-//| DrawPLSession — 3x2 grid: P&L|WinRate|MaxDD|Trades|Float|Daily |
+//| DrawPLSession — 3x2 grid: P&L|WinRate|MaxDD|Trades|Float|Daily  |
+//|                                                                  |
+//| Grid 3 colonne x 2 righe (90px):                                 |
+//|   Row 1: P&L (realized + %) | Win Rate (W·L) | Max DD (% + $)   |
+//|   Row 2: Trades (total)     | Float (open)    | Daily (today)    |
+//|                                                                  |
+//| P&L SOURCES:                                                     |
+//|   g_sessionRealizedProfit — profitto realizzato (chiusure cicli)  |
+//|   totalFloat — somma floating P&L di tutte le posizioni aperte   |
+//|     Include Soup tickets + Hedge tickets (H1/H2) se CYCLE_HEDGING|
+//|   g_dailyRealizedProfit — solo profitti del giorno corrente      |
+//|                                                                  |
+//| COLORI CONDIZIONALI:                                              |
+//|   P&L >= 0 → AD_BUY (lime), < 0 → AD_SELL (rosso)               |
+//|   WinRate >= 50% → AD_BUY, < 50% → AD_SELL                      |
+//|   MaxDD > 3% → AD_SELL (allarme), altrimenti AD_TEXT_HI          |
 //+------------------------------------------------------------------+
 void DrawPLSession(int x, int y, int w)
 {
@@ -544,7 +620,7 @@ void DrawStatusBar(int x, int y, int w)
 
    string cdMode = InpUseSmartCooldown ? "SmartCD:ON" : "FixedCD";
    string twsMode = InpShowTWSSignals ? "TWS:ON" : "TWS:HID";
-   string ltfMode = InpUseLTFEntry ? "LTF:ON" : "";
+   string ltfMode = g_dpc_useLTFEntry ? "LTF:ON" : "";
    string hedgeMode = EnableHedge ? "Hedge:ON" : "Hedge:OFF";
 
    string bar = ShortToString(0x25CF) + " " + stateStr
@@ -560,7 +636,30 @@ void DrawStatusBar(int x, int y, int w)
 }
 
 //+------------------------------------------------------------------+
-//| UpdateSidePanel — Engine Monitor (12 rows) + Signal Feed        |
+//| UpdateSidePanel — Engine Monitor (13 righe) + Signal Feed (6)    |
+//|                                                                  |
+//| Posizionato a destra del dashboard (offset AD_DASH_W + 10px).    |
+//| Due sezioni:                                                     |
+//|                                                                  |
+//| ENGINE MONITOR (235px, 13 righe da lh=15px):                     |
+//|   1.  DPC Engine — ACTIVE/INIT (g_engineReady)                   |
+//|   2.  ATR(14) — da extraValues[0] o g_atrCache                   |
+//|   3.  EMA ATR — da extraValues[1]                                |
+//|   4.  Daily Trades — W/L odierni                                 |
+//|   5.  TF Preset — timeframe corrente                             |
+//|   6.  DC Period — da extraValues[5]                               |
+//|   7.  MA Value — da extraValues[2]                                |
+//|   8.  SmartCD — ON (S/O counts) o OFF                            |
+//|   9.  LTF Entry — TF usato o OFF                                 |
+//|  10.  Expired — ordini pending scaduti                            |
+//|  11.  AutoSave — tempo dall'ultimo salvataggio GV                 |
+//|  12.  HTF Filter — stato filtro higher timeframe                  |
+//|  13.  Hedge — ON (count) o OFF                                   |
+//|  [14.] VIRTUAL MODE — badge arancio se VirtualMode=true          |
+//|                                                                  |
+//| SIGNAL FEED (110px, MAX_FEED_ITEMS righe):                       |
+//|   Feed cronologico delle ultime azioni EA (g_feedLines[]).        |
+//|   Colori per tipo: AD_BUY, AD_SELL, AD_AMBER, AD_TEXT_MUTED.     |
 //+------------------------------------------------------------------+
 void UpdateSidePanel()
 {
@@ -632,8 +731,8 @@ void UpdateSidePanel()
    // 9. LTF
    DashLabel("SM_R09L", sx + 10, ly, "LTF Entry", AD_TEXT_MID, 8);
    DashLabel("SM_R09V", valX, ly,
-             InpUseLTFEntry ? EnumToString(DPCGetLTFTimeframe()) : "OFF",
-             InpUseLTFEntry ? AD_BIOLUM : AD_TEXT_MUTED, 8);
+             g_dpc_useLTFEntry ? EnumToString(DPCGetLTFTimeframe()) : "OFF",
+             g_dpc_useLTFEntry ? AD_BIOLUM : AD_TEXT_MUTED, 8);
    ly += lh;
 
    // 10. Expired Orders (sostituisce Session — gia' in System Status)
@@ -702,7 +801,20 @@ void UpdateSidePanel()
 }
 
 //+------------------------------------------------------------------+
-//| UpdateDashboard — Main dashboard update                         |
+//| UpdateDashboard — Main dashboard update (chiamata ogni 500ms)    |
+//|                                                                  |
+//| ARCHITETTURA VISIVA (ordine di creazione = ordine di stacking):  |
+//|   1. FRAME_BG — sfondo scuro completo (creato PRIMO → sotto)     |
+//|   2. Frame titles — "────── ACQUADULZA ──────" top e bottom      |
+//|   3. 10 pannelli verticali — ciascuno ha Draw*() dedicata        |
+//|   4. Side panel — Engine Monitor + Signal Feed                   |
+//|   5. FRAME_BORDER T/B/L/R — 4 rettangoli bordo cyan 3px         |
+//|      (creati ULTIMI → MT5 li disegna SOPRA tutto il resto)       |
+//|                                                                  |
+//| La tecnica dei 4 rettangoli bordo separati (SugamaraPivot) e'    |
+//| necessaria perche' BORDER_FLAT su OBJ_RECTANGLE_LABEL produce    |
+//| solo 1px, insufficiente. I 4 rettangoli sono filled (bgClr =     |
+//| borderClr = AD_BIOLUM) e spessi 3px.                             |
 //+------------------------------------------------------------------+
 void UpdateDashboard()
 {
@@ -738,9 +850,9 @@ void UpdateDashboard()
    ObjectSetInteger(0, "AD_DASH_FRAME_TITLE", OBJPROP_ANCHOR, ANCHOR_UPPER);
    ObjectSetInteger(0, "AD_DASH_FRAME_TITLE", OBJPROP_ZORDER, AD_Z_LABEL + 1000);
 
-   // Titolo inferiore centrato "────── vX.X.X · DPC Engine ──────" (usa EA_VERSION)
+   // Titolo inferiore centrato "────── vX.X.X · DPC v2.0 Engine ──────" (usa EA_VERSION)
    DashLabel("FRAME_BOTTOM", x + w / 2, y + totalH + fm + 1,
-             hBar + " v" + EA_VERSION + " " + ShortToString(0x00B7) + " DPC Engine " + hBar,
+             hBar + " v" + EA_VERSION + " " + ShortToString(0x00B7) + " DPC v2.0 Engine " + hBar,
              AD_BORDER_FRAME, 8, AD_FONT_SECTION);
    ObjectSetInteger(0, "AD_DASH_FRAME_BOTTOM", OBJPROP_ANCHOR, ANCHOR_UPPER);
    ObjectSetInteger(0, "AD_DASH_FRAME_BOTTOM", OBJPROP_ZORDER, AD_Z_LABEL + 1000);
@@ -772,7 +884,14 @@ void UpdateDashboard()
 }
 
 //+------------------------------------------------------------------+
-//| CreateDashboard — Create all panels + buttons                   |
+//| CreateDashboard — Creazione iniziale dashboard + bottoni         |
+//|                                                                  |
+//| Chiamata in OnInit(). Disegna tutti i pannelli via               |
+//| UpdateDashboard() poi crea i bottoni interattivi (START/STOP/    |
+//| PAUSE) nella posizione calcolata del pannello Controls.          |
+//|                                                                  |
+//| Il calcolo ctrlY replica lo stacking verticale di UpdateDashboard|
+//| per posizionare i bottoni esattamente nel pannello Controls.     |
 //+------------------------------------------------------------------+
 void CreateDashboard()
 {
@@ -794,7 +913,11 @@ void CreateDashboard()
 }
 
 //+------------------------------------------------------------------+
-//| DestroyDashboard — Remove all dashboard objects                 |
+//| DestroyDashboard — Rimuove TUTTI gli oggetti con prefisso "AD_"  |
+//|                                                                  |
+//| Chiamata in OnDeinit(). ObjectsDeleteAll con prefisso "AD_"      |
+//| cancella dashboard, overlay, markers, bottoni — tutto in un colpo.|
+//| Il chart torna completamente pulito.                             |
 //+------------------------------------------------------------------+
 void DestroyDashboard()
 {

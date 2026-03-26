@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adChannelOverlay.mqh        |
-//|           AcquaDulza EA v1.5.0 — Channel Overlay                 |
+//|           AcquaDulza EA v1.6.1 — Channel Overlay                 |
 //|                                                                  |
 //|  Visualizzazione grafica del canale Donchian Predictive sul chart.|
 //|                                                                  |
@@ -268,7 +268,10 @@ void DrawBandFill(double &upper[], double &lower[], datetime &times[],
    if(!g_canvasCreated)
    {
       if(!g_canvasFill.CreateBitmapLabel(0, 0, g_canvasName, 0, 0, chartW, chartH, COLOR_FORMAT_ARGB_NORMALIZE))
+      {
+         AdLogE(LOG_CAT_UI, StringFormat("FAILED CreateBitmapLabel: %dx%d | error=%d", chartW, chartH, GetLastError()));
          return;
+      }
       ObjectSetInteger(0, g_canvasName, OBJPROP_BACK, true);       // Dietro le candele
       ObjectSetInteger(0, g_canvasName, OBJPROP_SELECTABLE, false); // Non selezionabile
       ObjectSetInteger(0, g_canvasName, OBJPROP_HIDDEN, true);     // Nascosto da Lista Oggetti

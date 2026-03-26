@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adHedgeManager.mqh          |
-//|           AcquaDulza EA v1.5.1 — Two-Tier Hedge Manager          |
+//|           AcquaDulza EA v1.6.1 — Two-Tier Hedge Manager          |
 //|                                                                  |
 //|  Two-Tier Hedge System:                                          |
 //|    H1 (Recovery): incassa profitto dal dip, NON chiude Soup      |
@@ -37,6 +37,13 @@
 
 //+------------------------------------------------------------------+
 //| GetClosedHedgeProfit — P&L realizzato H1 (MagicNumber + 1)       |
+//|                                                                  |
+//| Cerca deal history per exit deals con DEAL_MAGIC = Magic+1.      |
+//| Match by DEAL_POSITION_ID == posTicket (univoco per posizione).  |
+//| Include DEAL_PROFIT + SWAP + COMMISSION per P&L netto reale.    |
+//|                                                                  |
+//| Finestra 7 giorni: copre vita massima ragionevole di un hedge.   |
+//| Se H1 dura piu' di 7 giorni, il P&L sara' 0.                   |
 //+------------------------------------------------------------------+
 double GetClosedHedgeProfit(ulong posTicket)
 {
@@ -68,6 +75,12 @@ double GetClosedHedgeProfit(ulong posTicket)
 
 //+------------------------------------------------------------------+
 //| GetClosedHedge2Profit — P&L realizzato H2 (MagicNumber + 2)      |
+//|                                                                  |
+//| Identico a GetClosedHedgeProfit ma filtra per Magic+2.           |
+//| H2 (Protection) ha TP lontano (Hedge2TPAtrMult*ATR) e           |
+//| opzionale SL breakeven, quindi il P&L e' tipicamente:            |
+//|   TP hit → profitto alto (3×ATR * 1.5 lotto)                    |
+//|   SL BE hit → ~0 (entry ≈ exit)                                 |
 //+------------------------------------------------------------------+
 double GetClosedHedge2Profit(ulong posTicket)
 {
@@ -701,9 +714,21 @@ bool Hedge2DetectFill(int slot)
 
 //+------------------------------------------------------------------+
 //| HedgeCleanupAll — Cancella/chiudi H1+H2 per un ciclo             |
+//|                                                                  |
+//| Chiamato quando la Soup viene chiusa (TP broker o manuale)       |
+//| e gli hedge devono essere rimossi.                                |
+//| Per ogni hedge: cancella se pendente, chiudi se attivo,          |
+//| contabilizza P&L nella session.                                  |
 //+------------------------------------------------------------------+
 void HedgeCleanupAll(int slot)
 {
+   AdLogI(LOG_CAT_HEDGE, StringFormat(
+      "HEDGE CLEANUP #%d | H1: pending=%s active=%s | H2: pending=%s active=%s",
+      g_cycles[slot].cycleID,
+      g_cycles[slot].hedgePending ? "YES" : "NO",
+      g_cycles[slot].hedgeActive ? "YES" : "NO",
+      g_cycles[slot].hedge2Pending ? "YES" : "NO",
+      g_cycles[slot].hedge2Active ? "YES" : "NO"));
    if(g_cycles[slot].hedgePending)
       Hedge1CancelPending(slot);
    if(g_cycles[slot].hedgeActive)

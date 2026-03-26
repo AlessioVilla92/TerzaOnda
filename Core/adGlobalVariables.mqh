@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adGlobalVariables.mqh       |
-//|           AcquaDulza EA v1.5.0 — Global Variables                |
+//|           AcquaDulza EA v1.6.1 — Global Variables                |
 //|                                                                  |
 //|  Stato macchina + array cicli + tracking + trade object          |
 //|  NO variabili engine-specifiche (vivono in Engine/)              |
@@ -74,6 +74,7 @@ ATRCacheData g_atrCache;
 //| (l'engine mantiene i propri handle internamente)                 |
 //+------------------------------------------------------------------+
 bool g_engineReady = false;
+bool g_initialDrawDone = false;   // OnTimer retry: resettata in OnInit per ogni TF change
 
 //+------------------------------------------------------------------+
 //| LAST ENGINE SIGNAL — Copia dell'ultimo segnale per il framework  |

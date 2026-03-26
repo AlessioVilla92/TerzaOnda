@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                      adInputParameters.mqh       |
-//|           AcquaDulza EA v1.5.0 — Input Parameters                |
+//|           AcquaDulza EA v1.6.1 — Input Parameters                |
 //|                                                                  |
 //|  Sezione FRAMEWORK: parametri stabili (non cambiano con engine)  |
 //|  Sezione ENGINE:    parametri DPC-specifici (da sostituire)       |
@@ -303,7 +303,7 @@ input bool   EnableHedge             = true;    // ✅ Master switch: abilita si
 //   false = nessun hedge, sistema identico a v1.3.0.
 
 input group "    📐 HEDGE 1 — Recovery (non chiude Soup)"
-input bool   Hedge1Enabled           = true;    // ✅ Abilita Hedge 1
+input bool   Hedge1Enabled           = false;   // ✅ Abilita Hedge 1 (default OFF)
 // ↑ H1 piazzato piu' vicino alla banda. Quando il suo TP viene colpito,
 //   il profitto viene incassato ma la Soup resta aperta per recuperare alla midline.
 input double Hedge1ATRMult           = 1.0;     // 📏 Trigger: banda ± X × ATR(14)

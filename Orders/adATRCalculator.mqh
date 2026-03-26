@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        adATRCalculator.mqh       |
-//|           AcquaDulza EA v1.5.0 — ATR Calculator Module           |
+//|           AcquaDulza EA v1.6.1 — ATR Calculator Module           |
 //|                                                                  |
 //|  ATR indicator for volatility monitoring                         |
 //|  Unified cache system for dashboard + engine                     |

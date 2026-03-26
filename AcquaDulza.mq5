@@ -3,8 +3,8 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.5.1                                                  |
-//|  Engine: DPC (Donchian Predictive Channel) — swappable           |
+//|  Version: 1.6.1                                                  |
+//|  Engine: DPC v2.0 (Donchian Predictive Channel) — swappable      |
 //+------------------------------------------------------------------+
 //|                                                                  |
 //|  AcquaDulza EA — Framework di trading modulare a 7 livelli       |
@@ -12,7 +12,7 @@
 //|  ARCHITETTURA:                                                   |
 //|    Layer 0: Config    — Enums, parametri input, interfaccia eng.  |
 //|    Layer 1: Core      — Variabili globali, helpers, sessioni      |
-//|    Layer 2: Engine    — DPC (Donchian Predictive Channel)         |
+//|    Layer 2: Engine    — DPC v2.0 (Donchian Predictive Channel)    |
 //|             ↳ Bande Donchian + 7 filtri qualita' + SmartCooldown  |
 //|             ↳ Classificazione TBS/TWS (qualita' segnale)          |
 //|             ↳ LTF Entry (conferma su timeframe inferiore)         |
@@ -32,8 +32,38 @@
 //|    TWS = Turtle Wick Soup: solo wick tocca (debole, lotto 1x)     |
 //|                                                                  |
 //|  STRUMENTI SUPPORTATI:                                           |
-//|    Forex, Crypto (BTC/ETH), Gold, Silver, Oil, Indices            |
+//|    Forex, Crypto (BTC/ETH), Gold, Silver, Oil, Indices, Stock CFD |
 //|    Auto-detection della classe strumento dal nome simbolo          |
+//|                                                                  |
+//|  CHANGELOG v1.6.1:                                               |
+//|    - FIX: Frecce storiche non mostrate al cambio TF (M15/M30)    |
+//|      static initialDrawDone non resettava su REASON_CHARTCHANGE   |
+//|      → g_initialDrawDone globale, resettata in OnInit             |
+//|    - FIX: LevelAge M15/M30 da hardcoded ON → InpUseLevelAge      |
+//|      Il preset forzava LevelAge=true, bloccando quasi tutti i     |
+//|      segnali storici. Ora controllato da input (default OFF)      |
+//|    - Commenti dettagliati + logging sistematico su 12 file        |
+//|      Engine filters, Orders, Persistence, Config, UI              |
+//|                                                                  |
+//|  CHANGELOG v1.6.0:                                               |
+//|    - ALLINEATO a DPC v2.0 (v7.19) — preset ricalibrati           |
+//|    - M15 flatTol 0.65→0.70 (+8-12% segnali)                      |
+//|    - M30 minWidth 14→12, flatTol 0.50→0.60, minLevelAge 2→4     |
+//|    - NUOVO preset M1: maLen=200, minWidth=4.0, flatTol=0.95      |
+//|    - H1/H4 minLevelAge hardcoded (5/3) da DPC v2.0 calibrati     |
+//|    - Warning M1 + LTF Entry (loop M1→M1)                         |
+//|    - Log Params include MinLevelAge                               |
+//|    - INSTRUMENT_STOCK: auto-detect Stock CFD via MT5 API          |
+//|      SYMBOL_TRADE_CALC_MODE + digits<=2 → preset dedicato         |
+//|      pipSize=_Point, widthFactor=3.0, maxSpread=15 pip            |
+//|                                                                  |
+//|  CHANGELOG v1.5.2:                                               |
+//|    - PRESET TF-AWARE: LTFEntry, LevelAge, PendingExpiry          |
+//|      M5/M15/M30 hanno valori preset automatici (InpEngineAutoTF)  |
+//|      H1/H4 usano valori input (comportamento invariato)           |
+//|    - Nuove globals: g_dpc_useLTFEntry, g_dpc_ltfOnlyTBS,         |
+//|      g_dpc_useLevelAge, g_dpc_minLevelAge, g_dpc_pendingExpiry   |
+//|    - Framework code usa globals instead of inputs diretti          |
 //|                                                                  |
 //|  CHANGELOG v1.5.1:                                               |
 //|    - FIX: H2 BE SL hit distingue da TP (h2PL>0 = TP, <=0 = SL)  |
@@ -70,9 +100,9 @@
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.51"
-#property description "AcquaDulza EA v1.5.1 — Reusable Trading Framework"
-#property description "Engine: DPC v7.19 (Donchian Predictive Channel)"
+#property version   "1.61"
+#property description "AcquaDulza EA v1.6.1 — Reusable Trading Framework"
+#property description "Engine: DPC v2.0 (Donchian Predictive Channel v7.19)"
 #property description "Segnali: Turtle Soup (TBS forte 2x / TWS debole 1x)"
 #property description "Hedge: Two-Tier (H1 Recovery + H2 Protezione)"
 #property description "Anti-repaint: bar[1] signals only"
@@ -136,7 +166,7 @@ int OnInit()
    AdLogI(LOG_CAT_INIT, "=======================================================");
    AdLogI(LOG_CAT_INIT, StringFormat("ACQUADULZA EA v%s — Symbol: %s | TF: %s",
           EA_VERSION, _Symbol, EnumToString(Period())));
-   AdLogI(LOG_CAT_INIT, "Engine: DPC (Donchian Predictive Channel)");
+   AdLogI(LOG_CAT_INIT, "Engine: DPC v2.0 (Donchian Predictive Channel)");
    AdLogI(LOG_CAT_INIT, StringFormat("Magic: %d | Entry: %s | Risk: %s",
           MagicNumber, EnumToString(EntryMode), EnumToString(RiskMode)));
    AdLogI(LOG_CAT_INIT, "=======================================================");
@@ -200,6 +230,7 @@ int OnInit()
       return INIT_SUCCEEDED;
    }
    g_engineReady = true;
+   g_initialDrawDone = false;  // Reset retry timer per TF change
 
    // 5b. Draw channel overlay + historical signals immediately
    if(ShowChannelOverlay)
@@ -372,7 +403,7 @@ void OnTick()
    g_lastSignal = sig;
 
    // ── 8. LTF CHECK (ogni barra, se finestra aperta) ────────────────
-   if(InpUseLTFEntry && DPCLTFIsWaiting())
+   if(g_dpc_useLTFEntry && DPCLTFIsWaiting())
    {
       int ltfResult = DPCLTFCheckConfirmation();
       if(ltfResult != 0)
@@ -545,9 +576,10 @@ void OnChartEvent(const int id, const long &lparam,
 //+------------------------------------------------------------------+
 void OnTimer()
 {
-   // Retry initial overlay draw (timeseries not ready during OnInit)
-   static bool initialDrawDone = false;
-   if(!initialDrawDone && g_engineReady)
+   // Retry initial overlay draw (timeseries not ready during OnInit/TF change)
+   // g_initialDrawDone e' globale — resettata in OnInit ad ogni init/TF change
+   // cosi' il retry funziona anche dopo REASON_CHARTCHANGE
+   if(!g_initialDrawDone && g_engineReady)
    {
       int bars = iBars(_Symbol, PERIOD_CURRENT);
       if(bars > 50)
@@ -556,7 +588,7 @@ void OnTimer()
          if(ShowSignalArrows) ScanHistoricalSignals();
          UpdateDashboard();
          ChartRedraw();
-         initialDrawDone = true;
+         g_initialDrawDone = true;
          EventSetTimer(60);  // Switch to 60s for auto-save
          AdLogI(LOG_CAT_UI, StringFormat("Initial overlay draw — %d bars available", bars));
       }
