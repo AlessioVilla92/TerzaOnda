@@ -81,7 +81,7 @@ bool IsWithinSession()
    g_currentSessionName = DetectCurrentSession();
 
    // Crypto trades 24/7 — bypass session filter (dopo DetectCurrentSession per dashboard)
-   if(g_instrumentClass == INSTRUMENT_CRYPTO) return true;
+   if(g_instrumentClass == INSTRUMENT_CRYPTO || g_instrumentClass == INSTRUMENT_CRYPTO_ALT) return true;
 
    // Blocked time range check
    int blockStart = ParseTimeToMinutes(BlockedTimeStart);

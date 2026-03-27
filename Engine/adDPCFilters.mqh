@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                         adDPCFilters.mqh         |
-//|           AcquaDulza EA v1.6.1 — DPC Quality Filters             |
+//|           AcquaDulza EA v1.7.1 — DPC Quality Filters             |
 //|                                                                  |
 //|  Filtri qualita' segnale DPC (Donchian Predictive Channel).      |
 //|  Ogni filtro implementa un aspetto della strategia Turtle Soup:  |
@@ -178,13 +178,14 @@ bool DPCCheckLevelAge_Sell(int barShift)
    double uC, lC, mC;
    DPCComputeBands(barShift, g_dpc_dcLen, uC, lC, mC);
 
-   // Tolleranza: crypto usa g_pipSize (es. $2 per BTCUSD), altri strumenti usano _Point
-   double levelTol = (g_instrumentClass == INSTRUMENT_CRYPTO) ? (2 * g_pipSize) : (2 * _Point);
+   // Tolleranza: crypto usa g_pipSize (es. $2 per BTCUSD/$2 per ETH), altri strumenti usano _Point
+   bool isCrypto = (g_instrumentClass == INSTRUMENT_CRYPTO || g_instrumentClass == INSTRUMENT_CRYPTO_ALT);
+   double levelTol = isCrypto ? (2 * g_pipSize) : (2 * _Point);
 
    AdLogD(LOG_CAT_FILTER, StringFormat(
       "DIAG LevelAge SELL: bar=%d | upper=%.2f | tolerance=%.5f (%s) | minAge=%d",
       barShift, uC, levelTol,
-      (g_instrumentClass == INSTRUMENT_CRYPTO) ? "crypto/pipSize" : "point",
+      isCrypto ? "crypto/pipSize" : "point",
       minAge));
 
    int flatBars = 0;
@@ -228,13 +229,14 @@ bool DPCCheckLevelAge_Buy(int barShift)
    double uC, lC, mC;
    DPCComputeBands(barShift, g_dpc_dcLen, uC, lC, mC);
 
-   // Tolleranza: crypto usa g_pipSize (es. $2 per BTCUSD), altri strumenti usano _Point
-   double levelTol = (g_instrumentClass == INSTRUMENT_CRYPTO) ? (2 * g_pipSize) : (2 * _Point);
+   // Tolleranza: crypto usa g_pipSize (es. $2 per BTCUSD/$2 per ETH), altri strumenti usano _Point
+   bool isCrypto = (g_instrumentClass == INSTRUMENT_CRYPTO || g_instrumentClass == INSTRUMENT_CRYPTO_ALT);
+   double levelTol = isCrypto ? (2 * g_pipSize) : (2 * _Point);
 
    AdLogD(LOG_CAT_FILTER, StringFormat(
       "DIAG LevelAge BUY: bar=%d | lower=%.2f | tolerance=%.5f (%s) | minAge=%d",
       barShift, lC, levelTol,
-      (g_instrumentClass == INSTRUMENT_CRYPTO) ? "crypto/pipSize" : "point",
+      isCrypto ? "crypto/pipSize" : "point",
       minAge));
 
    int flatBars = 0;

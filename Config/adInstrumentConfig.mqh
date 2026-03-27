@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                     adInstrumentConfig.mqh        |
-//|           AcquaDulza EA v1.6.1 — Instrument Classification        |
+//|           AcquaDulza EA v1.7.1 — Instrument Classification        |
 //|                                                                    |
 //|  Sistema multi-prodotto CFD: rileva la classe dello strumento      |
 //|  e auto-scala tutti i parametri pip-dipendenti.                    |
@@ -15,16 +15,17 @@
 //|    GOLD, SILVER, OIL, STOCK, CUSTOM                                |
 //|                                                                    |
 //|  TABELLA PRESET:                                                   |
-//|  Classe    | pipSize | maxSprd | minW | slip | stopOff | limOff   |
-//|  FOREX     | 10*pt   |   3.0   |  8.0 |   3  |   2.5   |  2.0    |
-//|  FOREX_JPY | 10*pt   |   3.0   |  8.0 |   3  |   2.5   |  2.0    |
-//|  CRYPTO    | 1.0     |  80.0   |200.0 |  50  |  15.0   | 10.0    |
-//|  INDEX_US  | 1.0     |   5.0   | 50.0 |  10  |   5.0   |  3.0    |
-//|  INDEX_EU  | 1.0     |   5.0   | 40.0 |  10  |   5.0   |  3.0    |
-//|  GOLD      | 0.10    |   5.0   |  5.0 |  10  |   2.0   |  1.5    |
-//|  SILVER    | 0.010   |   5.0   |  3.0 |  10  |   2.0   |  1.5    |
-//|  OIL       | 0.10    |   5.0   | 15.0 |   5  |   3.0   |  2.0    |
-//|  STOCK     | pt      |  15.0   |  x3  |   5  |   5.0   |  3.0    |
+//|  Classe     | pipSize | maxSprd | minW | slip | stopOff | limOff  |
+//|  FOREX      | 10*pt   |   3.0   |  8.0 |   3  |   2.5   |  2.0   |
+//|  FOREX_JPY  | 10*pt   |   3.0   |  8.0 |   3  |   2.5   |  2.0   |
+//|  CRYPTO BTC | 1.0     |  80.0   |200.0 |  50  |  15.0   | 10.0   |
+//|  CRYPTO_ALT | 1.0     |  30.0   | 50.0 |  50  |   5.0   |  3.0   |
+//|  INDEX_US   | 1.0     |   5.0   | 50.0 |  10  |   5.0   |  3.0   |
+//|  INDEX_EU   | 1.0     |  15.0   | 40.0 |  10  |   5.0   |  3.0   |
+//|  GOLD       | 0.10    |   5.0   |  5.0 |  10  |   2.0   |  1.5   |
+//|  SILVER     | 0.010   |   5.0   |  3.0 |  10  |   2.0   |  1.5   |
+//|  OIL        | 0.10    |   5.0   | 15.0 |   5  |   3.0   |  2.0   |
+//|  STOCK      | pt      |  15.0   |  x3  |   5  |   5.0   |  3.0   |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -44,14 +45,18 @@ ENUM_INSTRUMENT_CLASS DetectInstrumentClass()
       "DIAG InstrumentDetect: sym=%s | digits=%d | point=%.8f",
       sym, g_symbolDigits, g_symbolPoint));
 
-   //--- Crypto: BTC, ETH, XBT, LTC, XRP, SOL, ADA, DOGE, BNB
+   //--- Crypto BTC: widthFactor=25 (canali $500-5000)
    //    PRIORITA' ALTA: crypto prima di JPY per evitare match "BTCJPY" come forex JPY
-   if(StringFind(sym, "BTC") >= 0 || StringFind(sym, "XBT") >= 0 ||
-      StringFind(sym, "ETH") >= 0 || StringFind(sym, "LTC") >= 0 ||
+   if(StringFind(sym, "BTC") >= 0 || StringFind(sym, "XBT") >= 0)
+      return INSTRUMENT_CRYPTO;
+
+   //--- Crypto Altcoin: widthFactor=5 (canali piu' stretti di BTC)
+   //    ETH ($1800), SOL ($150), LTC ($100), XRP ($0.50), ADA, DOGE, BNB
+   if(StringFind(sym, "ETH") >= 0 || StringFind(sym, "LTC") >= 0 ||
       StringFind(sym, "XRP") >= 0 || StringFind(sym, "SOL") >= 0 ||
       StringFind(sym, "ADA") >= 0 || StringFind(sym, "DOGE") >= 0 ||
       StringFind(sym, "BNB") >= 0)
-      return INSTRUMENT_CRYPTO;
+      return INSTRUMENT_CRYPTO_ALT;
 
    //--- Gold: XAU, GOLD
    if(StringFind(sym, "XAU") >= 0 || StringFind(sym, "GOLD") >= 0)
@@ -120,7 +125,7 @@ string GetInstrumentClassName(ENUM_INSTRUMENT_CLASS cls)
       case INSTRUMENT_AUTO:      return "Auto-Detect";
       case INSTRUMENT_FOREX:     return "Forex Major";
       case INSTRUMENT_FOREX_JPY: return "Forex JPY";
-      case INSTRUMENT_CRYPTO:    return "Crypto";
+      case INSTRUMENT_CRYPTO:    return "Crypto BTC";
       case INSTRUMENT_INDEX_US:  return "Index US";
       case INSTRUMENT_INDEX_EU:  return "Index EU";
       case INSTRUMENT_GOLD:      return "Gold";
@@ -128,6 +133,7 @@ string GetInstrumentClassName(ENUM_INSTRUMENT_CLASS cls)
       case INSTRUMENT_OIL:       return "Oil";
       case INSTRUMENT_CUSTOM:    return "Custom";
       case INSTRUMENT_STOCK:     return "Stock CFD";
+      case INSTRUMENT_CRYPTO_ALT: return "Crypto Altcoin";
    }
    return "Unknown";
 }
@@ -173,7 +179,7 @@ void ApplyInstrumentPresets(ENUM_INSTRUMENT_CLASS cls)
          g_inst_widthFactor = 1.0;      // Baseline
          break;
 
-      //--- CRYPTO (BTCUSD, ETHUSD, LTCUSD...)
+      //--- CRYPTO BTC (BTCUSD, BTCEUR...)
       //    1-2 digits: 1 pip = $1.00
       //    Spread tipico BTC: $30-80, canali: $500-5000
       case INSTRUMENT_CRYPTO:
@@ -184,6 +190,19 @@ void ApplyInstrumentPresets(ENUM_INSTRUMENT_CLASS cls)
          g_inst_stopOffset  = 15.0;      // $15 offset
          g_inst_limitOffset = 10.0;      // $10 offset
          g_inst_widthFactor = 25.0;      // TF preset × 25 (7pip forex → 175$ crypto)
+         break;
+
+      //--- CRYPTO ALTCOIN (ETHUSD, SOLUSD, LTCUSD, XRPUSD, ADAUSD...)
+      //    1-2 digits: 1 pip = $1.00
+      //    Canali ETH: $30-200, SOL: $3-25 — molto piu' stretti di BTC
+      case INSTRUMENT_CRYPTO_ALT:
+         g_pipSize          = 1.0;       // 1 pip = $1.00 (come BTC)
+         g_inst_maxSpread   = 30.0;      // Max $30 spread (ETH spread piu' basso di BTC)
+
+         g_inst_slippage    = 50;        // 50 points = $0.50
+         g_inst_stopOffset  = 5.0;       // $5 offset (meno volatile di BTC)
+         g_inst_limitOffset = 3.0;       // $3 offset
+         g_inst_widthFactor = 5.0;       // TF preset × 5 (10pip forex → 50$ altcoin)
          break;
 
       //--- INDICI US (US30, US500, NAS100...)
@@ -201,10 +220,10 @@ void ApplyInstrumentPresets(ENUM_INSTRUMENT_CLASS cls)
 
       //--- INDICI EU (DAX40, FTMIB, STOXX50, CAC40...)
       //    1-2 digits: 1 pip = 1 punto indice
-      //    Spread tipico DAX: 1-3 pts, canali: 80-400 pts
+      //    Spread tipico DAX: 1-3 pts, FTMIB: 5-15 pts
       case INSTRUMENT_INDEX_EU:
          g_pipSize          = 1.0;       // 1 pip = 1 punto indice
-         g_inst_maxSpread   = 5.0;       // Max 5 pts spread
+         g_inst_maxSpread   = 15.0;      // Max 15 pts spread (FTMIB ha spread 5-15)
 
          g_inst_slippage    = 10;        // 10 points
          g_inst_stopOffset  = 5.0;       // 5 pts offset

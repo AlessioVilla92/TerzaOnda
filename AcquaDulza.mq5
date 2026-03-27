@@ -3,7 +3,7 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.7.0                                                  |
+//|  Version: 1.7.1                                                  |
 //|  Engine: DPC v2.0 (Donchian Predictive Channel) — swappable      |
 //+------------------------------------------------------------------+
 //|                                                                  |

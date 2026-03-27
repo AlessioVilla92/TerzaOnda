@@ -127,7 +127,8 @@ enum ENUM_INSTRUMENT_CLASS
    INSTRUMENT_AUTO        = 0,   // Auto-Detect (rileva dal simbolo)
    INSTRUMENT_FOREX       = 1,   // Forex Major (EURUSD, GBPUSD, AUDUSD...)
    INSTRUMENT_FOREX_JPY   = 2,   // Forex JPY (USDJPY, EURJPY...)
-   INSTRUMENT_CRYPTO      = 3,   // Crypto (BTCUSD, ETHUSD...)
+   INSTRUMENT_CRYPTO      = 3,   // Crypto BTC (BTCUSD, BTCEUR...)
+   INSTRUMENT_CRYPTO_ALT  = 11,  // Crypto Altcoin (ETHUSD, SOLUSD, LTCUSD...)
    INSTRUMENT_INDEX_US    = 4,   // Indici US (US30, US500, NAS100...)
    INSTRUMENT_INDEX_EU    = 5,   // Indici EU (DAX40, FTMIB, STOXX50...)
    INSTRUMENT_GOLD        = 6,   // Gold (XAUUSD)
@@ -228,4 +229,4 @@ struct CycleRecord
 //| COSTANTI GLOBALI                                                 |
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
-const string EA_VERSION         = "1.7.0";
+const string EA_VERSION         = "1.7.1";
