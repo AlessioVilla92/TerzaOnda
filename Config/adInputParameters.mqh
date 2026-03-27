@@ -45,8 +45,8 @@ input group "║  💰 RISK MANAGEMENT                                       ║
 input group "╚═══════════════════════════════════════════════════════════╝"
 
 input group "    📊 POSITION SIZING"
-input ENUM_RISK_MODE RiskMode               = RISK_PERCENT;  // 📋 Risk Mode ▼
-input double         LotSize                = 0.01;          // 📏 Fixed Lot Size (if FIXED_LOT)
+input ENUM_RISK_MODE RiskMode               = RISK_FIXED_LOT; // 📋 Risk Mode ▼
+input double         LotSize                = 0.02;          // 📏 Fixed Lot Size (if FIXED_LOT)
 input double         RiskPercent            = 1.0;           // 📊 Risk % Equity (if RISK_PCT)
 input double         RiskCashPerTrade       = 50.0;          // 💵 Risk Cash per Trade (if FIXED_CASH)
 

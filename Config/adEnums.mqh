@@ -228,4 +228,4 @@ struct CycleRecord
 //| COSTANTI GLOBALI                                                 |
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
-const string EA_VERSION         = "1.6.1";
+const string EA_VERSION         = "1.7.0";
