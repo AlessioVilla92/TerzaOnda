@@ -104,7 +104,7 @@ bool HasSavedState()
       if(ticket == 0) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
       long posMagic = PositionGetInteger(POSITION_MAGIC);
-      if(posMagic == MagicNumber || posMagic == MagicNumber + 1 || posMagic == MagicNumber + 2)
+      if(posMagic == MagicNumber || posMagic == MagicNumber + 1)
       { hasOrders = true; break; }
    }
    if(!hasOrders)
@@ -115,7 +115,7 @@ bool HasSavedState()
          if(ticket == 0) continue;
          if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
          long ordMagic = OrderGetInteger(ORDER_MAGIC);
-         if(ordMagic == MagicNumber || ordMagic == MagicNumber + 1 || ordMagic == MagicNumber + 2)
+         if(ordMagic == MagicNumber || ordMagic == MagicNumber + 1)
          { hasOrders = true; break; }
       }
    }
@@ -198,22 +198,15 @@ void SaveState()
       SaveStateInt(p + "placTime", (int)g_cycles[i].placedTime);
       SaveStateInt(p + "quality", g_cycles[i].quality);
       SaveStateDouble(p + "profit", g_cycles[i].profit);
-      // Hedge 1 fields
-      SaveStateUlong(p + "hedgeTkt", g_cycles[i].hedgeTicket);
-      SaveStateDouble(p + "hedgeTrig", g_cycles[i].hedgeTriggerPrice);
-      SaveStateDouble(p + "hedgeTP", g_cycles[i].hedgeTPPrice);
-      SaveStateDouble(p + "hedgeLot", g_cycles[i].hedgeLotSize);
-      SaveStateBool(p + "hedgePend", g_cycles[i].hedgePending);
-      SaveStateBool(p + "hedgeAct", g_cycles[i].hedgeActive);
-      SaveStateDouble(p + "h1Banked", g_cycles[i].hedge1BankedProfit);
-      SaveStateBool(p + "h1TPHit", g_cycles[i].hedge1TPHit);
-      // Hedge 2 fields
-      SaveStateUlong(p + "h2Tkt", g_cycles[i].hedge2Ticket);
-      SaveStateDouble(p + "h2Trig", g_cycles[i].hedge2TriggerPrice);
-      SaveStateDouble(p + "h2TP", g_cycles[i].hedge2TPPrice);
-      SaveStateDouble(p + "h2Lot", g_cycles[i].hedge2LotSize);
-      SaveStateBool(p + "h2Pend", g_cycles[i].hedge2Pending);
-      SaveStateBool(p + "h2Act", g_cycles[i].hedge2Active);
+      // HedgeSmart fields
+      SaveStateUlong(p + "hsTkt",    g_cycles[i].hsTicket);
+      SaveStateDouble(p + "hsTrig",  g_cycles[i].hsTriggerPrice);
+      SaveStateDouble(p + "hsTpRef", g_cycles[i].hsTpRefLevel);
+      SaveStateDouble(p + "hsLot",   g_cycles[i].hsLotSize);
+      SaveStateBool(p + "hsPend",    g_cycles[i].hsPending);
+      SaveStateBool(p + "hsAct",     g_cycles[i].hsActive);
+      SaveStateInt(p + "hsFill",     (int)g_cycles[i].hsFillTime);
+      SaveStateDouble(p + "hsPL",    g_cycles[i].hsPL);
    }
 
    // Timestamp
@@ -235,8 +228,8 @@ void SaveState()
 //|  - CYCLE_HEDGING: soup + hedge ancora vivi?                      |
 //| Cicli con posizioni/ordini spariti vengono chiusi.               |
 //|                                                                  |
-//| NOTA: hedgeLineName/hedge2LineName non sono persistiti            |
-//| (oggetti grafici vengono ricreati da HedgeMonitor).              |
+//| NOTA: hsLineName non è persistita                                |
+//| (oggetti grafici vengono ricreati da HsMonitor/HsDrawTriggerLine)|
 //+------------------------------------------------------------------+
 bool RestoreState()
 {
@@ -296,24 +289,16 @@ bool RestoreState()
          g_cycles[i].placedTime = (datetime)RestoreStateInt(p + "placTime");
          g_cycles[i].quality    = RestoreStateInt(p + "quality");
          g_cycles[i].profit     = RestoreStateDouble(p + "profit");
-         // Hedge 1 fields
-         g_cycles[i].hedgeTicket       = RestoreStateUlong(p + "hedgeTkt");
-         g_cycles[i].hedgeTriggerPrice = RestoreStateDouble(p + "hedgeTrig");
-         g_cycles[i].hedgeTPPrice      = RestoreStateDouble(p + "hedgeTP");
-         g_cycles[i].hedgeLotSize      = RestoreStateDouble(p + "hedgeLot");
-         g_cycles[i].hedgePending      = RestoreStateBool(p + "hedgePend");
-         g_cycles[i].hedgeActive       = RestoreStateBool(p + "hedgeAct");
-         g_cycles[i].hedgeLineName     = "";  // Visual objects not persisted
-         g_cycles[i].hedge1BankedProfit = RestoreStateDouble(p + "h1Banked");
-         g_cycles[i].hedge1TPHit       = RestoreStateBool(p + "h1TPHit");
-         // Hedge 2 fields
-         g_cycles[i].hedge2Ticket       = RestoreStateUlong(p + "h2Tkt");
-         g_cycles[i].hedge2TriggerPrice = RestoreStateDouble(p + "h2Trig");
-         g_cycles[i].hedge2TPPrice      = RestoreStateDouble(p + "h2TP");
-         g_cycles[i].hedge2LotSize      = RestoreStateDouble(p + "h2Lot");
-         g_cycles[i].hedge2Pending      = RestoreStateBool(p + "h2Pend");
-         g_cycles[i].hedge2Active       = RestoreStateBool(p + "h2Act");
-         g_cycles[i].hedge2LineName     = "";  // Visual objects not persisted
+         // HedgeSmart fields
+         g_cycles[i].hsTicket       = RestoreStateUlong(p + "hsTkt");
+         g_cycles[i].hsTriggerPrice = RestoreStateDouble(p + "hsTrig");
+         g_cycles[i].hsTpRefLevel   = RestoreStateDouble(p + "hsTpRef");
+         g_cycles[i].hsLotSize      = RestoreStateDouble(p + "hsLot");
+         g_cycles[i].hsPending      = RestoreStateBool(p + "hsPend");
+         g_cycles[i].hsActive       = RestoreStateBool(p + "hsAct");
+         g_cycles[i].hsFillTime     = (datetime)RestoreStateInt(p + "hsFill");
+         g_cycles[i].hsLineName     = "";  // Visual objects not persisted
+         g_cycles[i].hsPL           = RestoreStateDouble(p + "hsPL");
       }
    }
 
@@ -336,48 +321,34 @@ bool RestoreState()
       }
       else if(g_cycles[i].state == CYCLE_HEDGING)
       {
-         bool soupValid  = (g_cycles[i].ticket > 0) && IsPositionOpen(g_cycles[i].ticket);
+         bool soupValid = (g_cycles[i].ticket > 0) && IsPositionOpen(g_cycles[i].ticket);
 
-         // H1 valido?
-         bool h1Valid = false;
-         if(g_cycles[i].hedgeActive && g_cycles[i].hedgeTicket > 0)
-            h1Valid = IsPositionOpen(g_cycles[i].hedgeTicket);
-         else if(g_cycles[i].hedgePending && g_cycles[i].hedgeTicket > 0)
-            h1Valid = OrderSelect(g_cycles[i].hedgeTicket);
+         // HS valido?
+         bool hsValid = false;
+         if(g_cycles[i].hsActive && g_cycles[i].hsTicket > 0)
+            hsValid = IsPositionOpen(g_cycles[i].hsTicket);
+         else if(g_cycles[i].hsPending && g_cycles[i].hsTicket > 0)
+            hsValid = OrderSelect(g_cycles[i].hsTicket);
 
-         // H2 valido?
-         bool h2Valid = false;
-         if(g_cycles[i].hedge2Active && g_cycles[i].hedge2Ticket > 0)
-            h2Valid = IsPositionOpen(g_cycles[i].hedge2Ticket);
-         else if(g_cycles[i].hedge2Pending && g_cycles[i].hedge2Ticket > 0)
-            h2Valid = OrderSelect(g_cycles[i].hedge2Ticket);
-
-         bool anyHedgeValid = h1Valid || h2Valid;
-
-         if(!soupValid && !anyHedgeValid)
+         if(!soupValid && !hsValid)
          {
-            g_cycles[i].state = CYCLE_CLOSED;
-            g_cycles[i].hedgePending = false;
-            g_cycles[i].hedgeActive  = false;
-            g_cycles[i].hedge2Pending = false;
-            g_cycles[i].hedge2Active  = false;
+            g_cycles[i].state     = CYCLE_CLOSED;
+            g_cycles[i].hsPending = false;
+            g_cycles[i].hsActive  = false;
             invalidated++;
          }
-         else if(!anyHedgeValid)
+         else if(!hsValid)
          {
-            // Hedge spariti ma Soup viva — torna a CYCLE_ACTIVE
-            g_cycles[i].state = CYCLE_ACTIVE;
-            g_cycles[i].hedgePending = false;
-            g_cycles[i].hedgeActive  = false;
-            g_cycles[i].hedgeTicket  = 0;
-            g_cycles[i].hedge2Pending = false;
-            g_cycles[i].hedge2Active  = false;
-            g_cycles[i].hedge2Ticket  = 0;
+            // HS sparito ma Soup viva — torna ACTIVE
+            g_cycles[i].state     = CYCLE_ACTIVE;
+            g_cycles[i].hsPending = false;
+            g_cycles[i].hsActive  = false;
+            g_cycles[i].hsTicket  = 0;
             validated++;
          }
          else if(!soupValid)
          {
-            // Soup sparita ma hedge vivo — segna CLOSED, HedgeMonitor fara' cleanup
+            // Soup sparita ma HS vivo — HsMonitor farà cleanup
             g_cycles[i].state = CYCLE_CLOSED;
             invalidated++;
          }

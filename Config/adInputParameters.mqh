@@ -287,52 +287,46 @@ input ENUM_TIMEFRAMES InpATR_Timeframe      = PERIOD_CURRENT; // 📋 ATR Timefr
 input int             InpATR_Period          = 14;             // 📊 ATR Period
 
 //+------------------------------------------------------------------+
-//| E9. HEDGING — Two-Tier Hedge System                              |
+//| E9. HEDGE SMART — Sistema hedge non invasivo (v1.7.0)            |
 //+------------------------------------------------------------------+
 
 input group "                                                           "
 input group "╔═══════════════════════════════════════════════════════════╗"
-input group "║  🛡️ HEDGING — Protezione Two-Tier su Turtle Soup        ║"
+input group "║  🛡️ HEDGE SMART — Non-invasivo (preserva Soup)          ║"
 input group "╚═══════════════════════════════════════════════════════════╝"
 
-input group "    ⚙️ ATTIVAZIONE"
-input bool   EnableHedge             = true;    // ✅ Master switch: abilita sistema hedge
-// ↑ Se true: ogni segnale TBS/TWS puo' generare fino a 2 ordini stop opposti.
-//   H1 (Recovery) = incassa profitto dal dip, NON chiude la Soup.
-//   H2 (Protezione) = chiude la Soup al raggiungimento del suo TP.
-//   false = nessun hedge, sistema identico a v1.3.0.
+input group "    ⚙️ MASTER SWITCH"
+input bool   EnableHedge            = true;    // ✅ Abilita sistema hedge
+input bool   HsEnabled              = true;    // ✅ Abilita Hedge Smart
 
-input group "    📐 HEDGE 1 — Recovery (non chiude Soup)"
-input bool   Hedge1Enabled           = false;   // ✅ Abilita Hedge 1 (default OFF)
-// ↑ H1 piazzato piu' vicino alla banda. Quando il suo TP viene colpito,
-//   il profitto viene incassato ma la Soup resta aperta per recuperare alla midline.
-input double Hedge1ATRMult           = 1.0;     // 📏 Trigger: banda ± X × ATR(14)
-// ↑ Distanza del trigger H1 dalla banda Donchian.
-//   Valori: 0.5 (aggressivo) | 1.0 (standard) | 2.0 (conservativo)
-input double Hedge1TPAtrMult         = 2.0;     // 🎯 TP: trigger ± X × ATR(14)
-// ↑ TP del H1 calcolato dal trigger. Con ATRMult=1.0, TPMult=2.0: R:R = 2:1
-input bool   Hedge1UseSameLot        = true;    // ✅ Usa lotto Soup (TBS=2x, TWS=1x)
-input double Hedge1LotFixed          = 0.01;    // 📊 Lotto fisso H1 (se UseSameLot=false)
+input group "    📊 LOTTO"
+input double HsLot                  = 0.01;    // 📏 Lotto fisso HS (indipendente dalla Soup)
 
-input group "    📐 HEDGE 2 — Protezione (chiude Soup al TP)"
-input bool   Hedge2Enabled           = true;    // ✅ Abilita Hedge 2
-// ↑ H2 piazzato piu' lontano dalla banda. Quando il suo TP viene colpito,
-//   CHIUDE la Soup. Trigger consigliato: >= H1 trigger + H1 TP (default: 3.0).
-input double Hedge2ATRMult           = 3.0;     // 📏 Trigger: banda ± X × ATR(14)
-// ↑ Con default 3.0 e H1 default (1.0+2.0=3.0): H2 trigger = H1 TP level.
-//   Questo crea un "passaggio di consegne" pulito tra H1 e H2.
-input double Hedge2TPAtrMult         = 3.0;     // 🎯 TP: trigger ± X × ATR(14)
-// ↑ TP del H2. Con lotto 1.5x e questi default: NET breakout = +0.5×ATR
-input double Hedge2LotRatio          = 1.5;     // 📊 Lotto: X × lotto Soup
-// ↑ 1.5 = 150% del lotto Soup. Compensa il gap matematico entry→trigger.
-//   Valori: 1.0 (breakeven) | 1.5 (standard) | 2.0 (aggressivo)
-input bool   Hedge2BreakevenSL       = true;    // 🛡️ SL breakeven dopo fill
-// ↑ Dopo il fill di H2, imposta SL al prezzo di entry + buffer minimo broker.
-//   Se il prezzo reversa, H2 si chiude a ~zero perdita.
+input group "    📐 TRIGGER"
+input double HsTriggerPct           = 0.30;    // 📏 Trigger: banda ± X% channel_width
+// ↑ Esempio: cw=15pip, 0.30 → trigger a 4.5pip dalla banda
 
-input group "    🎨 VISUALIZZAZIONE HEDGE"
-input bool   ShowHedgeLine           = true;    // ✅ Linea tratteggiata fucsia (trigger H1)
-input bool   ShowHedge2Line          = true;    // ✅ Linea tratteggiata arancione (trigger H2)
-input int    HedgeLineBarWidth       = 6;       // 📏 Durata linee trigger (barre)
-input bool   ShowHedgeZone           = true;    // ✅ Zone continue fucsia (canale H1)
-input bool   ShowHedge2Zone          = true;    // ✅ Zone continue arancioni (canale H2)
+input group "    🚪 EXIT CONDITIONS"
+input int    HsAntiWhipsawBars      = 3;       // ⏱️ Min barre prima di exit su segnale DPC
+// ↑ Anti-whipsaw: ignora segnali nelle prime N barre dall'attivazione HS
+
+input bool   HsCloseOnSoupProfit    = true;    // ✅ Chiudi HS se Soup floating ≥ 0
+
+input int    HsTimeoutBars          = 0;       // ⏱️ Timeout barre (0 = disattivato)
+// ↑ Se HS rimane aperto per N barre, chiudi a mercato. 0 = nessun timeout.
+
+input group "    🔬 BODY FILTER (opzionale)"
+input bool   HsBodyFilter           = true;    // ✅ Abilita body/wick ratio filter
+// ↑ HS si attiva SOLO se body_ratio della candela breakout [1] >= HsBodyRatioMin
+
+input double HsBodyRatioMin         = 0.55;    // 📏 Body ratio minimo (0.0–1.0)
+// ↑ body_ratio = |close-open|/(high-low) della candela [1]
+//   < 0.50 = wick dominante → probabile falso breakout → NO hedge
+//   0.55 = default M15 GBPUSD    0.70 = conservativo
+
+input group "    🎨 VISUALIZZAZIONE"
+input bool   HsShowZones            = true;    // ✅ Zone colorate trigger+TP sul grafico
+input bool   HsShowTriggerLine      = true;    // ✅ Linea tratteggiata al trigger
+input color  HsTriggerZoneColor     = C'80,50,0';   // 🎨 Colore zona trigger (arancione scuro)
+input color  HsTPZoneColor          = C'0,40,80';   // 🎨 Colore zona TP ref (blu scuro)
+input int    HsTriggerLineWidth     = 6;             // 📏 Durata linea trigger (barre)

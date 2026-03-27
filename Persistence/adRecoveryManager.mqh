@@ -90,18 +90,14 @@ int FindOrCreateCycleSlot(int cycleID)
 //| AttemptRecovery — Scan broker positions/orders, rebuild cycles  |
 //|                                                                  |
 //| ORDINE DI SCAN:                                                  |
+//|  0. Cleanup Legacy H2 (Magic+2 — rimosso in v1.7.0)             |
 //|  1. Soup positions (Magic) → crea cicli ACTIVE                   |
-//|  2. H1 positions (Magic+1) → associa ad existing cycle           |
-//|  3. H2 positions (Magic+2) → associa + ripristina BE SL         |
-//|  4. Soup pending (Magic) → crea cicli PENDING                    |
-//|  5. H1 pending (Magic+1) → associa                              |
-//|  6. H2 pending (Magic+2) → associa                              |
-//|  7. H1 deal history → ripristina hedge1BankedProfit              |
+//|  2. HS positions (Magic+1) → associa ad existing cycle           |
+//|  3. Soup pending (Magic) → crea cicli PENDING                    |
+//|  4. HS pending (Magic+1) → associa                               |
 //|                                                                  |
 //| L'ordine importa: prima le positions (Soup crea lo slot),        |
 //| poi gli hedge si associano allo slot gia' creato.                |
-//| H1 deal history e' l'ultimo passo perche' serve che lo slot     |
-//| esista gia' e che H1 non sia stato trovato come posizione.       |
 //+------------------------------------------------------------------+
 void AttemptRecovery()
 {
@@ -110,6 +106,38 @@ void AttemptRecovery()
    g_recoveredPositions = 0;
    g_recoveredPendings  = 0;
    int maxCycleID = 0;
+
+   // === CLEANUP LEGACY H2 (MagicNumber+2 — rimosso in v1.7.0) ===
+   {
+      int legacyCleaned = 0;
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         ulong t = PositionGetTicket(i);
+         if(t == 0) continue;
+         if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber + 2)
+         {
+            g_trade.SetExpertMagicNumber(MagicNumber + 2);
+            g_trade.PositionClose(t);
+            legacyCleaned++;
+         }
+      }
+      for(int i = OrdersTotal() - 1; i >= 0; i--)
+      {
+         ulong t = OrderGetTicket(i);
+         if(t == 0) continue;
+         if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
+         if(OrderGetInteger(ORDER_MAGIC) == MagicNumber + 2)
+         {
+            g_trade.SetExpertMagicNumber(MagicNumber + 2);
+            g_trade.OrderDelete(t);
+            legacyCleaned++;
+         }
+      }
+      if(legacyCleaned > 0)
+         AdLogW(LOG_CAT_RECOVERY, StringFormat(
+            "Legacy H2 cleanup: %d ordini/posizioni Magic+2 rimossi", legacyCleaned));
+   }
 
    // === SCAN OPEN POSITIONS ===
    for(int i = PositionsTotal() - 1; i >= 0; i--)
@@ -162,79 +190,18 @@ void AttemptRecovery()
          {
             if(g_cycles[j].cycleID == cycleID)
             {
-               g_cycles[j].hedgeTicket       = ticket;
-               g_cycles[j].hedgeActive       = true;
-               g_cycles[j].hedgePending      = false;
-               g_cycles[j].hedgeLotSize      = PositionGetDouble(POSITION_VOLUME);
-               g_cycles[j].hedgeTriggerPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-               g_cycles[j].hedgeTPPrice      = PositionGetDouble(POSITION_TP);
+               g_cycles[j].hsTicket       = ticket;
+               g_cycles[j].hsActive       = true;
+               g_cycles[j].hsPending      = false;
+               g_cycles[j].hsLotSize      = PositionGetDouble(POSITION_VOLUME);
+               g_cycles[j].hsTriggerPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+               g_cycles[j].hsFillTime     = (datetime)PositionGetInteger(POSITION_TIME);
                if(g_cycles[j].state == CYCLE_ACTIVE)
                   g_cycles[j].state = CYCLE_HEDGING;
 
                AdLogI(LOG_CAT_RECOVERY, StringFormat(
-                  "Hedge position recovered — #%d | Ticket=%d | Entry=%s",
-                  cycleID, ticket, DoubleToString(g_cycles[j].hedgeTriggerPrice, _Digits)));
-               break;
-            }
-         }
-      }
-   }
-
-   // === SCAN HEDGE 2 POSITIONS (MagicNumber + 2) ===
-   if(EnableHedge && Hedge2Enabled)
-   {
-      for(int i = PositionsTotal() - 1; i >= 0; i--)
-      {
-         ulong ticket = PositionGetTicket(i);
-         if(ticket == 0) continue;
-         if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
-         if(PositionGetInteger(POSITION_MAGIC) != MagicNumber + 2) continue;
-
-         string comment = PositionGetString(POSITION_COMMENT);
-         int cycleID = ParseCycleIDFromComment(comment);
-         if(cycleID < 0) continue;
-
-         for(int j = 0; j < ArraySize(g_cycles); j++)
-         {
-            if(g_cycles[j].cycleID == cycleID)
-            {
-               g_cycles[j].hedge2Ticket       = ticket;
-               g_cycles[j].hedge2Active       = true;
-               g_cycles[j].hedge2Pending      = false;
-               g_cycles[j].hedge2LotSize      = PositionGetDouble(POSITION_VOLUME);
-               g_cycles[j].hedge2TriggerPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-               g_cycles[j].hedge2TPPrice      = PositionGetDouble(POSITION_TP);
-               if(g_cycles[j].state == CYCLE_ACTIVE)
-                  g_cycles[j].state = CYCLE_HEDGING;
-
-               AdLogI(LOG_CAT_RECOVERY, StringFormat(
-                  "H2 position recovered — #%d | Ticket=%d | Entry=%s",
-                  cycleID, ticket, DoubleToString(g_cycles[j].hedge2TriggerPrice, _Digits)));
-
-               // Ripristina SL breakeven se assente
-               if(Hedge2BreakevenSL)
-               {
-                  double currentSL = PositionGetDouble(POSITION_SL);
-                  if(currentSL == 0)
-                  {
-                     double fillPrice = g_cycles[j].hedge2TriggerPrice;
-                     double buffer = g_symbolStopsLevel * g_symbolPoint + g_symbolPoint;
-                     double beSL;
-                     if(g_cycles[j].direction > 0)
-                        beSL = fillPrice + buffer;
-                     else
-                        beSL = fillPrice - buffer;
-                     beSL = NormalizeDouble(beSL, _Digits);
-
-                     g_trade.SetExpertMagicNumber(MagicNumber + 2);
-                     if(g_trade.PositionModify(ticket, beSL, g_cycles[j].hedge2TPPrice))
-                     {
-                        AdLogI(LOG_CAT_RECOVERY, StringFormat(
-                           "H2 BE SL restored #%d | SL=%s",
-                           cycleID, DoubleToString(beSL, _Digits)));
-                     }
-                  }
-               }
+                  "HS position recovered — #%d | Ticket=%d | Entry=%s",
+                  cycleID, ticket, DoubleToString(g_cycles[j].hsTriggerPrice, _Digits)));
                break;
             }
          }
@@ -292,106 +259,16 @@ void AttemptRecovery()
          {
             if(g_cycles[j].cycleID == cycleID)
             {
-               g_cycles[j].hedgeTicket       = ticket;
-               g_cycles[j].hedgePending      = true;
-               g_cycles[j].hedgeActive       = false;
-               g_cycles[j].hedgeLotSize      = OrderGetDouble(ORDER_VOLUME_CURRENT);
-               g_cycles[j].hedgeTriggerPrice = OrderGetDouble(ORDER_PRICE_OPEN);
-               g_cycles[j].hedgeTPPrice      = OrderGetDouble(ORDER_TP);
+               g_cycles[j].hsTicket       = ticket;
+               g_cycles[j].hsPending      = true;
+               g_cycles[j].hsActive       = false;
+               g_cycles[j].hsLotSize      = OrderGetDouble(ORDER_VOLUME_CURRENT);
+               g_cycles[j].hsTriggerPrice = OrderGetDouble(ORDER_PRICE_OPEN);
 
                AdLogI(LOG_CAT_RECOVERY, StringFormat(
-                  "Hedge pending recovered — #%d | Ticket=%d | Trigger=%s",
-                  cycleID, ticket, DoubleToString(g_cycles[j].hedgeTriggerPrice, _Digits)));
+                  "HS pending recovered — #%d | Ticket=%d | Trigger=%s",
+                  cycleID, ticket, DoubleToString(g_cycles[j].hsTriggerPrice, _Digits)));
                break;
-            }
-         }
-      }
-   }
-
-   // === SCAN HEDGE 2 PENDING ORDERS (MagicNumber + 2) ===
-   if(EnableHedge && Hedge2Enabled)
-   {
-      for(int i = OrdersTotal() - 1; i >= 0; i--)
-      {
-         ulong ticket = OrderGetTicket(i);
-         if(ticket == 0) continue;
-         if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
-         if(OrderGetInteger(ORDER_MAGIC) != MagicNumber + 2) continue;
-
-         string comment = OrderGetString(ORDER_COMMENT);
-         int cycleID = ParseCycleIDFromComment(comment);
-         if(cycleID < 0) continue;
-
-         for(int j = 0; j < ArraySize(g_cycles); j++)
-         {
-            if(g_cycles[j].cycleID == cycleID)
-            {
-               g_cycles[j].hedge2Ticket       = ticket;
-               g_cycles[j].hedge2Pending      = true;
-               g_cycles[j].hedge2Active       = false;
-               g_cycles[j].hedge2LotSize      = OrderGetDouble(ORDER_VOLUME_CURRENT);
-               g_cycles[j].hedge2TriggerPrice = OrderGetDouble(ORDER_PRICE_OPEN);
-               g_cycles[j].hedge2TPPrice      = OrderGetDouble(ORDER_TP);
-
-               AdLogI(LOG_CAT_RECOVERY, StringFormat(
-                  "H2 pending recovered — #%d | Ticket=%d | Trigger=%s",
-                  cycleID, ticket, DoubleToString(g_cycles[j].hedge2TriggerPrice, _Digits)));
-               break;
-            }
-         }
-      }
-   }
-
-   // === SCAN H1 DEAL HISTORY (banked profit recovery) ===
-   // v1.5.1 fix: Se un ciclo ha Soup attiva ma nessun H1 (posizione o pendente),
-   // H1 potrebbe aver gia' colpito il TP prima del restart.
-   // Cerchiamo nei deal storici (ultimi 7 giorni) per exit deals con:
-   //   DEAL_MAGIC = MagicNumber+1 E comment contiene "#cycleID"
-   // Questo ripristina hedge1BankedProfit e hedge1TPHit, evitando
-   // che il NET profit del ciclo ignori il profitto H1 gia' bankato.
-   if(EnableHedge && Hedge1Enabled)
-   {
-      datetime histFrom = TimeCurrent() - 86400 * 7;
-      if(HistorySelect(histFrom, TimeCurrent()))
-      {
-         for(int j = 0; j < ArraySize(g_cycles); j++)
-         {
-            // Solo cicli attivi/hedging senza H1 recuperato
-            if(g_cycles[j].state != CYCLE_ACTIVE && g_cycles[j].state != CYCLE_HEDGING) continue;
-            if(g_cycles[j].hedgeActive || g_cycles[j].hedgePending) continue;
-            if(g_cycles[j].hedge1BankedProfit != 0) continue;
-
-            string searchTag = StringFormat("#%d", g_cycles[j].cycleID);
-            double bankedPL = 0;
-            bool found = false;
-
-            for(int d = HistoryDealsTotal() - 1; d >= 0; d--)
-            {
-               ulong dealTicket = HistoryDealGetTicket(d);
-               if(dealTicket == 0) continue;
-               if(HistoryDealGetInteger(dealTicket, DEAL_MAGIC) != MagicNumber + 1) continue;
-               if(HistoryDealGetString(dealTicket, DEAL_SYMBOL) != _Symbol) continue;
-
-               long entry = HistoryDealGetInteger(dealTicket, DEAL_ENTRY);
-               if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_OUT_BY) continue;
-
-               string dealComment = HistoryDealGetString(dealTicket, DEAL_COMMENT);
-               if(StringFind(dealComment, searchTag) >= 0)
-               {
-                  bankedPL += HistoryDealGetDouble(dealTicket, DEAL_PROFIT)
-                            + HistoryDealGetDouble(dealTicket, DEAL_SWAP)
-                            + HistoryDealGetDouble(dealTicket, DEAL_COMMISSION);
-                  found = true;
-               }
-            }
-
-            if(found && bankedPL != 0)
-            {
-               g_cycles[j].hedge1BankedProfit = bankedPL;
-               g_cycles[j].hedge1TPHit = (bankedPL > 0);
-               AdLogI(LOG_CAT_RECOVERY, StringFormat(
-                  "H1 banked profit recovered from history — #%d | P&L=%.2f | TPHit=%s",
-                  g_cycles[j].cycleID, bankedPL, bankedPL > 0 ? "YES" : "NO"));
             }
          }
       }

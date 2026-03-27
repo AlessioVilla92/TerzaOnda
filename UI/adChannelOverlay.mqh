@@ -51,6 +51,10 @@ bool    g_canvasCreated = false;   // Flag: true dopo la prima creazione del can
 uint    g_ovlLastRedrawMs = 0;     // Timestamp ultimo redraw canvas (throttle scroll a ~33 FPS)
 int     g_ovlLastDepth   = 0;     // Profondita' effettiva dell'ultimo disegno (per cleanup segmenti)
 
+// HedgeSmart zone objects
+string g_hsZoneTrigName = "AD_HS_ZONE_TRG";
+string g_hsZoneTPName   = "AD_HS_ZONE_TP";
+
 //+------------------------------------------------------------------+
 //| IsNewBarOverlay — Rileva nuova barra per l'overlay               |
 //|                                                                  |
@@ -102,6 +106,105 @@ bool IsNewBarOverlay()
 //| OGGETTI CREATI: ~depth*4 segmenti OBJ_TREND + 1 CCanvas bitmap  |
 //| COSTO: ~16,000 chiamate API MQL5 con depth=500                  |
 //+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| DrawHedgeSmartZones — Zone colorate trigger/TP per Hedge Smart   |
+//|                                                                   |
+//| Zona Trigger (arancione, HsTriggerZoneColor):                     |
+//|   BUY Soup: da lower_band a lower_band − (cw × HsTriggerPct)    |
+//|   SELL Soup: da upper_band a upper_band + (cw × HsTriggerPct)   |
+//|                                                                   |
+//| Zona TP Reference (blu, HsTPZoneColor):                           |
+//|   Estensione di 60% cw oltre il trigger                          |
+//|   Riferimento visivo per il posizionamento del prossimo segnale  |
+//|                                                                   |
+//| Usa OBJ_RECTANGLE con OBJPROP_FILL=true per il riempimento.      |
+//| Aggiornata ogni barra. Range temporale: 50 barre passate + 5 fut.|
+//+------------------------------------------------------------------+
+void DrawHedgeSmartZones()
+{
+   if(!EnableHedge || !HsEnabled || !HsShowZones) return;
+   if(!g_engineReady) return;
+
+   double upperBand = g_lastSignal.upperBand;
+   double lowerBand = g_lastSignal.lowerBand;
+   if(upperBand <= 0 || lowerBand <= 0) return;
+
+   double cw = upperBand - lowerBand;
+   if(cw < g_symbolPoint * 5) return;
+
+   datetime t1 = iTime(_Symbol, PERIOD_CURRENT, 50);
+   datetime t2 = iTime(_Symbol, PERIOD_CURRENT, 0) + (datetime)(5 * PeriodSeconds());
+
+   double trigLevelBuy = lowerBand - (cw * HsTriggerPct);
+   double tpRefBuy     = trigLevelBuy - (cw * 0.60);
+
+   double trigLevelSell = upperBand + (cw * HsTriggerPct);
+   double tpRefSell     = trigLevelSell + (cw * 0.60);
+
+   // ── ZONA TRIGGER BUY (arancione, sotto lower band) ──
+   string nameTrgBuy = g_hsZoneTrigName + "_B";
+   if(ObjectFind(0, nameTrgBuy) < 0)
+      ObjectCreate(0, nameTrgBuy, OBJ_RECTANGLE, 0, t1, lowerBand, t2, trigLevelBuy);
+   ObjectSetInteger(0, nameTrgBuy, OBJPROP_TIME,       0, t1);
+   ObjectSetInteger(0, nameTrgBuy, OBJPROP_TIME,       1, t2);
+   ObjectSetDouble(0,  nameTrgBuy, OBJPROP_PRICE,      0, lowerBand);
+   ObjectSetDouble(0,  nameTrgBuy, OBJPROP_PRICE,      1, trigLevelBuy);
+   ObjectSetInteger(0, nameTrgBuy, OBJPROP_COLOR,      HsTriggerZoneColor);
+   ObjectSetInteger(0, nameTrgBuy, OBJPROP_FILL,       true);
+   ObjectSetInteger(0, nameTrgBuy, OBJPROP_BACK,       true);
+   ObjectSetInteger(0, nameTrgBuy, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, nameTrgBuy, OBJPROP_HIDDEN,     true);
+   ObjectSetString(0,  nameTrgBuy, OBJPROP_TOOLTIP,
+      StringFormat("HS Trigger Zone (BUY) | %.0f%% cw | @ %s",
+         HsTriggerPct*100, DoubleToString(trigLevelBuy, _Digits)));
+
+   // ── ZONA TP REFERENCE BUY (blu, sotto trigger) ──
+   string nameTPBuy = g_hsZoneTPName + "_B";
+   if(ObjectFind(0, nameTPBuy) < 0)
+      ObjectCreate(0, nameTPBuy, OBJ_RECTANGLE, 0, t1, trigLevelBuy, t2, tpRefBuy);
+   ObjectSetInteger(0, nameTPBuy, OBJPROP_TIME,       0, t1);
+   ObjectSetInteger(0, nameTPBuy, OBJPROP_TIME,       1, t2);
+   ObjectSetDouble(0,  nameTPBuy, OBJPROP_PRICE,      0, trigLevelBuy);
+   ObjectSetDouble(0,  nameTPBuy, OBJPROP_PRICE,      1, tpRefBuy);
+   ObjectSetInteger(0, nameTPBuy, OBJPROP_COLOR,      HsTPZoneColor);
+   ObjectSetInteger(0, nameTPBuy, OBJPROP_FILL,       true);
+   ObjectSetInteger(0, nameTPBuy, OBJPROP_BACK,       true);
+   ObjectSetInteger(0, nameTPBuy, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, nameTPBuy, OBJPROP_HIDDEN,     true);
+   ObjectSetString(0,  nameTPBuy, OBJPROP_TOOLTIP,
+      StringFormat("HS TP Reference (BUY) | ~60%% cw | @ %s",
+         DoubleToString(tpRefBuy, _Digits)));
+
+   // ── ZONA TRIGGER SELL (arancione, sopra upper band) ──
+   string nameTrgSell = g_hsZoneTrigName + "_S";
+   if(ObjectFind(0, nameTrgSell) < 0)
+      ObjectCreate(0, nameTrgSell, OBJ_RECTANGLE, 0, t1, upperBand, t2, trigLevelSell);
+   ObjectSetInteger(0, nameTrgSell, OBJPROP_TIME,       0, t1);
+   ObjectSetInteger(0, nameTrgSell, OBJPROP_TIME,       1, t2);
+   ObjectSetDouble(0,  nameTrgSell, OBJPROP_PRICE,      0, upperBand);
+   ObjectSetDouble(0,  nameTrgSell, OBJPROP_PRICE,      1, trigLevelSell);
+   ObjectSetInteger(0, nameTrgSell, OBJPROP_COLOR,      HsTriggerZoneColor);
+   ObjectSetInteger(0, nameTrgSell, OBJPROP_FILL,       true);
+   ObjectSetInteger(0, nameTrgSell, OBJPROP_BACK,       true);
+   ObjectSetInteger(0, nameTrgSell, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, nameTrgSell, OBJPROP_HIDDEN,     true);
+
+   // ── ZONA TP REFERENCE SELL (blu, sopra trigger) ──
+   string nameTPSell = g_hsZoneTPName + "_S";
+   if(ObjectFind(0, nameTPSell) < 0)
+      ObjectCreate(0, nameTPSell, OBJ_RECTANGLE, 0, t1, trigLevelSell, t2, tpRefSell);
+   ObjectSetInteger(0, nameTPSell, OBJPROP_TIME,       0, t1);
+   ObjectSetInteger(0, nameTPSell, OBJPROP_TIME,       1, t2);
+   ObjectSetDouble(0,  nameTPSell, OBJPROP_PRICE,      0, trigLevelSell);
+   ObjectSetDouble(0,  nameTPSell, OBJPROP_PRICE,      1, tpRefSell);
+   ObjectSetInteger(0, nameTPSell, OBJPROP_COLOR,      HsTPZoneColor);
+   ObjectSetInteger(0, nameTPSell, OBJPROP_FILL,       true);
+   ObjectSetInteger(0, nameTPSell, OBJPROP_BACK,       true);
+   ObjectSetInteger(0, nameTPSell, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, nameTPSell, OBJPROP_HIDDEN,     true);
+}
+
 void DrawChannelOverlay()
 {
    if(!ShowChannelOverlay) return;
@@ -199,29 +302,14 @@ void DrawChannelOverlay()
                          AD_CHAN_MA_CLR, STYLE_SOLID, 2);
       }
 
-      // Hedge 1 zone lines — linee continue fuchsia esterne al canale
-      if(EnableHedge && Hedge1Enabled && ShowHedgeZone && g_atrPips > 0)
-      {
-         double hedgeOff = Hedge1ATRMult * PipsToPrice(g_atrPips);
-         DrawOverlayLine(prefix + "HU", t2, arrU[i + 1] + hedgeOff, t1, arrU[i] + hedgeOff,
-                         AD_HEDGE_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE_ZONE_STYLE, AD_HEDGE_ZONE_WIDTH);
-         DrawOverlayLine(prefix + "HL", t2, arrL[i + 1] - hedgeOff, t1, arrL[i] - hedgeOff,
-                         AD_HEDGE_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE_ZONE_STYLE, AD_HEDGE_ZONE_WIDTH);
-      }
-
-      // Hedge 2 zone lines — linee continue arancioni, canale esterno
-      if(EnableHedge && Hedge2Enabled && ShowHedge2Zone && g_atrPips > 0)
-      {
-         double hedge2Off = Hedge2ATRMult * PipsToPrice(g_atrPips);
-         DrawOverlayLine(prefix + "H2U", t2, arrU[i + 1] + hedge2Off, t1, arrU[i] + hedge2Off,
-                         AD_HEDGE2_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE2_ZONE_STYLE, AD_HEDGE2_ZONE_WIDTH);
-         DrawOverlayLine(prefix + "H2L", t2, arrL[i + 1] - hedge2Off, t1, arrL[i] - hedge2Off,
-                         AD_HEDGE2_ZONE_CLR, (ENUM_LINE_STYLE)AD_HEDGE2_ZONE_STYLE, AD_HEDGE2_ZONE_WIDTH);
-      }
    }
 
    // STEP 3: Disegna fill trasparente tra upper e lower band
    DrawBandFill(arrU, arrL, arrT, depth);
+
+   // HS Zones
+   if(EnableHedge && HsEnabled && HsShowZones)
+      DrawHedgeSmartZones();
 }
 
 //+------------------------------------------------------------------+
@@ -447,45 +535,9 @@ void UpdateChannelLiveEdge()
       }
    }
 
-   // Aggiorna H1 hedge zone lines — live edge
-   if(EnableHedge && Hedge1Enabled && ShowHedgeZone && g_atrPips > 0)
-   {
-      double hedgeOff = Hedge1ATRMult * PipsToPrice(g_atrPips);
-
-      string nameHU = prefix + "HU";
-      if(ObjectFind(0, nameHU) >= 0)
-      {
-         ObjectSetInteger(0, nameHU, OBJPROP_TIME, 1, t0);
-         ObjectSetDouble(0, nameHU, OBJPROP_PRICE, 1, upper0 + hedgeOff);
-      }
-
-      string nameHL = prefix + "HL";
-      if(ObjectFind(0, nameHL) >= 0)
-      {
-         ObjectSetInteger(0, nameHL, OBJPROP_TIME, 1, t0);
-         ObjectSetDouble(0, nameHL, OBJPROP_PRICE, 1, lower0 - hedgeOff);
-      }
-   }
-
-   // Aggiorna H2 hedge zone lines — live edge
-   if(EnableHedge && Hedge2Enabled && ShowHedge2Zone && g_atrPips > 0)
-   {
-      double hedge2Off = Hedge2ATRMult * PipsToPrice(g_atrPips);
-
-      string nameH2U = prefix + "H2U";
-      if(ObjectFind(0, nameH2U) >= 0)
-      {
-         ObjectSetInteger(0, nameH2U, OBJPROP_TIME, 1, t0);
-         ObjectSetDouble(0, nameH2U, OBJPROP_PRICE, 1, upper0 + hedge2Off);
-      }
-
-      string nameH2L = prefix + "H2L";
-      if(ObjectFind(0, nameH2L) >= 0)
-      {
-         ObjectSetInteger(0, nameH2L, OBJPROP_TIME, 1, t0);
-         ObjectSetDouble(0, nameH2L, OBJPROP_PRICE, 1, lower0 - hedge2Off);
-      }
-   }
+   // HS Zones live update
+   if(EnableHedge && HsEnabled && HsShowZones)
+      DrawHedgeSmartZones();
 }
 
 //+------------------------------------------------------------------+

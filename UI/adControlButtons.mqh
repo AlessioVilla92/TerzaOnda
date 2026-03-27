@@ -182,9 +182,9 @@ void HandleButtonClick(string sparam)
       {
          for(int _ci = 0; _ci < ArraySize(g_cycles); _ci++)
          {
-            g_cycles[_ci].hedgePending = false;
-            g_cycles[_ci].hedgeActive  = false;
-            g_cycles[_ci].hedgeTicket  = 0;
+            g_cycles[_ci].hsPending = false;
+            g_cycles[_ci].hsActive  = false;
+            g_cycles[_ci].hsTicket  = 0;
          }
          HedgeDeinit();  // Remove all fuchsia lines
       }

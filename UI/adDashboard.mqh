@@ -460,8 +460,8 @@ void DrawActiveCycles(int x, int y, int w)
       {
          if(g_cycles[i].ticket > 0)
             soupPL = GetFloatingProfit(g_cycles[i].ticket);
-         if(g_cycles[i].hedgeActive && g_cycles[i].hedgeTicket > 0)
-            hedgePL = GetFloatingProfit(g_cycles[i].hedgeTicket);
+         if(g_cycles[i].hsActive && g_cycles[i].hsTicket > 0)
+            hedgePL = GetFloatingProfit(g_cycles[i].hsTicket);
          floatPL = soupPL + hedgePL;
       }
       color plClr = floatPL >= 0 ? AD_BUY : AD_SELL;
@@ -571,8 +571,8 @@ void DrawPLSession(int x, int y, int w)
          && g_cycles[fi].ticket > 0)
          totalFloat += GetFloatingProfit(g_cycles[fi].ticket);
       if(g_cycles[fi].state == CYCLE_HEDGING
-         && g_cycles[fi].hedgeActive && g_cycles[fi].hedgeTicket > 0)
-         totalFloat += GetFloatingProfit(g_cycles[fi].hedgeTicket);
+         && g_cycles[fi].hsActive && g_cycles[fi].hsTicket > 0)
+         totalFloat += GetFloatingProfit(g_cycles[fi].hsTicket);
    }
    color fClr = totalFloat >= 0 ? AD_BUY : AD_SELL;
    DashLabel("PL_L5", c2, r2, "FLOAT", AD_TEXT_LO, 7);
@@ -765,7 +765,7 @@ void UpdateSidePanel()
       int hedgeCount = 0;
       for(int hi = 0; hi < ArraySize(g_cycles); hi++)
       {
-         if(g_cycles[hi].hedgePending || g_cycles[hi].hedgeActive) hedgeCount++;
+         if(g_cycles[hi].hsPending || g_cycles[hi].hsActive) hedgeCount++;
       }
       DashLabel("SM_R13V", valX, ly,
                 hedgeCount > 0 ? StringFormat("ON (%d)", hedgeCount) : "ON",

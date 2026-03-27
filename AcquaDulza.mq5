@@ -3,7 +3,7 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.6.1                                                  |
+//|  Version: 1.7.0                                                  |
 //|  Engine: DPC v2.0 (Donchian Predictive Channel) — swappable      |
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -20,7 +20,7 @@
 //|    Layer 3: Orders    — Risk manager, lot sizing, order placement |
 //|             ↳ 3 risk modes (Fixed/Percent/Cash)                   |
 //|             ↳ Moltiplicatore TBS/TWS lotti (TBS=2x, TWS=1x)      |
-//|             ↳ Hedge Manager Two-Tier (H1=Magic+1, H2=Magic+2)    |
+//|             ↳ Hedge Smart (HS=Magic+1, non invasivo v1.7.0)       |
 //|    Layer 4: Persistence — Auto-save/recovery GlobalVariables      |
 //|    Layer 5: Filters   — HTF Direction Filter (multi-timeframe)    |
 //|    Layer 6: Virtual   — Paper trading con P&L tracking            |
@@ -34,6 +34,19 @@
 //|  STRUMENTI SUPPORTATI:                                           |
 //|    Forex, Crypto (BTC/ETH), Gold, Silver, Oil, Indices, Stock CFD |
 //|    Auto-detection della classe strumento dal nome simbolo          |
+//|                                                                  |
+//|  CHANGELOG v1.7.0:                                               |
+//|    - HEDGE SMART: sostituisce Two-Tier H1+H2                     |
+//|      Lotto fisso (HsLot, default 0.01)                           |
+//|      Trigger: banda ± channel_width × HsTriggerPct               |
+//|      Exit 1: next DPC signal (stessa dir, anti-whipsaw N barre)  |
+//|      Exit 2: Soup floating >= 0 (HsCloseOnSoupProfit)            |
+//|      Exit 3: timeout (HsTimeoutBars, 0=off)                      |
+//|      Body/wick filter opzionale (HsBodyFilter, HsBodyRatioMin)   |
+//|      Zone grafiche colorate (trigger + TP reference)             |
+//|      Magic: HS = MagicNumber+1 (H1/H2 rimossi)                  |
+//|    - Recovery: cleanup automatico legacy H2 (Magic+2)            |
+//|    - adCycleManager: P&L = soupPL + hsPL (era hedge1Banked)     |
 //|                                                                  |
 //|  CHANGELOG v1.6.1:                                               |
 //|    - FIX: Frecce storiche non mostrate al cambio TF (M15/M30)    |
@@ -100,11 +113,11 @@
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.61"
-#property description "AcquaDulza EA v1.6.1 — Reusable Trading Framework"
+#property version   "1.70"
+#property description "AcquaDulza EA v1.7.0 — Reusable Trading Framework"
 #property description "Engine: DPC v2.0 (Donchian Predictive Channel v7.19)"
 #property description "Segnali: Turtle Soup (TBS forte 2x / TWS debole 1x)"
-#property description "Hedge: Two-Tier (H1 Recovery + H2 Protezione)"
+#property description "Hedge: Hedge Smart (HS) — non invasivo, lotto fisso"
 #property description "Anti-repaint: bar[1] signals only"
 #property strict
 
@@ -137,7 +150,7 @@
 #include "Orders/adRiskManager.mqh"
 #include "Orders/adOrderManager.mqh"
 #include "Orders/adCycleManager.mqh"
-#include "Orders/adHedgeManager.mqh"   // Layer 3.5: Hedge Engine
+#include "Orders/adHedgeManager.mqh"   // Layer 3.5: Hedge Smart Engine (v1.7.0)
 
 // === Layer 4: Persistence ===
 #include "Persistence/adStatePersistence.mqh"
@@ -506,14 +519,9 @@ void OnTick()
                DrawTPLine(g_cycles[slot].cycleID, sig.tpPrice, sig.direction > 0);
                DrawTPDot(g_cycles[slot].cycleID, sig.tpPrice, sig.barTime, sig.direction > 0);
 
-               // === Two-Tier Hedge: piazza H1+H2 contestualmente al ciclo ===
-               if(EnableHedge && !VirtualMode)
-               {
-                  if(Hedge1Enabled)
-                     Hedge1PlaceOrder(slot, sig);
-                  if(Hedge2Enabled)
-                     Hedge2PlaceOrder(slot, sig);
-               }
+               // === Hedge Smart: piazza HS contestualmente al ciclo ===
+               if(EnableHedge && HsEnabled && !VirtualMode)
+                  HsPlaceOrder(slot, sig);
             }
             else
             {
@@ -529,11 +537,11 @@ void OnTick()
    // ── 11. MONITOR CYCLES ────────────────────────────────────────────
    MonitorCycles(sig);
 
-   // ── 11b. HEDGE MONITOR ────────────────────────────────────────────
-   if(EnableHedge)
+   // ── 11b. HEDGE SMART MONITOR ──────────────────────────────────────
+   if(EnableHedge && HsEnabled)
    {
       for(int _hi = 0; _hi < ArraySize(g_cycles); _hi++)
-         HedgeMonitor(_hi);
+         HsMonitor(_hi, sig, hasSignal);
    }
 
    // ── 12. DAILY RESET ──────────────────────────────────────────────

@@ -195,7 +195,7 @@ enum ENUM_SIGNAL_PATTERN
 
 //+------------------------------------------------------------------+
 //| === STRUCT CycleRecord ===                                       |
-//| Record semplificato — with hedge fields (v1.4.0)                |
+//| Record semplificato — with HedgeSmart fields (v1.7.0)            |
 //+------------------------------------------------------------------+
 struct CycleRecord
 {
@@ -212,25 +212,16 @@ struct CycleRecord
    datetime           placedTime;      // Tempo piazzamento ordine
    double             profit;          // P&L (floating o realized)
 
-   // === HEDGE 1 FIELDS (Recovery — non chiude Soup) ===
-   ulong              hedgeTicket;     // Ticket ordine H1 (0 se non attivo)
-   double             hedgeTriggerPrice; // Livello BUY/SELL STOP H1
-   double             hedgeTPPrice;    // TP dell'ordine H1
-   double             hedgeLotSize;    // Lotto specifico H1
-   bool               hedgePending;    // true = H1 pendente broker
-   bool               hedgeActive;     // true = H1 riempito
-   string             hedgeLineName;   // Nome oggetto linea fucsia sul grafico
-   double             hedge1BankedProfit; // Profitto H1 incassato (quando H1 TP hit)
-   bool               hedge1TPHit;     // true = H1 ha gia' colpito il TP
-
-   // === HEDGE 2 FIELDS (Protezione — chiude Soup al TP) ===
-   ulong              hedge2Ticket;    // Ticket ordine H2 (0 se non attivo)
-   double             hedge2TriggerPrice; // Livello BUY/SELL STOP H2
-   double             hedge2TPPrice;   // TP dell'ordine H2
-   double             hedge2LotSize;   // Lotto specifico H2
-   bool               hedge2Pending;   // true = H2 pendente broker
-   bool               hedge2Active;    // true = H2 riempito
-   string             hedge2LineName;  // Nome oggetto linea arancione sul grafico
+   // === HEDGE SMART FIELDS (v1.7.0 — non invasivo) ===
+   ulong              hsTicket;           // Ticket ordine/posizione HS (0 = non attivo)
+   double             hsTriggerPrice;     // Prezzo trigger al momento del piazzamento
+   double             hsTpRefLevel;       // Livello TP riferimento visivo (non inviato al broker)
+   double             hsLotSize;          // Lotto HS
+   bool               hsPending;          // true = ordine HS pendente sul broker
+   bool               hsActive;           // true = posizione HS riempita e aperta
+   datetime           hsFillTime;         // Timestamp fill (per calcolo barre attive anti-whipsaw)
+   string             hsLineName;         // Nome oggetto grafico linea trigger
+   double             hsPL;               // P&L realizzato HS (aggiornato alla chiusura)
 };
 
 //+------------------------------------------------------------------+

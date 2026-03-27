@@ -150,24 +150,16 @@ int CreateCycle(const EngineSignal &sig)
    g_cycles[slot].placedTime      = iTime(_Symbol, PERIOD_CURRENT, 0);
    g_cycles[slot].quality         = sig.quality;
    g_cycles[slot].profit          = 0;
-   // Hedge 1 fields reset
-   g_cycles[slot].hedgeTicket       = 0;
-   g_cycles[slot].hedgeTriggerPrice = 0;
-   g_cycles[slot].hedgeTPPrice      = 0;
-   g_cycles[slot].hedgeLotSize      = 0;
-   g_cycles[slot].hedgePending      = false;
-   g_cycles[slot].hedgeActive       = false;
-   g_cycles[slot].hedgeLineName     = "";
-   g_cycles[slot].hedge1BankedProfit = 0;
-   g_cycles[slot].hedge1TPHit       = false;
-   // Hedge 2 fields reset
-   g_cycles[slot].hedge2Ticket       = 0;
-   g_cycles[slot].hedge2TriggerPrice = 0;
-   g_cycles[slot].hedge2TPPrice      = 0;
-   g_cycles[slot].hedge2LotSize      = 0;
-   g_cycles[slot].hedge2Pending      = false;
-   g_cycles[slot].hedge2Active       = false;
-   g_cycles[slot].hedge2LineName     = "";
+   // HedgeSmart fields reset
+   g_cycles[slot].hsTicket       = 0;
+   g_cycles[slot].hsTriggerPrice = 0;
+   g_cycles[slot].hsTpRefLevel   = 0;
+   g_cycles[slot].hsLotSize      = 0;
+   g_cycles[slot].hsPending      = false;
+   g_cycles[slot].hsActive       = false;
+   g_cycles[slot].hsFillTime     = 0;
+   g_cycles[slot].hsLineName     = "";
+   g_cycles[slot].hsPL           = 0;
 
    // [MOD] SL rimosso — CalculateLotSize(0, quality) usa il LotSize fisso come fallback.
    // Il secondo parametro (sig.quality) applica il moltiplicatore TBS/TWS:
@@ -402,12 +394,11 @@ void UpdatePending(const EngineSignal &sig)
 //| MonitorActive — Monitor active positions, detect closes         |
 //|                                                                  |
 //| P&L ACCOUNTING:                                                  |
-//|   g_cycles[i].profit = soupPL + hedge1BankedProfit              |
-//|     → include H1 banked per display NET nel dashboard            |
+//|   g_cycles[i].profit = soupPL + hsPL                             |
+//|     → include P&L HS già realizzato per display NET dashboard    |
 //|   g_sessionRealizedProfit += soupPL ONLY                         |
-//|     → H1 banked e' gia' stato aggiunto a session quando          |
-//|       HedgeMonitor ha fatto il banking (linea ~798)              |
-//|   Questo previene il double-counting scoperto in v1.5.1          |
+//|     → hsPL è già stato aggiunto a session quando HsClose() è    |
+//|       stato chiamato (prevenzione double-counting)               |
 //+------------------------------------------------------------------+
 void MonitorActive()
 {
@@ -421,13 +412,13 @@ void MonitorActive()
          double soupPL = GetClosedPositionProfit(g_cycles[i].ticket);
          // Cycle NET = soupPL + h1Banked (per display dashboard)
          // Session += soupPL ONLY (h1Banked gia' contabilizzato al momento del banking)
-         g_cycles[i].profit = soupPL + g_cycles[i].hedge1BankedProfit;
+         g_cycles[i].profit = soupPL + g_cycles[i].hsPL;
          g_cycles[i].state  = CYCLE_CLOSED;
 
          // Update counters — solo soupPL, hedge1BankedProfit gia' in session quando bankato
          g_sessionRealizedProfit += soupPL;
          g_dailyRealizedProfit   += soupPL;
-         double netPL = g_cycles[i].profit;  // NET = soupPL + hedge1BankedProfit
+         double netPL = g_cycles[i].profit;  // NET = soupPL + hsPL
          if(netPL > 0) { g_sessionWins++; g_dailyWins++; }
          else          { g_sessionLosses++; g_dailyLosses++; }
 
@@ -497,24 +488,16 @@ void InitializeCycles()
       g_cycles[i].placedTime = 0;
       g_cycles[i].quality   = 0;
       g_cycles[i].profit    = 0;
-      // Hedge 1 fields
-      g_cycles[i].hedgeTicket       = 0;
-      g_cycles[i].hedgeTriggerPrice = 0;
-      g_cycles[i].hedgeTPPrice      = 0;
-      g_cycles[i].hedgeLotSize      = 0;
-      g_cycles[i].hedgePending      = false;
-      g_cycles[i].hedgeActive       = false;
-      g_cycles[i].hedgeLineName     = "";
-      g_cycles[i].hedge1BankedProfit = 0;
-      g_cycles[i].hedge1TPHit       = false;
-      // Hedge 2 fields
-      g_cycles[i].hedge2Ticket       = 0;
-      g_cycles[i].hedge2TriggerPrice = 0;
-      g_cycles[i].hedge2TPPrice      = 0;
-      g_cycles[i].hedge2LotSize      = 0;
-      g_cycles[i].hedge2Pending      = false;
-      g_cycles[i].hedge2Active       = false;
-      g_cycles[i].hedge2LineName     = "";
+      // HedgeSmart fields
+      g_cycles[i].hsTicket       = 0;
+      g_cycles[i].hsTriggerPrice = 0;
+      g_cycles[i].hsTpRefLevel   = 0;
+      g_cycles[i].hsLotSize      = 0;
+      g_cycles[i].hsPending      = false;
+      g_cycles[i].hsActive       = false;
+      g_cycles[i].hsFillTime     = 0;
+      g_cycles[i].hsLineName     = "";
+      g_cycles[i].hsPL           = 0;
    }
 
    Log_InitComplete("Cycle Manager");

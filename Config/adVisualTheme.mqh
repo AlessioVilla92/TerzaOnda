@@ -44,18 +44,10 @@
 #define AD_SELL_DIM        C'136,34,51'      // #882233 — SELL smorzato
 #define AD_AMBER           C'255,179,71'     // #ffb347 — ambra marina
 #define AD_AMBER_DIM       C'136,85,0'       // #885500 — ambra smorzato
-#define AD_HEDGE           C'255,0,255'      // #ff00ff — fucsia (hedge 1)
-#define AD_HEDGE_DIM       C'136,0,136'      // #880088 — fucsia smorzato
-#define AD_HEDGE_ZONE_CLR  AD_HEDGE_DIM      // Linee zona H1 continue
-#define AD_HEDGE_ZONE_WIDTH 1                // Spessore linee zona H1
-#define AD_HEDGE_ZONE_STYLE STYLE_SOLID      // Stile linee zona H1
-
-// Hedge 2 — arancione
-#define AD_HEDGE2          C'255,140,0'      // #ff8c00 — arancione vivo (hedge 2)
-#define AD_HEDGE2_DIM      C'180,100,0'      // #b46400 — arancione smorzato
-#define AD_HEDGE2_ZONE_CLR AD_HEDGE2_DIM     // Linee zona H2 continue
-#define AD_HEDGE2_ZONE_WIDTH 1               // Spessore linee zona H2
-#define AD_HEDGE2_ZONE_STYLE STYLE_SOLID     // Stile linee zona H2
+// Hedge Smart colors (v1.7.0)
+#define AD_HEDGE           C'255,140,0'       // Arancione — usato nel dashboard label "Hedge"
+#define AD_HEDGE_DIM       C'180,100,0'       // Arancione smorzato
+#define AD_HS_TRIGGER_CLR  C'255,140,0'       // Linea trigger HS
 
 //+------------------------------------------------------------------+
 //| TESTO                                                            |
