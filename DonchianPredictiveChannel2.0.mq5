@@ -366,9 +366,10 @@ enum ENUM_TRIGGER_MODE_V2
 enum ENUM_TF_PRESET
 {
    TF_PRESET_AUTO    = 0,  // AUTO — rileva TF dal chart (raccomandato)
-   TF_PRESET_M5      = 1,  // M5   — preset scalping (MA=50, MinW=5pip)
-   TF_PRESET_M15     = 2,  // M15  — preset intraday (MA=34, MinW=10pip)
-   TF_PRESET_M30     = 3,  // M30  — preset intraday lento (MA=24, MinW=14pip)
+   TF_PRESET_M1      = 7,  // M1   — preset backtest/entry precision (disabilitare LTF Entry!)
+   TF_PRESET_M5      = 1,  // M5   — preset scalping (MA=50, MinW=7pip)
+   TF_PRESET_M15     = 2,  // M15  — preset intraday ottimale (MA=34, MinW=10pip)
+   TF_PRESET_M30     = 3,  // M30  — preset intraday lento (MA=24, MinW=12pip)
    TF_PRESET_H1      = 4,  // H1   — preset swing (MA=18, MinW=18pip)
    TF_PRESET_H4      = 5,  // H4   — preset posizionale (MA=12, MinW=30pip)
    TF_PRESET_MANUAL  = 6   // MANUALE — tutti i parametri dall'utente
@@ -559,12 +560,12 @@ input bool            InpRequireMidTouch  = true;      // Stesso Verso: Richiedi
 //   raggiunto la midline del canale. Se NON tocca la midline = il trade precedente è in loss
 //   = NON accettare un altro segnale nella stessa direzione (evita accumulo perdente).
 // ↑ FALSE = usa solo il contatore barre per lo stesso verso.
-input int             InpNSameBars        = 3;         // Stesso Verso: Barre Attesa dopo Midline (1-10)
+input int             InpNSameBars        = 2;         // Stesso Verso: Barre Attesa dopo Midline (1-10)
 // ↑ DOPO che il prezzo ha toccato la midline, quante barre attendere prima di accettare
 //   un nuovo segnale nella stessa direzione. Su M15: 3 barre = 45 min. Su M5: 3 barre = 15 min.
 
 input group "    ↔️ DIREZIONE OPPOSTA (es. SELL dopo BUY)"
-input int             InpNOppositeBars    = 2;         // Segnale Opposto: Barre Minime di Attesa (1-10)
+input int             InpNOppositeBars    = 1;         // Segnale Opposto: Barre Minime di Attesa (1-10)
 // ↑ Barre minime tra l'ultimo segnale e un nuovo segnale di DIREZIONE OPPOSTA.
 //   Solo filtro anti-rumore (il prezzo deve attraversare tutto il canale, ~5-15+ barre).
 //   Su M15: 2 barre = 30 min. Su M5: 2 barre = 10 min.
@@ -637,7 +638,7 @@ input bool            InpUseBandFlatness    = true;      // Abilita Band Flatnes
 // ↑ CONSIGLIO: tenere sempre TRUE. L'unico motivo per disabilitarlo è
 // ↑ se si vuole studiare quanti segnali vengono filtrati (confronto on/off).
 
-input double          InpFlatnessTolerance  = 0.55;      // Tolleranza espansione banda (multiplo ATR)
+input double          InpFlatnessTolerance  = 0.85;      // Tolleranza espansione banda (multiplo ATR)
 // ↑ Quanto la banda Donchian può espandersi senza bloccare il segnale.
 // ↑ Il valore è un MOLTIPLICATORE dell'ATR(14) della barra corrente.
 // ↑
@@ -670,7 +671,7 @@ input double          InpFlatnessTolerance  = 0.55;      // Tolleranza espansion
 // ↑   Lookback 3 → Tolleranza 0.55 (default)
 // ↑   Lookback 5 → Tolleranza 0.60-0.80
 
-input int             InpFlatLookback       = 3;         // Lookback barre filtro flatness (1-10)
+input int             InpFlatLookback       = 2;         // Lookback barre filtro flatness (1-10)
 // ↑ Quante barre indietro controllare per rilevare un'espansione della banda.
 // ↑ Il filtro confronta la barra corrente con OGNUNA delle N barre precedenti.
 // ↑ Se l'espansione supera la tolleranza rispetto ad ALMENO UNA → BLOCCA.
@@ -800,7 +801,7 @@ input bool            InpUseWidthFilter   = true;      // Abilita Channel Width 
 //   Se il canale è 4 pip, il TP è ~2 pip. Con commissioni di 1 pip, il netto è solo 1 pip.
 // ↑ FALSE = nessun filtro larghezza, come v6.01.
 
-input double          InpMinWidthPips     = 8.0;       // Larghezza minima canale (pip)
+input double          InpMinWidthPips     = 7.0;       // Larghezza minima canale (pip)
 // ↑ Il canale (upper - lower) deve essere largo ALMENO questo valore in pip.
 //   8.0 = canale minimo 8 pip → TP ~4 pip (margine sufficiente per commissioni).
 //   8.0 = conservativo (TP ~4 pip, margine ampio).
@@ -1111,7 +1112,8 @@ int    g_nOppositeBars   = 1;       // Barre attesa direzione opposta (validato 
 //--- Filtro Orario (v7.05): range orario bloccato in minuti dall'inizio del giorno (orario BROKER)
 int    g_timeBlockStartMin = 0;    // Inizio blocco in minuti-del-giorno broker (0-1439)
 int    g_timeBlockEndMin   = 0;    // Fine blocco in minuti-del-giorno broker (0-1439)
-int    g_minLevelAge     = 3;       // Barre minime età livello Donchian (validato 1-10 in OnInit, v7.03)
+int    g_minLevelAge     = 3;       // Barre minime età livello Donchian (usato runtime)
+int    g_minLevelAge_eff = 3;       // v7.19+: valore preset per TF (M1=1,M5=3,M15=3,M30=4,H1=5,H4=3)
 
 //--- v7.18: Parametri Effettivi (Auto TF Preset)
 //
@@ -1400,6 +1402,7 @@ int OnInit()
          //--- AUTO: rileva il TF del chart. Se non è coperto → fallback manuale.
          switch(Period())
          {
+            case PERIOD_M1:  presetTF = PERIOD_M1;  break;  // v7.19+: M1 ora coperto
             case PERIOD_M5:  presetTF = PERIOD_M5;  break;
             case PERIOD_M15: presetTF = PERIOD_M15; break;
             case PERIOD_M30: presetTF = PERIOD_M30; break;
@@ -1408,6 +1411,7 @@ int OnInit()
             default:         presetTF = PERIOD_CURRENT; break;  // TF non coperto → manuale
          }
          break;
+      case TF_PRESET_M1:      presetTF = PERIOD_M1;      break;  // v7.19+: aggiunto
       case TF_PRESET_M5:      presetTF = PERIOD_M5;      break;
       case TF_PRESET_M15:     presetTF = PERIOD_M15;     break;
       case TF_PRESET_M30:     presetTF = PERIOD_M30;     break;
@@ -1439,35 +1443,92 @@ int OnInit()
    //    NOTA MinWidth M5 (v7.19): alzato 5.0→7.0 pip per eliminare canali troppo stretti
    //    dove il TP target (metà canale = 2.5 pip) non copre lo spread (~1.5-2 pip).
    //
-   if(presetTF == PERIOD_M5)
+   //    v7.19+ MODIFICHE PARAMETRIZZAZIONE MULTI-TF:
+   //    ─────────────────────────────────────────────
+   //    NUOVO PRESET M1 (backtest/precision entry):
+   //      maLen=200 (3h20 bias sessione), minWidth=4pip, flatTol=0.95 (quasi disabilitato),
+   //      cooldown 1/1 bar, flatLook=1. LTF Entry inutile su M1 (conferma su se stesso).
+   //
+   //    M15 POTENZIATO: flatTol 0.65→0.70 (+8-12% segnali stimati)
+   //      Soglia effettiva: 0.70 × 12pip ATR = 8.4pip (era 7.8pip)
+   //      NOTA: aggiornare adDPCPresets.mqh nell'EA per mantenere allineamento.
+   //
+   //    M30 RICALIBRATO: flatTol 0.50→0.60 e minWidth 14.0→12.0pip (+15-20% segnali)
+   //      flatTol era non calibrato dalla v1.3. minWidth 14pip era eccessivamente restrittivo.
+   //      TP minimo con canale 12pip = 6pip > spread M30 (~1.5-2pip).
+   //
+   //    g_minLevelAge_eff (NUOVO): Level Age ora preset-driven per TF.
+   //      M1=1 (1min), M5=3 (15min), M15=3 (45min), M30=4 (2h), H1=5 (5h), H4=3 (12h).
+   //      Override applicato DOPO questo blocco: if(!=MANUAL) g_minLevelAge = g_minLevelAge_eff
+   //      In modalità MANUALE, g_minLevelAge resta dal valore input utente (InpMinLevelAge).
+   //
+   //    TABELLA COMPLETA PRESET:
+   //    ┌──────┬──────┬───────┬─────────┬──────┬──────┬─────────┬─────────┬────────────┐
+   //    │  TF  │dcLen │ maLen │minWidth │nSame │ nOpp │flatLook │ flatTol │minLevelAge │
+   //    ├──────┼──────┼───────┼─────────┼──────┼──────┼─────────┼─────────┼────────────┤
+   //    │  M1  │  20  │  200  │   4.0   │  1   │  1   │    1    │  0.95   │     1      │
+   //    │  M5  │  20  │   50  │   7.0   │  2   │  1   │    2    │  0.85   │     3      │
+   //    │ M15  │  20  │   34  │  10.0   │  2   │  1   │    2    │  0.70   │     3      │
+   //    │ M30  │  20  │   24  │  12.0   │  2   │  1   │    2    │  0.60   │     4      │
+   //    │  H1  │  20  │   18  │  18.0   │  1   │  1   │    2    │  0.38   │     5      │
+   //    │  H4  │  20  │   12  │  30.0   │  1   │  1   │    1    │  0.35   │     3      │
+   //    │ MAN  │ inp  │  inp  │   inp   │ inp  │ inp  │   inp   │   inp   │    inp     │
+   //    └──────┴──────┴───────┴─────────┴──────┴──────┴─────────┴─────────┴────────────┘
+   //
+   if(presetTF == PERIOD_M1)
    {
+      //--- M1: preset backtest e entry precision
+      //    ATR~2pip: minWidth 4pip (TP=2pip > spread M1~1.5pip)
+      //    maLen=200: 200min=3h20 di bias sessione
+      //    flatTol 0.95: M1 molto noisy, filtro quasi disabilitato (uso backtest)
+      //    cooldown minimo: 1bar=1min. flatLook=1: confronto solo barra precedente
+      //    NOTA UTENTE: impostare InpEnableLTFEntry=false su M1
+      //    (il mapping default→M1 creerebbe finestra LTF su se stesso)
+      g_dcLen_eff=20; g_maLen_eff=200; g_minWidth_eff=4.0;
+      g_nSameBars=1;  g_nOppositeBars=1; g_flatLook_eff=1;
+      g_flatTol_eff=0.95;
+      g_minLevelAge_eff=1;  // 1 barra piatta su M1
+   }
+   else if(presetTF == PERIOD_M5)
+   {
+      //--- M5: preset principale scalping/intraday — allineato EA v1.3
       g_dcLen_eff=20; g_maLen_eff=50; g_minWidth_eff=7.0;   // MA=50×5min=250min≈4h | minWidth alzato 5→7 pip (v7.19)
       g_nSameBars=2;  g_nOppositeBars=1; g_flatLook_eff=2;  // cooldown 10min/5min (allineato EA+Carneval v1.3)
       g_flatTol_eff=0.85;  // v1.3: tolleranza allineata Carneval (ATR~8pip → soglia 6.8pip)
+      g_minLevelAge_eff=3;  // 3×5min = 15min banda piatta
    }
    else if(presetTF == PERIOD_M15)
    {
+      //--- M15: preset intraday ottimale — flatTol alzato 0.65→0.70 per +8-12% segnali
+      //    NOTA: aggiornare adDPCPresets.mqh EA alla stessa riga per mantenere allineamento
       g_dcLen_eff=20; g_maLen_eff=34; g_minWidth_eff=10.0;  // MA=34×15min=510min≈8.5h
       g_nSameBars=2;  g_nOppositeBars=1; g_flatLook_eff=2;  // cooldown 30min/15min (allineato EA v1.3)
-      g_flatTol_eff=0.65;  // v1.3: tolleranza intermedia M15 (ATR~12pip → soglia 7.8pip)
+      g_flatTol_eff=0.70;  // v7.19+: era 0.65, alzato per aumentare segnali M15
+      g_minLevelAge_eff=3;  // 3×15min = 45min banda piatta
    }
    else if(presetTF == PERIOD_M30)
    {
-      g_dcLen_eff=20; g_maLen_eff=24; g_minWidth_eff=14.0;  // MA=24×30min=720min=12h
+      //--- M30: preset intraday lento — ricalibrato v7.19+
+      //    flatTol 0.50→0.60: era non calibrato v1.3, ora allineato alla scala ATR M30
+      //    minWidth 14.0→12.0: 14pip era troppo restrittivo, TP=6pip ancora > spread
+      g_dcLen_eff=20; g_maLen_eff=24; g_minWidth_eff=12.0;  // era 14.0
       g_nSameBars=2;  g_nOppositeBars=1; g_flatLook_eff=2;  // cooldown 1h/30min
-      g_flatTol_eff=0.50;  // v7.19: tolleranza standard M30
+      g_flatTol_eff=0.60;  // v7.19+: era 0.50, alzato per calibrare su scala ATR M30
+      g_minLevelAge_eff=4;  // 4×30min = 120min banda piatta
    }
    else if(presetTF == PERIOD_H1)
    {
       g_dcLen_eff=20; g_maLen_eff=18; g_minWidth_eff=18.0;  // MA=18×60min=1080min=18h
       g_nSameBars=1;  g_nOppositeBars=1; g_flatLook_eff=2;  // cooldown 1h/1h
       g_flatTol_eff=0.38;  // v7.19: tolleranza ridotta H1 (ATR~25pip → soglia 9.5pip, più filtrante)
+      g_minLevelAge_eff=5;  // 5×60min = 5h di banda piatta su H1
    }
    else if(presetTF == PERIOD_H4)
    {
       g_dcLen_eff=20; g_maLen_eff=12; g_minWidth_eff=30.0;  // MA=12×240min=2880min≈2gg
       g_nSameBars=1;  g_nOppositeBars=1; g_flatLook_eff=1;  // cooldown 4h/4h
       g_flatTol_eff=0.35;  // v7.19: tolleranza più restrittiva H4 (trend pesanti, filtro forte)
+      g_minLevelAge_eff=3;  // 3×240min = 12h di banda piatta su H4
    }
    else  // MANUALE o TF non coperto in AUTO
    {
@@ -1478,10 +1539,19 @@ int OnInit()
       g_minWidth_eff = InpMinWidthPips;
       g_flatLook_eff = InpFlatLookback;
       g_flatTol_eff  = InpFlatnessTolerance;  // v7.19: modalità manuale usa input diretto
+      g_minLevelAge_eff = (int)MathMax(1, MathMin(10, InpMinLevelAge));  // v7.19+: manuale usa input
    }
 
+   //--- v7.19+: OVERRIDE g_minLevelAge con valore preset-driven
+   //    In AUTO/FORCED mode: g_minLevelAge = g_minLevelAge_eff (dal blocco preset sopra)
+   //    In MANUAL mode: g_minLevelAge resta = InpMinLevelAge (riga 1362, non sovrascritto)
+   //    Usato in: Section 5 Level Age (righe ~3399,3414) e Section 5b Touch (righe ~4199,4217)
+   if(InpTFPreset != TF_PRESET_MANUAL)
+      g_minLevelAge = g_minLevelAge_eff;
+
    //--- Log nel Journal per verifica visiva del preset applicato
-   string presetName = (presetTF == PERIOD_M5)  ? "M5"  :
+   string presetName = (presetTF == PERIOD_M1)  ? "M1"  :
+                       (presetTF == PERIOD_M5)  ? "M5"  :
                        (presetTF == PERIOD_M15) ? "M15" :
                        (presetTF == PERIOD_M30) ? "M30" :
                        (presetTF == PERIOD_H1)  ? "H1"  :
@@ -1491,7 +1561,8 @@ int OnInit()
          " minWidth=", DoubleToString(g_minWidth_eff, 1),
          " nSame=", g_nSameBars, " nOpp=", g_nOppositeBars,
          " flatLook=", g_flatLook_eff,
-         " flatTol=", DoubleToString(g_flatTol_eff, 2));   // v7.19
+         " flatTol=", DoubleToString(g_flatTol_eff, 2),
+         " minLevelAge=", g_minLevelAge_eff);  // v7.19+
 
    //--- Create MA handles — usano g_maLen_eff (NON InpMALen) per supportare Auto TF Preset
    //    Se Auto TF è attivo, g_maLen_eff contiene il preset (es. 50 su M5, 18 su H1).
@@ -1615,6 +1686,7 @@ int OnInit()
    string trigMode = (InpTriggerModeV2 == TRIGGER_BAR_CLOSE) ? "BC" : "IB";
    string presetMode = (InpTFPreset == TF_PRESET_AUTO) ? "AUTO" :
                        (InpTFPreset == TF_PRESET_MANUAL) ? "MAN" :
+                       (InpTFPreset == TF_PRESET_M1) ? "M1" :
                        (InpTFPreset == TF_PRESET_M5) ? "M5" :
                        (InpTFPreset == TF_PRESET_M15) ? "M15" :
                        (InpTFPreset == TF_PRESET_M30) ? "M30" :
@@ -4308,6 +4380,9 @@ int OnCalculate(const int rates_total,
          ENUM_TIMEFRAMES ltfPeriod;
          switch(Period())
          {
+            case PERIOD_M1:  ltfPeriod = PERIOD_M1;  break;  // v7.19+: M1 esplicito
+                                                               // ATTENZIONE: LTF Entry su M1 non ha senso
+                                                               // → impostare InpEnableLTFEntry=false su chart M1
             case PERIOD_M5:  ltfPeriod = PERIOD_M1;  break;
             case PERIOD_M15: ltfPeriod = PERIOD_M5;  break;
             case PERIOD_M30: ltfPeriod = PERIOD_M5;  break;

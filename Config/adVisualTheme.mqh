@@ -44,10 +44,12 @@
 #define AD_SELL_DIM        C'136,34,51'      // #882233 — SELL smorzato
 #define AD_AMBER           C'255,179,71'     // #ffb347 — ambra marina
 #define AD_AMBER_DIM       C'136,85,0'       // #885500 — ambra smorzato
-// Hedge Smart colors (v1.7.0)
+// Hedge Smart colors (v1.7.0 + v1.7.2)
 #define AD_HEDGE           C'255,140,0'       // Arancione — usato nel dashboard label "Hedge"
 #define AD_HEDGE_DIM       C'180,100,0'       // Arancione smorzato
 #define AD_HS_TRIGGER_CLR  C'255,140,0'       // Linea trigger HS
+#define AD_HS_BE_CLR       C'0,200,100'       // Verde — rombo Step1 BE
+#define AD_HS_TP_CLR       C'0,150,255'       // Blu — rombo Step2 TP
 
 //+------------------------------------------------------------------+
 //| TESTO                                                            |

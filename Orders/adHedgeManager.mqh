@@ -1,19 +1,27 @@
 //+------------------------------------------------------------------+
 //|                                      adHedgeManager.mqh          |
-//|           AcquaDulza EA v1.7.0 — Hedge Smart Manager             |
+//|           AcquaDulza EA v1.7.2 — Hedge Smart Manager             |
 //|                                                                   |
 //|  Hedge Smart: hedge non invasivo a lotto fisso.                   |
 //|  La Soup NON viene mai chiusa o modificata da questo modulo.     |
 //|                                                                   |
-//|  LOGICA:                                                          |
+//|  LOGICA v1.7.2:                                                   |
 //|   BUY Soup  → SELL STOP @ lower_band − (cw × HsTriggerPct)      |
 //|   SELL Soup → BUY STOP  @ upper_band + (cw × HsTriggerPct)      |
+//|   SL iniziale HS = midline (= SoupTP): perdita HS sempre definita|
+//|                                                                   |
+//|  STEP 1 — BREAKEVEN (se HsBEEnabled):                            |
+//|   Dopo HsStep1Pct×cw pip di profitto → SL spostato a fill price  |
+//|   Effetto: HS non può più chiudersi in perdita                   |
+//|                                                                   |
+//|  STEP 2 — CLOSE AL TPREVLEVEL (se HsUseStep2Close):             |
+//|   Quando prezzo raggiunge tpRefLevel → chiudi HS con profitto    |
+//|   tpRefLevel = trigger ± (cw × HsTpPct)                          |
 //|                                                                   |
 //|  EXIT (priorità decrescente):                                     |
 //|   1. Prossimo segnale DPC stesso senso Soup (≥ HsAntiWhipsawBars)|
-//|   2. Soup floating ≥ 0 (se HsCloseOnSoupProfit=true)            |
-//|   3. Timeout N barre (se HsTimeoutBars > 0)                       |
-//|   4. Soup chiusa dal broker → cleanup HS automatico              |
+//|   2. Timeout N barre (HsTimeoutBars, default 32 = 8h M15)        |
+//|   3. Soup chiusa → cleanup contestuale in MonitorActive           |
 //|                                                                   |
 //|  MAGIC: HS = MagicNumber + 1                                      |
 //|  COMMENT FORMAT: "AD_HS_SELL_#12" / "AD_HS_BUY_#12"             |
@@ -36,13 +44,19 @@
 void HedgeInit()
 {
    AdLogI(LOG_CAT_HEDGE, StringFormat(
-      "HedgeSmart INIT | Enabled=%s | Lot=%.2f | TriggerPct=%.2f | "
-      "AntiWhipsaw=%d | CloseOnProfit=%s | Timeout=%d | "
-      "BodyFilter=%s(%.2f) | Zones=%s",
+      "HedgeSmart INIT v1.7.2 | Enabled=%s | Lot=%.2f | TriggerPct=%.2f | "
+      "TpPct=%.2f | MidlineSL=%.1f | Step1BE=%s(%.0f%%) | Step2TP=%s | "
+      "AntiWhipsaw=%d | Timeout=%d | BodyFilter=%s(%.2f) | Zones=%s",
       HsEnabled ? "YES" : "NO", HsLot, HsTriggerPct,
-      HsAntiWhipsawBars, HsCloseOnSoupProfit ? "YES" : "NO",
-      HsTimeoutBars, HsBodyFilter ? "YES" : "NO", HsBodyRatioMin,
+      HsTpPct, HsMidlineSL,
+      HsBEEnabled ? "YES" : "NO", HsStep1Pct * 100,
+      HsUseStep2Close ? "YES" : "NO",
+      HsAntiWhipsawBars, HsTimeoutBars,
+      HsBodyFilter ? "YES" : "NO", HsBodyRatioMin,
       HsShowZones ? "YES" : "NO"));
+   // Warning: Step2 richiede Step1 BE — se BE disabilitato, Step2 non scatterà mai
+   if(!HsBEEnabled && HsUseStep2Close)
+      AdLogW(LOG_CAT_HEDGE, "WARNING: HsBEEnabled=false ma HsUseStep2Close=true — Step2 TP non scatterà mai (richiede hsBESet)");
 }
 
 //+------------------------------------------------------------------+
@@ -56,7 +70,9 @@ void HedgeDeinit()
       string name = ObjectName(0, i);
       if(StringFind(name, HS_LINE_PREFIX)  >= 0 ||
          StringFind(name, HS_ZONE_TRIGGER) >= 0 ||
-         StringFind(name, HS_ZONE_TP)      >= 0)
+         StringFind(name, HS_ZONE_TP)      >= 0 ||
+         StringFind(name, "AD_HS_BE_")     >= 0 ||
+         StringFind(name, "AD_HS_TP_")     >= 0)
       {
          ObjectDelete(0, name);
          removed++;
@@ -163,6 +179,44 @@ void HsRemoveLine(int slot)
 }
 
 //+------------------------------------------------------------------+
+//| HsDrawBEMarker — Rombo verde al livello BE (Step1 completato)    |
+//+------------------------------------------------------------------+
+void HsDrawBEMarker(int slot, double fillPrice)
+{
+   string name = StringFormat("AD_HS_BE_%d", g_cycles[slot].cycleID);
+   ObjectDelete(0, name);
+   ObjectCreate(0, name, OBJ_ARROW, 0, TimeCurrent(), fillPrice);
+   ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 4);      // Rombo (◆)
+   ObjectSetInteger(0, name, OBJPROP_COLOR,     AD_HS_BE_CLR);
+   ObjectSetInteger(0, name, OBJPROP_WIDTH,     2);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, name, OBJPROP_HIDDEN,    true);
+   ObjectSetInteger(0, name, OBJPROP_BACK,      false);
+   ObjectSetString(0,  name, OBJPROP_TOOLTIP,
+      StringFormat("HS BE #%d @ %s", g_cycles[slot].cycleID,
+         DoubleToString(fillPrice, _Digits)));
+}
+
+//+------------------------------------------------------------------+
+//| HsDrawTPMarker — Rombo blu al livello TP (Step2 raggiunto)      |
+//+------------------------------------------------------------------+
+void HsDrawTPMarker(int slot, double tpRefLevel)
+{
+   string name = StringFormat("AD_HS_TP_%d", g_cycles[slot].cycleID);
+   ObjectDelete(0, name);
+   ObjectCreate(0, name, OBJ_ARROW, 0, TimeCurrent(), tpRefLevel);
+   ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 4);      // Rombo (◆)
+   ObjectSetInteger(0, name, OBJPROP_COLOR,     AD_HS_TP_CLR);
+   ObjectSetInteger(0, name, OBJPROP_WIDTH,     2);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, name, OBJPROP_HIDDEN,    true);
+   ObjectSetInteger(0, name, OBJPROP_BACK,      false);
+   ObjectSetString(0,  name, OBJPROP_TOOLTIP,
+      StringFormat("HS TP #%d @ %s", g_cycles[slot].cycleID,
+         DoubleToString(tpRefLevel, _Digits)));
+}
+
+//+------------------------------------------------------------------+
 //| HsPlaceOrder — Valuta e piazza l'ordine HS                       |
 //|                                                                   |
 //| Chiamato da AcquaDulza.mq5 dopo CreateCycle().                   |
@@ -202,9 +256,9 @@ void HsPlaceOrder(int slot, const EngineSignal &sig)
       return;
    }
 
-   // Calcola livelli
+   // Calcola livelli — v1.7.2: tpRefDist ora usa HsTpPct (era hardcoded 0.60)
    double triggerDist = cw * HsTriggerPct;
-   double tpRefDist   = cw * 0.60;
+   double tpRefDist   = cw * HsTpPct;
    double triggerLevel, tpRefLevel;
 
    if(g_cycles[slot].direction > 0)   // BUY Soup → SELL STOP
@@ -253,32 +307,60 @@ void HsPlaceOrder(int slot, const EngineSignal &sig)
       g_cycles[slot].direction > 0 ? "SELL" : "BUY",
       g_cycles[slot].cycleID);
 
-   // Piazza STOP senza TP (gestito programmaticamente)
+   // v1.7.2: SL iniziale = midline (= SoupTP)
+   // Se il prezzo torna alla midline, la Soup sta per fare TP → la perdita HS
+   // è compensata dal profitto Soup. La midline è il livello naturale di protezione.
+   double initSL = 0;
+   if(HsMidlineSL > 0.0)
+   {
+      initSL = sig.midline;
+
+      // Verifica distanza minima SL dal trigger (requisito broker)
+      double slDist   = MathAbs(triggerLevel - initSL);
+      double minSLDist = (g_symbolStopsLevel + 2) * g_symbolPoint;
+      if(slDist < minSLDist)
+      {
+         AdLogW(LOG_CAT_HEDGE, StringFormat(
+            "HS SL iniziale troppo vicino al trigger (dist=%.5f < min=%.5f) — SL disabilitato",
+            slDist, minSLDist));
+         initSL = 0;
+      }
+   }
+
+   // Piazza STOP con SL iniziale = midline (se valido)
    g_trade.SetExpertMagicNumber(MagicNumber + 1);
    bool placed = false;
    if(g_cycles[slot].direction > 0)
-      placed = g_trade.SellStop(hsLot, triggerLevel, _Symbol, 0, 0, ORDER_TIME_GTC, 0, comment);
+      placed = g_trade.SellStop(hsLot, triggerLevel, _Symbol, initSL, 0, ORDER_TIME_GTC, 0, comment);
    else
-      placed = g_trade.BuyStop(hsLot, triggerLevel, _Symbol, 0, 0, ORDER_TIME_GTC, 0, comment);
+      placed = g_trade.BuyStop(hsLot, triggerLevel, _Symbol, initSL, 0, ORDER_TIME_GTC, 0, comment);
 
    if(placed)
    {
-      g_cycles[slot].hsTicket       = g_trade.ResultOrder();
-      g_cycles[slot].hsTriggerPrice = triggerLevel;
-      g_cycles[slot].hsTpRefLevel   = tpRefLevel;
-      g_cycles[slot].hsLotSize      = hsLot;
-      g_cycles[slot].hsPending      = true;
-      g_cycles[slot].hsActive       = false;
-      g_cycles[slot].hsFillTime     = 0;
-      g_cycles[slot].hsPL           = 0;
+      g_cycles[slot].hsTicket            = g_trade.ResultOrder();
+      g_cycles[slot].hsTriggerPrice      = triggerLevel;
+      g_cycles[slot].hsTpRefLevel        = tpRefLevel;
+      g_cycles[slot].hsLotSize           = hsLot;
+      g_cycles[slot].hsPending           = true;
+      g_cycles[slot].hsActive            = false;
+      g_cycles[slot].hsFillTime          = 0;
+      g_cycles[slot].hsPL                = 0;
+      // v1.7.2 — nuovi campi
+      g_cycles[slot].hsFillPrice         = 0;              // sarà settato in HsDetectFill
+      g_cycles[slot].hsMidlineAtSignal   = sig.midline;    // midline congelata al segnale
+      g_cycles[slot].hsBESet             = false;
+      g_cycles[slot].hsStep2Reached      = false;
 
-      double cwPip = cw / PipsToPrice(1);
+      double ptp = PipsToPrice(1);
+      double cwPip = (ptp > 0) ? cw / ptp : 0;
       AdLogI(LOG_CAT_HEDGE, StringFormat(
-         "HS PLACED #%d | %s STOP @ %s | Lot=%.2f | TrigPct=%.0f%% | cw=%.1fpip",
+         "HS PLACED #%d | %s STOP @ %s | SL(midline)=%s | TpRef=%s | Lot=%.2f | TrigPct=%.0f%% | TpPct=%.0f%% | cw=%.1fpip",
          g_cycles[slot].cycleID,
          g_cycles[slot].direction > 0 ? "SELL" : "BUY",
          DoubleToString(triggerLevel, _Digits),
-         hsLot, HsTriggerPct * 100, cwPip));
+         DoubleToString(initSL, _Digits),
+         DoubleToString(tpRefLevel, _Digits),
+         hsLot, HsTriggerPct * 100, HsTpPct * 100, cwPip));
 
       Alert(StringFormat("AcquaDulza HS PIAZZATO #%d %s STOP @ %s | Lot=%.2f | %s",
             g_cycles[slot].cycleID,
@@ -321,19 +403,25 @@ bool HsDetectFill(int slot)
          string posComment = PositionGetString(POSITION_COMMENT);
          if(StringFind(posComment, StringFormat("#%d", g_cycles[slot].cycleID)) >= 0)
          {
-            g_cycles[slot].hsTicket  = posTkt;
-            g_cycles[slot].hsPending = false;
-            g_cycles[slot].hsActive  = true;
-            g_cycles[slot].hsFillTime = TimeCurrent();
+            g_cycles[slot].hsTicket    = posTkt;
+            g_cycles[slot].hsPending   = false;
+            g_cycles[slot].hsActive    = true;
+            g_cycles[slot].hsFillTime  = TimeCurrent();
+            // v1.7.2: salva fill price reale (può differire da trigger per slippage)
+            g_cycles[slot].hsFillPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+            g_cycles[slot].hsBESet          = false;   // reset BE flag al fill
+            g_cycles[slot].hsStep2Reached   = false;   // reset Step2 flag al fill
             if(g_cycles[slot].state == CYCLE_ACTIVE)
                g_cycles[slot].state = CYCLE_HEDGING;
             HsRemoveLine(slot);
 
-            double fillPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+            double fillPrice = g_cycles[slot].hsFillPrice;
             AdLogI(LOG_CAT_HEDGE, StringFormat(
-               "=== HS ACTIVATED #%d === Fill @ %s | Lot=%.2f",
+               "=== HS ACTIVATED #%d === Fill @ %s | Trigger @ %s | Slippage=%.1fpip | Lot=%.2f",
                g_cycles[slot].cycleID,
                DoubleToString(fillPrice, _Digits),
+               DoubleToString(g_cycles[slot].hsTriggerPrice, _Digits),
+               PointsToPips(MathAbs(fillPrice - g_cycles[slot].hsTriggerPrice)),
                PositionGetDouble(POSITION_VOLUME)));
             Alert(StringFormat("AcquaDulza HS ATTIVATO #%d @ %s | Lot=%.2f | %s",
                   g_cycles[slot].cycleID,
@@ -414,9 +502,14 @@ void HsClose(int slot, string reason)
       AdLogW(LOG_CAT_HEDGE, StringFormat("HS #%d già chiusa dal broker", g_cycles[slot].cycleID));
    }
 
-   g_cycles[slot].hsActive   = false;
-   g_cycles[slot].hsTicket   = 0;
-   g_cycles[slot].hsFillTime = 0;
+   g_cycles[slot].hsActive          = false;
+   g_cycles[slot].hsTicket          = 0;
+   g_cycles[slot].hsFillTime        = 0;
+   // v1.7.2: reset campi Step1/Step2
+   g_cycles[slot].hsFillPrice       = 0;
+   g_cycles[slot].hsMidlineAtSignal = 0;
+   g_cycles[slot].hsBESet           = false;
+   g_cycles[slot].hsStep2Reached    = false;
 
    if(g_cycles[slot].state == CYCLE_HEDGING)
    {
@@ -453,31 +546,47 @@ void HsMonitor(int slot, const EngineSignal &sig, bool hasNewSignal)
 
    ENUM_CYCLE_STATE st = g_cycles[slot].state;
 
-   // Cleanup se ciclo già chiuso
+   // Cleanup se ciclo già chiuso (sicurezza)
    if(st == CYCLE_CLOSED)
    {
       HsCleanup(slot, "CycleAlreadyClosed");
       return;
    }
 
-   // Detect fill se pendente
+   // ── Detect fill se pendente ──
    if(g_cycles[slot].hsPending)
       HsDetectFill(slot);
 
-   // Se non attivo, niente da fare
+   // Se non ancora attivo → niente da monitorare
    if(!g_cycles[slot].hsActive) return;
 
-   // Verifica se Soup ancora aperta
+   // ── Verifica se Soup ancora aperta ──
+   // (la chiusura HS al TP Soup è gestita in MonitorActive → SoupClosed_MonitorActive)
    bool soupOpen = (g_cycles[slot].ticket > 0)
                    && PositionSelectByTicket(g_cycles[slot].ticket);
-
    if(!soupOpen)
    {
-      HsCleanup(slot, "SoupClosed_Cleanup");
+      // Fallback di sicurezza: se MonitorActive non ha già fatto cleanup
+      HsCleanup(slot, "SoupClosed_HsMonitorFallback");
       return;
    }
 
-   // Calcola barre attive dall'attivazione
+   // ── Calcola pip profit HS corrente ──
+   double hsPipProfit = 0;
+   double hsFillPx    = g_cycles[slot].hsFillPrice;
+
+   if(hsFillPx > 0 && PositionSelectByTicket(g_cycles[slot].hsTicket))
+   {
+      double curPx = PositionGetDouble(POSITION_PRICE_CURRENT);
+      // SELL HS (da BUY Soup): profitto quando prezzo scende (fillPx > curPx)
+      // BUY HS  (da SELL Soup): profitto quando prezzo sale  (curPx > fillPx)
+      if(g_cycles[slot].direction > 0)
+         hsPipProfit = PointsToPips(hsFillPx - curPx);
+      else
+         hsPipProfit = PointsToPips(curPx - hsFillPx);
+   }
+
+   // ── Calcola barre attive dall'attivazione ──
    int barsActive = 0;
    if(g_cycles[slot].hsFillTime > 0)
    {
@@ -486,13 +595,121 @@ void HsMonitor(int slot, const EngineSignal &sig, bool hasNewSignal)
          barsActive = (int)((TimeCurrent() - g_cycles[slot].hsFillTime) / periodSec);
    }
 
-   // ── EXIT 1: Prossimo segnale DPC stesso senso Soup ──
+   // ════════════════════════════════════════════════════════════
+   // STEP 1 — PRE-BE: sposta SL da midline → fill (breakeven vero)
+   // Trigger: HS accumula HsStep1Pct × cw pip di profitto
+   // Effetto: l'HS non può più trasformarsi in perdita
+   //
+   // TODO v1.7.3 — STEP 0.5 (intermedio, da valutare):
+   //   Dopo ~50% del threshold Step1 (es. 6pip su 12), spostare SL
+   //   dalla midline al bordo del canale violato ± pochi pip.
+   //   Geometria: BUY Soup → SL da midline a lowerBand + 2pip
+   //              SELL Soup → SL da midline a upperBand - 2pip
+   //   Effetto: riduce rischio da ~32pip a ~14pip prima del full BE.
+   //   La banda è supporto/resistenza naturale: se prezzo la ripassa,
+   //   la Soup funziona (mean reversion) e l'HS non serve più.
+   //   Richiede: nuovo flag hsBandSLSet, nuovo input HsStep05Pct,
+   //             e salvataggio della banda (sig.lowerBand/upperBand)
+   //             nella struct al momento del segnale.
+   // ════════════════════════════════════════════════════════════
+   if(HsBEEnabled && !g_cycles[slot].hsBESet && hsFillPx > 0)
+   {
+      // Calcola step1 threshold in pip usando cw dal tpRefLevel
+      double cw_approx = 0;
+      if(g_cycles[slot].hsTpRefLevel > 0 && HsTpPct > 0)
+         cw_approx = MathAbs(g_cycles[slot].hsTriggerPrice - g_cycles[slot].hsTpRefLevel) / HsTpPct;
+
+      double step1Pips = (cw_approx > 0)
+                       ? PointsToPips(cw_approx * HsStep1Pct)
+                       : 6.0;  // fallback 6pip se cw non disponibile
+
+      if(hsPipProfit >= step1Pips)
+      {
+         double newSL    = hsFillPx;  // breakeven = prezzo di fill reale
+         bool   slOK     = true;
+
+         // Verifica distanza minima broker prima di modificare
+         if(PositionSelectByTicket(g_cycles[slot].hsTicket))
+         {
+            double curPx   = PositionGetDouble(POSITION_PRICE_CURRENT);
+            double dist    = MathAbs(curPx - newSL);
+            double minDist = (g_symbolStopsLevel + 2) * g_symbolPoint;
+            if(dist < minDist)
+            {
+               AdLogD(LOG_CAT_HEDGE, StringFormat(
+                  "HS Step1 BE: SL troppo vicino al prezzo corrente (dist=%.5f < min=%.5f) — attendo barra successiva",
+                  dist, minDist));
+               slOK = false;
+            }
+         }
+
+         if(slOK)
+         {
+            g_trade.SetExpertMagicNumber(MagicNumber + 1);
+            if(g_trade.PositionModify(g_cycles[slot].hsTicket, newSL, 0))
+            {
+               g_cycles[slot].hsBESet = true;
+               HsDrawBEMarker(slot, newSL);
+               AdLogI(LOG_CAT_HEDGE, StringFormat(
+                  "=== HS STEP1 BE SET #%d === SL spostato a fill=%.5f | profit=%.1fpip (soglia=%.1fpip)",
+                  g_cycles[slot].cycleID, newSL, hsPipProfit, step1Pips));
+            }
+            else
+            {
+               AdLogW(LOG_CAT_HEDGE, StringFormat(
+                  "HS Step1 BE MODIFY FAILED #%d: %s",
+                  g_cycles[slot].cycleID,
+                  g_trade.ResultRetcodeDescription()));
+            }
+         }
+      }
+   }
+
+   // ════════════════════════════════════════════════════════════
+   // STEP 2 — CLOSE AL TPREVLEVEL: chiudi HS con profitto
+   // Trigger: prezzo raggiunge tpRefLevel (= HsTpPct × cw dal trigger)
+   // Condizione: BE già impostato (Step1 deve essere completato prima)
+   // Effetto: incassa il profitto massimo teorico dell'HS
+   // ════════════════════════════════════════════════════════════
+   if(HsUseStep2Close && !g_cycles[slot].hsStep2Reached
+      && g_cycles[slot].hsTpRefLevel > 0
+      && g_cycles[slot].hsBESet)
+   {
+      bool tpHit = false;
+      if(PositionSelectByTicket(g_cycles[slot].hsTicket))
+      {
+         double curPx = PositionGetDouble(POSITION_PRICE_CURRENT);
+         // SELL HS: tpRefLevel è SOTTO il trigger → TP quando curPx <= tpRefLevel
+         // BUY HS:  tpRefLevel è SOPRA il trigger → TP quando curPx >= tpRefLevel
+         if(g_cycles[slot].direction > 0)
+            tpHit = (curPx <= g_cycles[slot].hsTpRefLevel);
+         else
+            tpHit = (curPx >= g_cycles[slot].hsTpRefLevel);
+      }
+
+      if(tpHit)
+      {
+         g_cycles[slot].hsStep2Reached = true;
+         HsDrawTPMarker(slot, g_cycles[slot].hsTpRefLevel);
+         AdLogI(LOG_CAT_HEDGE, StringFormat(
+            "=== HS STEP2 TP HIT #%d === tpRefLevel=%.5f | profit=%.1fpip",
+            g_cycles[slot].cycleID,
+            g_cycles[slot].hsTpRefLevel, hsPipProfit));
+         HsClose(slot, "Step2_TpRefLevel");
+         return;
+      }
+   }
+
+   // ════════════════════════════════════════════════════════════
+   // EXIT 1 — Prossimo segnale DPC nella stessa direzione della Soup
+   // (anti-whipsaw: attendere minimo HsAntiWhipsawBars barre)
+   // ════════════════════════════════════════════════════════════
    if(hasNewSignal && sig.isNewSignal && sig.direction == g_cycles[slot].direction)
    {
       if(barsActive >= HsAntiWhipsawBars)
       {
          AdLogI(LOG_CAT_HEDGE, StringFormat(
-            "HS EXIT: NextDPCSignal #%d | barsActive=%d | dir=%d",
+            "HS EXIT1: NextDPCSignal #%d | barsActive=%d | dir=%d",
             g_cycles[slot].cycleID, barsActive, sig.direction));
          HsClose(slot, "NextDPCSignal");
          return;
@@ -505,27 +722,29 @@ void HsMonitor(int slot, const EngineSignal &sig, bool hasNewSignal)
       }
    }
 
-   // ── EXIT 2: Soup floating ≥ 0 ──
-   if(HsCloseOnSoupProfit)
-   {
-      double soupFloat = GetFloatingProfit(g_cycles[slot].ticket);
-      if(soupFloat >= 0)
-      {
-         AdLogI(LOG_CAT_HEDGE, StringFormat(
-            "HS EXIT: SoupProfitable #%d | SoupFloat=%.2f",
-            g_cycles[slot].cycleID, soupFloat));
-         HsClose(slot, "SoupProfitable");
-         return;
-      }
-   }
-
-   // ── EXIT 3: Timeout ──
+   // ════════════════════════════════════════════════════════════
+   // EXIT 2 — Timeout: rete di sicurezza finale
+   // HsTimeoutBars default = 32 (8h su M15)
+   // ════════════════════════════════════════════════════════════
    if(HsTimeoutBars > 0 && barsActive >= HsTimeoutBars)
    {
       AdLogI(LOG_CAT_HEDGE, StringFormat(
-         "HS EXIT: Timeout #%d | barsActive=%d >= %d",
-         g_cycles[slot].cycleID, barsActive, HsTimeoutBars));
+         "HS EXIT2: Timeout #%d | barsActive=%d >= %d | profit=%.1fpip",
+         g_cycles[slot].cycleID, barsActive, HsTimeoutBars, hsPipProfit));
       HsClose(slot, "Timeout");
       return;
+   }
+
+   // ── Log diagnostico periodico ──
+   if(barsActive % 8 == 0 && barsActive > 0)
+   {
+      AdLogD(LOG_CAT_HEDGE, StringFormat(
+         "HS LIVE #%d | bars=%d | profit=%.1fpip | BE=%s | Step2=%s | SL(broker)=%s",
+         g_cycles[slot].cycleID, barsActive, hsPipProfit,
+         g_cycles[slot].hsBESet ? "SET" : "no",
+         g_cycles[slot].hsStep2Reached ? "HIT" : "no",
+         PositionSelectByTicket(g_cycles[slot].hsTicket)
+            ? DoubleToString(PositionGetDouble(POSITION_SL), _Digits)
+            : "n/a"));
    }
 }

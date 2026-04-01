@@ -400,8 +400,8 @@ void DrawLastSignals(int x, int y, int w)
 //| P&L DISPLAY (HEDGING):                                           |
 //|   Quando state=HEDG, mostra "S:+12 H:-8" con colori separati    |
 //|   per Soup e Hedge. GetFloatingProfit legge dal broker in RT.    |
-//|   Nota: hedge1BankedProfit NON e' incluso nel float display —    |
-//|   e' gia' conteggiato nel P&L SESSION (vedi DrawPLSession).      |
+//|   Nota: hsPL NON e' incluso nel float display —                  |
+//|   e' gia' conteggiato nel P&L SESSION da HsClose().              |
 //+------------------------------------------------------------------+
 void DrawActiveCycles(int x, int y, int w)
 {

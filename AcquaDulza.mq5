@@ -3,7 +3,7 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.7.1                                                  |
+//|  Version: 1.7.3                                                  |
 //|  Engine: DPC v2.0 (Donchian Predictive Channel) — swappable      |
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -34,6 +34,25 @@
 //|  STRUMENTI SUPPORTATI:                                           |
 //|    Forex, Crypto (BTC/ETH), Gold, Silver, Oil, Indices, Stock CFD |
 //|    Auto-detection della classe strumento dal nome simbolo          |
+//|                                                                  |
+//|  CHANGELOG v1.7.3:                                               |
+//|    - FIX: HandleSessionEnd ora chiude anche HS (MagicNumber+1)   |
+//|      Prima chiudeva solo Soup, lasciando HS orfane a fine sessione|
+//|                                                                  |
+//|  CHANGELOG v1.7.2:                                               |
+//|    - HEDGE SMART v2: Step1 BE + Step2 TP programmato              |
+//|      SL iniziale = midline (SoupTP): perdita HS definita          |
+//|      Step1: dopo HsStep1Pct×cw profitto → SL a fill (BE)        |
+//|      Step2: prezzo raggiunge tpRefLevel → chiudi con profitto    |
+//|      Nuovi input: HsMidlineSL, HsStep1Pct, HsTpPct, HsBE/Step2   |
+//|    - FIX: MonitorActive ora processa CYCLE_HEDGING                |
+//|      soupPL non più perso quando Soup chiude con HS attiva        |
+//|    - FIX: HsCleanup contestuale in MonitorActive (→SoupClosed)   |
+//|    - FIX: hsFillPrice salvato in HsDetectFill (per BE accurato)  |
+//|    - FIX: tpRefDist parametrizzato (HsTpPct, era hardcoded 0.60) |
+//|    - FIX: HsTimeoutBars default 32 (era 0=disattivato)           |
+//|    - RIMOSSO: Exit 2 (HsCloseOnSoupProfit) — prematuro           |
+//|    - HsCloseOnSoupProfit deprecato (default false)                |
 //|                                                                  |
 //|  CHANGELOG v1.7.0:                                               |
 //|    - HEDGE SMART: sostituisce Two-Tier H1+H2                     |
@@ -113,11 +132,11 @@
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
-#property version   "1.70"
-#property description "AcquaDulza EA v1.7.0 — Reusable Trading Framework"
+#property version   "1.72"
+#property description "AcquaDulza EA v1.7.3 — Reusable Trading Framework"
 #property description "Engine: DPC v2.0 (Donchian Predictive Channel v7.19)"
 #property description "Segnali: Turtle Soup (TBS forte 2x / TWS debole 1x)"
-#property description "Hedge: Hedge Smart (HS) — non invasivo, lotto fisso"
+#property description "Hedge: Hedge Smart v1.7.3 — Step1 BE + Step2 TP"
 #property description "Anti-repaint: bar[1] signals only"
 #property strict
 

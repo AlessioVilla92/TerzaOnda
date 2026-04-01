@@ -310,10 +310,20 @@ input group "    🚪 EXIT CONDITIONS"
 input int    HsAntiWhipsawBars      = 3;       // ⏱️ Min barre prima di exit su segnale DPC
 // ↑ Anti-whipsaw: ignora segnali nelle prime N barre dall'attivazione HS
 
-input bool   HsCloseOnSoupProfit    = true;    // ✅ Chiudi HS se Soup floating ≥ 0
+input bool   HsCloseOnSoupProfit    = false;   // [DEPRECATED v1.7.2] Sostituito da HsCleanup in MonitorActive
 
-input int    HsTimeoutBars          = 0;       // ⏱️ Timeout barre (0 = disattivato)
+input int    HsTimeoutBars          = 32;      // ⏱️ Timeout barre (0 = disattivato, 32 = 8h su M15)
 // ↑ Se HS rimane aperto per N barre, chiudi a mercato. 0 = nessun timeout.
+
+input group "    🔧 STEP1 BE + STEP2 TP (v1.7.2)"
+input double HsMidlineSL            = 1.0;     // 🛡️ SL iniziale HS = midline (1.0=ON, 0=no SL broker)
+// ↑ La midline = SoupTP: perdita HS compensata dal profitto Soup
+input double HsStep1Pct             = 0.30;    // 📏 Step1 BE: % cw per trigger breakeven dal fill
+// ↑ es. 0.30 su cw=40pip → BE scatta dopo 12pip profitto
+input double HsTpPct                = 0.60;    // 📏 Step2 TP: % cw per tpRefLevel dal trigger
+// ↑ es. 0.60 su cw=40pip → Step2 a 24pip dal trigger
+input bool   HsBEEnabled            = true;    // ✅ Attiva logica Step1 (breakeven)
+input bool   HsUseStep2Close        = true;    // ✅ Chiudi HS quando raggiunge tpRefLevel (Step2)
 
 input group "    🔬 BODY FILTER (opzionale)"
 input bool   HsBodyFilter           = true;    // ✅ Abilita body/wick ratio filter

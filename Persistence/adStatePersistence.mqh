@@ -1,12 +1,9 @@
 //+------------------------------------------------------------------+
 //|                                    adStatePersistence.mqh        |
-//|           AcquaDulza EA v1.6.1 — State Persistence               |
+//|           AcquaDulza EA v1.7.2 — State Persistence               |
 //|                                                                  |
 //|  Auto-save & restore CycleRecord array via GlobalVariables       |
-//|                                                                  |
-//|  v1.5.0: Two-Tier hedge persistence                               |
-//|    Save/Restore: H1 (6 campi) + H1 tracking (2) + H2 (6 campi)  |
-//|    Validazione: Soup + H1 + H2 — 3 magic numbers                 |
+//|  HedgeSmart: 13 campi HS (v1.7.0 base + v1.7.2 Step1/Step2)     |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -72,7 +69,7 @@ bool  RestoreStateBool(string name, bool defaultValue = false)  { return Restore
 //|  1. EnableAutoRecovery=true E lastSaveTime esiste                |
 //|  2. Eta' < 7 giorni (stato piu' vecchio = probabilmente stale)   |
 //|  3. Almeno una posizione/ordine AD esiste nel broker             |
-//|     (Magic, Magic+1, Magic+2)                                   |
+//|     (Magic, Magic+1)                                             |
 //|                                                                  |
 //| Se condizione 3 fallisce → "fresh start" (stato orfano).        |
 //| L'EA si era chiuso normalmente, lo stato non serve.              |
@@ -207,6 +204,11 @@ void SaveState()
       SaveStateBool(p + "hsAct",     g_cycles[i].hsActive);
       SaveStateInt(p + "hsFill",     (int)g_cycles[i].hsFillTime);
       SaveStateDouble(p + "hsPL",    g_cycles[i].hsPL);
+      // v1.7.2 — Step1 BE + Step2 TP
+      SaveStateDouble(p + "hsFillPx",  g_cycles[i].hsFillPrice);
+      SaveStateDouble(p + "hsMidSig",  g_cycles[i].hsMidlineAtSignal);
+      SaveStateBool(p + "hsBESet",     g_cycles[i].hsBESet);
+      SaveStateBool(p + "hsS2Rch",     g_cycles[i].hsStep2Reached);
    }
 
    // Timestamp
@@ -297,8 +299,13 @@ bool RestoreState()
          g_cycles[i].hsPending      = RestoreStateBool(p + "hsPend");
          g_cycles[i].hsActive       = RestoreStateBool(p + "hsAct");
          g_cycles[i].hsFillTime     = (datetime)RestoreStateInt(p + "hsFill");
-         g_cycles[i].hsLineName     = "";  // Visual objects not persisted
-         g_cycles[i].hsPL           = RestoreStateDouble(p + "hsPL");
+         g_cycles[i].hsLineName        = "";  // Visual objects not persisted
+         g_cycles[i].hsPL              = RestoreStateDouble(p + "hsPL");
+         // v1.7.2 — Step1 BE + Step2 TP
+         g_cycles[i].hsFillPrice       = RestoreStateDouble(p + "hsFillPx");
+         g_cycles[i].hsMidlineAtSignal = RestoreStateDouble(p + "hsMidSig");
+         g_cycles[i].hsBESet           = RestoreStateBool(p + "hsBESet");
+         g_cycles[i].hsStep2Reached    = RestoreStateBool(p + "hsS2Rch");
       }
    }
 

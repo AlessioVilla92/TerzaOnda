@@ -8,12 +8,9 @@
 //|                                                                  |
 //|  MAGIC NUMBERS:                                                  |
 //|    MagicNumber     = Soup (ordine principale)                    |
-//|    MagicNumber + 1 = H1 Recovery Hedge                           |
-//|    MagicNumber + 2 = H2 Protection Hedge                         |
+//|    MagicNumber + 1 = Hedge Smart (HS)                             |
 //|                                                                  |
-//|  v1.5.0: CloseAll/DeleteAll gestiscono Magic+1 e Magic+2         |
-//|    CloseAllPositions() — chiude Soup + H1 + H2 positions         |
-//|    DeleteAllPendingOrders() — cancella pendenti Soup + H1 + H2   |
+//|  CloseAll/DeleteAll gestiscono Magic e Magic+1                    |
 //|    Magic number restaurato a MagicNumber dopo ogni operazione     |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
@@ -420,8 +417,8 @@ int CloseAllPositions()
       ulong ticket = PositionGetTicket(i);
       if(!PositionSelectByTicket(ticket)) continue;
       long posMagic = PositionGetInteger(POSITION_MAGIC);
-      // Chiude Soup (Magic), H1 (Magic+1), H2 (Magic+2)
-      if(posMagic != MagicNumber && posMagic != MagicNumber + 1 && posMagic != MagicNumber + 2) continue;
+      // Chiude Soup (Magic) e Hedge Smart (Magic+1)
+      if(posMagic != MagicNumber && posMagic != MagicNumber + 1) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
 
       g_trade.SetExpertMagicNumber((int)posMagic);
@@ -442,8 +439,8 @@ int DeleteAllPendingOrders()
       ulong ticket = OrderGetTicket(i);
       if(!OrderSelect(ticket)) continue;
       long ordMagic = OrderGetInteger(ORDER_MAGIC);
-      // Cancella pendenti Soup (Magic), H1 (Magic+1), H2 (Magic+2)
-      if(ordMagic != MagicNumber && ordMagic != MagicNumber + 1 && ordMagic != MagicNumber + 2) continue;
+      // Cancella pendenti Soup (Magic) e Hedge Smart (Magic+1)
+      if(ordMagic != MagicNumber && ordMagic != MagicNumber + 1) continue;
       if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
 
       g_trade.SetExpertMagicNumber((int)ordMagic);

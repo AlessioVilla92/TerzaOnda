@@ -1,13 +1,9 @@
 //+------------------------------------------------------------------+
 //|                                        adCycleManager.mqh        |
-//|           AcquaDulza EA v1.6.1 — Cycle Manager                   |
+//|           AcquaDulza EA v1.7.2 — Cycle Manager                   |
 //|                                                                  |
 //|  Manages trade cycles: create, monitor, expire, detect fills     |
-//|  Absorbed from carnTriggerSystem + Carneval.mq5 cycle logic      |
-//|                                                                  |
-//|  v1.5.0: Two-Tier hedge — 9 campi H2 + 2 tracking H1             |
-//|    CreateCycle() — resetta 18 campi hedge (H1+H2+tracking)       |
-//|    InitCycleManager() — idem per inizializzazione completa       |
+//|  HedgeSmart: 13 campi HS in CycleRecord (v1.7.0 + v1.7.2)      |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -151,15 +147,20 @@ int CreateCycle(const EngineSignal &sig)
    g_cycles[slot].quality         = sig.quality;
    g_cycles[slot].profit          = 0;
    // HedgeSmart fields reset
-   g_cycles[slot].hsTicket       = 0;
-   g_cycles[slot].hsTriggerPrice = 0;
-   g_cycles[slot].hsTpRefLevel   = 0;
-   g_cycles[slot].hsLotSize      = 0;
-   g_cycles[slot].hsPending      = false;
-   g_cycles[slot].hsActive       = false;
-   g_cycles[slot].hsFillTime     = 0;
-   g_cycles[slot].hsLineName     = "";
-   g_cycles[slot].hsPL           = 0;
+   g_cycles[slot].hsTicket            = 0;
+   g_cycles[slot].hsTriggerPrice      = 0;
+   g_cycles[slot].hsTpRefLevel        = 0;
+   g_cycles[slot].hsLotSize           = 0;
+   g_cycles[slot].hsPending           = false;
+   g_cycles[slot].hsActive            = false;
+   g_cycles[slot].hsFillTime          = 0;
+   g_cycles[slot].hsLineName          = "";
+   g_cycles[slot].hsPL                = 0;
+   // v1.7.2 — Step1 BE + Step2 TP
+   g_cycles[slot].hsFillPrice         = 0;
+   g_cycles[slot].hsMidlineAtSignal   = 0;
+   g_cycles[slot].hsBESet             = false;
+   g_cycles[slot].hsStep2Reached      = false;
 
    // [MOD] SL rimosso — CalculateLotSize(0, quality) usa il LotSize fisso come fallback.
    // Il secondo parametro (sig.quality) applica il moltiplicatore TBS/TWS:
@@ -404,18 +405,30 @@ void MonitorActive()
 {
    for(int i = 0; i < ArraySize(g_cycles); i++)
    {
-      if(g_cycles[i].state != CYCLE_ACTIVE) continue;
+      // v1.7.2: include CYCLE_HEDGING — quando Soup chiude con HS attiva,
+      // MonitorActive deve contabilizzare soupPL e fare HsCleanup
+      if(g_cycles[i].state != CYCLE_ACTIVE && g_cycles[i].state != CYCLE_HEDGING) continue;
 
       if(!IsPositionOpen(g_cycles[i].ticket))
       {
+         // v1.7.2: Chiudi HS contestualmente alla chiusura Soup
+         // Sostituisce l'ex Exit 2 (HsCloseOnSoupProfit) rimossa da HsMonitor
+         if(EnableHedge && HsEnabled)
+         {
+            AdLogI(LOG_CAT_HEDGE, StringFormat(
+               "HS CLEANUP on SoupClose #%d (Soup ticket=%d closed by broker/TP)",
+               g_cycles[i].cycleID, g_cycles[i].ticket));
+            HsCleanup(i, "SoupClosed_MonitorActive");
+         }
+
          // Position closed (TP/SL hit or manual close)
          double soupPL = GetClosedPositionProfit(g_cycles[i].ticket);
-         // Cycle NET = soupPL + h1Banked (per display dashboard)
-         // Session += soupPL ONLY (h1Banked gia' contabilizzato al momento del banking)
+         // Cycle NET = soupPL + hsPL (per display dashboard)
+         // Session += soupPL ONLY (hsPL gia' contabilizzato da HsClose)
          g_cycles[i].profit = soupPL + g_cycles[i].hsPL;
          g_cycles[i].state  = CYCLE_CLOSED;
 
-         // Update counters — solo soupPL, hedge1BankedProfit gia' in session quando bankato
+         // Update counters — solo soupPL (hsPL gia' aggiunto a session da HsClose)
          g_sessionRealizedProfit += soupPL;
          g_dailyRealizedProfit   += soupPL;
          double netPL = g_cycles[i].profit;  // NET = soupPL + hsPL
@@ -489,15 +502,20 @@ void InitializeCycles()
       g_cycles[i].quality   = 0;
       g_cycles[i].profit    = 0;
       // HedgeSmart fields
-      g_cycles[i].hsTicket       = 0;
-      g_cycles[i].hsTriggerPrice = 0;
-      g_cycles[i].hsTpRefLevel   = 0;
-      g_cycles[i].hsLotSize      = 0;
-      g_cycles[i].hsPending      = false;
-      g_cycles[i].hsActive       = false;
-      g_cycles[i].hsFillTime     = 0;
-      g_cycles[i].hsLineName     = "";
-      g_cycles[i].hsPL           = 0;
+      g_cycles[i].hsTicket            = 0;
+      g_cycles[i].hsTriggerPrice      = 0;
+      g_cycles[i].hsTpRefLevel        = 0;
+      g_cycles[i].hsLotSize           = 0;
+      g_cycles[i].hsPending           = false;
+      g_cycles[i].hsActive            = false;
+      g_cycles[i].hsFillTime          = 0;
+      g_cycles[i].hsLineName          = "";
+      g_cycles[i].hsPL                = 0;
+      // v1.7.2 — Step1 BE + Step2 TP
+      g_cycles[i].hsFillPrice         = 0;
+      g_cycles[i].hsMidlineAtSignal   = 0;
+      g_cycles[i].hsBESet             = false;
+      g_cycles[i].hsStep2Reached      = false;
    }
 
    Log_InitComplete("Cycle Manager");

@@ -137,10 +137,10 @@ void DrawHedgeSmartZones()
    datetime t2 = iTime(_Symbol, PERIOD_CURRENT, 0) + (datetime)(5 * PeriodSeconds());
 
    double trigLevelBuy = lowerBand - (cw * HsTriggerPct);
-   double tpRefBuy     = trigLevelBuy - (cw * 0.60);
+   double tpRefBuy     = trigLevelBuy - (cw * HsTpPct);    // v1.7.2: era hardcoded 0.60
 
    double trigLevelSell = upperBand + (cw * HsTriggerPct);
-   double tpRefSell     = trigLevelSell + (cw * 0.60);
+   double tpRefSell     = trigLevelSell + (cw * HsTpPct);  // v1.7.2: era hardcoded 0.60
 
    // ── ZONA TRIGGER BUY (arancione, sotto lower band) ──
    string nameTrgBuy = g_hsZoneTrigName + "_B";
@@ -173,8 +173,8 @@ void DrawHedgeSmartZones()
    ObjectSetInteger(0, nameTPBuy, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, nameTPBuy, OBJPROP_HIDDEN,     true);
    ObjectSetString(0,  nameTPBuy, OBJPROP_TOOLTIP,
-      StringFormat("HS TP Reference (BUY) | ~60%% cw | @ %s",
-         DoubleToString(tpRefBuy, _Digits)));
+      StringFormat("HS TP Reference (BUY) | %.0f%% cw | @ %s",
+         HsTpPct * 100, DoubleToString(tpRefBuy, _Digits)));
 
    // ── ZONA TRIGGER SELL (arancione, sopra upper band) ──
    string nameTrgSell = g_hsZoneTrigName + "_S";

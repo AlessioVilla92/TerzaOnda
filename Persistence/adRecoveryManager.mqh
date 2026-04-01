@@ -1,17 +1,11 @@
 //+------------------------------------------------------------------+
 //|                                    adRecoveryManager.mqh         |
-//|           AcquaDulza EA v1.6.1 — Recovery Manager                |
+//|           AcquaDulza EA v1.7.2 — Recovery Manager                |
 //|                                                                  |
 //|  Broker scan recovery: reconstruct cycles from positions/orders  |
 //|                                                                  |
-//|  v1.5.1: H1 banked profit recovery from deal history             |
-//|    Se H1 TP gia' colpito, ripristina hedge1BankedProfit/TPHit    |
-//|    Fix: g_nextCycleID off-by-one (era maxCycleID+1, ora maxID)   |
-//|                                                                  |
-//|  v1.5.0: Two-Tier hedge scan                                     |
-//|    H1 positions/orders: MagicNumber+1                             |
-//|    H2 positions/orders: MagicNumber+2                             |
-//|    H2 attivo: ripristina SL breakeven se Hedge2BreakevenSL=true  |
+//|  Magic: Soup=MagicNumber, HS=MagicNumber+1                       |
+//|  Legacy H2 (Magic+2): auto-cleanup al primo avvio post-v1.7.0   |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 
@@ -27,11 +21,10 @@ int      g_recoveredPendings  = 0;
 //|                                                                  |
 //| Il comment di ogni ordine/posizione AcquaDulza segue il formato: |
 //|   Soup: "AD_BUY_#12" / "AD_SELL_#3"                             |
-//|   H1:   "AD_HEDGE1_BUY_#12"                                     |
-//|   H2:   "AD_HEDGE2_SELL_#3"                                     |
+//|   HS:   "AD_HS_SELL_#12" / "AD_HS_BUY_#3"                      |
 //| Questa funzione estrae il numero dopo "#".                       |
 //| Il cycleID e' l'unico modo affidabile per collegare              |
-//| Soup → H1 → H2 durante il recovery (non il ticket).             |
+//| Soup → HS durante il recovery (non il ticket).                   |
 //+------------------------------------------------------------------+
 int ParseCycleIDFromComment(string comment)
 {

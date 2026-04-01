@@ -117,7 +117,7 @@ void ResetDailySessionFlags()
 
 //+------------------------------------------------------------------+
 //| HandleSessionEnd — Close positions at session end                |
-//| Simplified: single magic number, no hedge logic                  |
+//| Closes both Soup (MagicNumber) and HS (MagicNumber+1)           |
 //+------------------------------------------------------------------+
 void HandleSessionEnd()
 {
@@ -137,7 +137,8 @@ void HandleSessionEnd()
    {
       ulong ticket = PositionGetTicket(i);
       if(ticket == 0) continue;
-      if(PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
+      long posMagic = PositionGetInteger(POSITION_MAGIC);
+      if(posMagic != MagicNumber && posMagic != MagicNumber + 1) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
 
       double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
@@ -164,7 +165,8 @@ void HandleSessionEnd()
    {
       ulong ticket = OrderGetTicket(i);
       if(ticket == 0) continue;
-      if(OrderGetInteger(ORDER_MAGIC) != MagicNumber) continue;
+      long ordMagic = OrderGetInteger(ORDER_MAGIC);
+      if(ordMagic != MagicNumber && ordMagic != MagicNumber + 1) continue;
       if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
 
       bool deleted = false;

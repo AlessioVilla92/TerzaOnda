@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                                adEnums.mqh       |
-//|           AcquaDulza EA v1.6.1 — Enumerations & Structs          |
+//|           AcquaDulza EA v1.7.2 — Enumerations & Structs          |
 //|                                                                  |
 //|  Enum FRAMEWORK (stabili, non cambiano con engine swap)          |
 //|  + struct CycleRecord                                            |
@@ -223,10 +223,16 @@ struct CycleRecord
    datetime           hsFillTime;         // Timestamp fill (per calcolo barre attive anti-whipsaw)
    string             hsLineName;         // Nome oggetto grafico linea trigger
    double             hsPL;               // P&L realizzato HS (aggiornato alla chiusura)
+
+   // === HEDGE SMART v1.7.2 — Step1 BE + Step2 TP ===
+   double             hsFillPrice;        // Prezzo fill reale HS (può differire da hsTriggerPrice per slippage)
+   double             hsMidlineAtSignal;  // Midline al momento del segnale → usata come SL iniziale HS
+   bool               hsBESet;            // true dopo che Step1 BE è stato impostato
+   bool               hsStep2Reached;     // true dopo che Step2 tpRefLevel è stato raggiunto
 };
 
 //+------------------------------------------------------------------+
 //| COSTANTI GLOBALI                                                 |
 //+------------------------------------------------------------------+
 const int    MAX_CYCLES         = 10;      // Max cicli contemporanei (array size)
-const string EA_VERSION         = "1.7.1";
+const string EA_VERSION         = "1.7.3";
