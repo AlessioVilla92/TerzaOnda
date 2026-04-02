@@ -3,7 +3,7 @@
 //|  "L'acqua dolce che scorre tra le bande."                        |
 //+------------------------------------------------------------------+
 //|  Copyright (C) 2026 - AcquaDulza Development                    |
-//|  Version: 1.7.3                                                  |
+//|  Version: 1.8.0                                                  |
 //|  Engine: DPC v2.0 (Donchian Predictive Channel) — swappable      |
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -34,6 +34,13 @@
 //|  STRUMENTI SUPPORTATI:                                           |
 //|    Forex, Crypto (BTC/ETH), Gold, Silver, Oil, Indices, Stock CFD |
 //|    Auto-detection della classe strumento dal nome simbolo          |
+//|                                                                  |
+//|  CHANGELOG v1.8.0:                                               |
+//|    - Version bump: consolida fix v1.7.3 + canale HS dinamico     |
+//|    - Canale HS entry: linee arancioni tratteggiate esterne DPC   |
+//|      Formula: banda ± (cw × HsTriggerPct), dinamico barra/barra |
+//|    - FIX: HandleSessionEnd chiude anche HS (MagicNumber+1)       |
+//|    - OPT: DrawOverlayLine split statica/dinamica (-37% API calls)|
 //|                                                                  |
 //|  CHANGELOG v1.7.3:                                               |
 //|    - FIX: HandleSessionEnd ora chiude anche HS (MagicNumber+1)   |
@@ -133,10 +140,10 @@
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
 #property version   "1.72"
-#property description "AcquaDulza EA v1.7.3 — Reusable Trading Framework"
+#property description "AcquaDulza EA v1.8.0 — Reusable Trading Framework"
 #property description "Engine: DPC v2.0 (Donchian Predictive Channel v7.19)"
 #property description "Segnali: Turtle Soup (TBS forte 2x / TWS debole 1x)"
-#property description "Hedge: Hedge Smart v1.7.3 — Step1 BE + Step2 TP"
+#property description "Hedge: Hedge Smart v1.8.0 — Step1 BE + Step2 TP"
 #property description "Anti-repaint: bar[1] signals only"
 #property strict
 
