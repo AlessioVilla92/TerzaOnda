@@ -110,7 +110,8 @@ bool IsNewBarOverlay()
 //|                                                                  |
 //| OGGETTI CREATI: ~depth*6 segmenti OBJ_TREND + 1 CCanvas bitmap  |
 //|   (U, L, M, A per DPC + HU, HL per canale HS entry)            |
-//| COSTO: ~24,000 chiamate API MQL5 con depth=500 e HS attivo     |
+//| COSTO: ~15,000 chiamate API MQL5 con depth=500 e HS attivo     |
+//|   (v1.7.3 OPT: colore/stile/spessore solo alla creazione)     |
 //+------------------------------------------------------------------+
 
 void DrawChannelOverlay()
@@ -137,7 +138,7 @@ void DrawChannelOverlay()
    {
       for(int i = depth; i < g_ovlLastDepth; i++)
       {
-         string pfx = StringFormat("AD_OVL_%d_", i);
+         string pfx = "AD_OVL_" + IntegerToString(i) + "_";
          ObjectDelete(0, pfx + "U");
          ObjectDelete(0, pfx + "L");
          ObjectDelete(0, pfx + "M");
@@ -170,6 +171,9 @@ void DrawChannelOverlay()
       arrMA[i] = DPCGetMAValue(barIdx);
    }
 
+   // v1.7.3 OPT: Flag HS calcolato una volta fuori dal loop (evita 3 check × 500 iterazioni)
+   bool drawHS = (EnableHedge && HsEnabled && HsShowZones);
+
    // STEP 2: Disegna segmenti OBJ_TREND tra barre adiacenti
    // Ogni segmento collega bar[i] (piu' recente) a bar[i+1] (piu' vecchia)
    // Il segmento i=0 e' il "live edge" che collega bar[0] a bar[1]
@@ -180,7 +184,9 @@ void DrawChannelOverlay()
 
       datetime t1 = arrT[i];      // Tempo barra piu' recente (punto destro)
       datetime t2 = arrT[i + 1];  // Tempo barra piu' vecchia (punto sinistro)
-      string prefix = StringFormat("AD_OVL_%d_", i);
+
+      // v1.7.3 OPT: IntegerToString + concatenazione (evita StringFormat heap alloc × 500)
+      string prefix = "AD_OVL_" + IntegerToString(i) + "_";
 
       // Banda superiore — colore blu, stile solido
       DrawOverlayLine(prefix + "U", t2, arrU[i + 1], t1, arrU[i],
@@ -190,7 +196,7 @@ void DrawChannelOverlay()
       DrawOverlayLine(prefix + "L", t2, arrL[i + 1], t1, arrL[i],
                       AD_CHAN_LOWER_CLR, AD_CHAN_STYLE, AD_CHAN_WIDTH);
 
-      // Midline — colore dinamico per segmento:
+      // Midline — colore dinamico per segmento (usa DrawOverlayLineDynColor):
       //   0 = bullish (lime): midline sale
       //   1 = bearish (red):  midline scende
       //   2 = flat (cyan):    midline stabile
@@ -198,8 +204,8 @@ void DrawChannelOverlay()
       color midClr = AD_CHAN_MID_FLAT_CLR;
       if(midState == 0) midClr = AD_CHAN_MID_UP_CLR;
       else if(midState == 1) midClr = AD_CHAN_MID_DN_CLR;
-      DrawOverlayLine(prefix + "M", t2, arrM[i + 1], t1, arrM[i],
-                      midClr, AD_CHAN_MID_STYLE, AD_CHAN_WIDTH);
+      DrawOverlayLineDynColor(prefix + "M", t2, arrM[i + 1], t1, arrM[i],
+                              midClr, AD_CHAN_MID_STYLE, AD_CHAN_WIDTH);
 
       // MA filter line — teal, spessore 2, solo se valore valido
       // Serve come filtro visivo: segnali validi solo se prezzo
@@ -222,7 +228,7 @@ void DrawChannelOverlay()
       // Le linee "respirano" col canale: quando cw si allarga,
       // il canale HS si espande proporzionalmente (offset = 30% di cw).
       // Controllato da input HsShowZones (stesso toggle dei vecchi rettangoli).
-      if(EnableHedge && HsEnabled && HsShowZones)
+      if(drawHS)
       {
          double cw_i  = arrU[i] - arrL[i];
          double cw_i1 = arrU[i + 1] - arrL[i + 1];
@@ -522,30 +528,57 @@ void UpdateChannelLiveEdge()
 //|   style — stile (STYLE_SOLID, STYLE_DOT, STYLE_DASH)            |
 //|   width — spessore in pixel                                      |
 //+------------------------------------------------------------------+
+// v1.7.3 OPT: Versione base — crea oggetto + imposta proprietà statiche (colore, stile, spessore)
+//              Solo alla prima creazione. Dopo, aggiorna solo coordinate.
+//              Risparmio: ~7500 ObjectSet/barra (5 tipi × 500 segmenti × 3 prop statiche)
 void DrawOverlayLine(string name, datetime t1, double p1, datetime t2, double p2,
                      color clr, ENUM_LINE_STYLE style, int width)
 {
-   // Crea oggetto se non esiste ancora (prima barra dopo OnInit)
    if(ObjectFind(0, name) < 0)
    {
       ObjectCreate(0, name, OBJ_TREND, 0, t1, p1, t2, p2);
-      ObjectSetInteger(0, name, OBJPROP_RAY_LEFT, false);   // No estensione a sinistra
-      ObjectSetInteger(0, name, OBJPROP_RAY_RIGHT, false);  // No estensione a destra
+      ObjectSetInteger(0, name, OBJPROP_RAY_LEFT, false);
+      ObjectSetInteger(0, name, OBJPROP_RAY_RIGHT, false);
       ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
-      ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);      // Nascosto da Lista Oggetti
-      ObjectSetInteger(0, name, OBJPROP_BACK, true);        // Dietro le candele
-      ObjectSetInteger(0, name, OBJPROP_ZORDER, 50);        // Sopra il canvas fill
+      ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+      ObjectSetInteger(0, name, OBJPROP_BACK, true);
+      ObjectSetInteger(0, name, OBJPROP_ZORDER, 50);
+      // Proprietà statiche: impostate solo alla creazione
+      ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+      ObjectSetInteger(0, name, OBJPROP_STYLE, style);
+      ObjectSetInteger(0, name, OBJPROP_WIDTH, width);
    }
 
-   // Aggiorna coordinate, colore e stile ad ogni chiamata
-   // (le bande cambiano su ogni nuova barra)
+   // Aggiorna SOLO le coordinate (cambiano ad ogni nuova barra)
    ObjectSetInteger(0, name, OBJPROP_TIME, 0, t1);
    ObjectSetDouble(0, name, OBJPROP_PRICE, 0, p1);
    ObjectSetInteger(0, name, OBJPROP_TIME, 1, t2);
    ObjectSetDouble(0, name, OBJPROP_PRICE, 1, p2);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
-   ObjectSetInteger(0, name, OBJPROP_STYLE, style);
-   ObjectSetInteger(0, name, OBJPROP_WIDTH, width);
+}
+
+// v1.7.3 OPT: Versione con colore dinamico — per la Midline che cambia colore
+//              ogni barra (bull/bear/flat). Aggiorna coordinate + colore.
+void DrawOverlayLineDynColor(string name, datetime t1, double p1, datetime t2, double p2,
+                             color clr, ENUM_LINE_STYLE style, int width)
+{
+   if(ObjectFind(0, name) < 0)
+   {
+      ObjectCreate(0, name, OBJ_TREND, 0, t1, p1, t2, p2);
+      ObjectSetInteger(0, name, OBJPROP_RAY_LEFT, false);
+      ObjectSetInteger(0, name, OBJPROP_RAY_RIGHT, false);
+      ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+      ObjectSetInteger(0, name, OBJPROP_BACK, true);
+      ObjectSetInteger(0, name, OBJPROP_ZORDER, 50);
+      ObjectSetInteger(0, name, OBJPROP_STYLE, style);
+      ObjectSetInteger(0, name, OBJPROP_WIDTH, width);
+   }
+
+   ObjectSetInteger(0, name, OBJPROP_TIME, 0, t1);
+   ObjectSetDouble(0, name, OBJPROP_PRICE, 0, p1);
+   ObjectSetInteger(0, name, OBJPROP_TIME, 1, t2);
+   ObjectSetDouble(0, name, OBJPROP_PRICE, 1, p2);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);  // Colore aggiornato ogni barra
 }
 
 //+------------------------------------------------------------------+
