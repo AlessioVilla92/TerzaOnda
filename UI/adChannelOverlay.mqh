@@ -3,43 +3,106 @@
 //|           AcquaDulza EA v1.7.3 — Channel Overlay                 |
 //|                                                                  |
 //|  Visualizzazione grafica del canale Donchian Predictive sul chart.|
+//|  Disegna il canale DPC (bande + midline + MA) e il canale        |
+//|  Hedge Smart entry (linee esterne dinamiche) come segmenti       |
+//|  OBJ_TREND barra per barra, con fill trasparente CCanvas.        |
 //|                                                                  |
+//|  ═══════════════════════════════════════════════════════════════  |
 //|  ARCHITETTURA A DUE LIVELLI:                                     |
+//|  ═══════════════════════════════════════════════════════════════  |
 //|                                                                  |
 //|  1. FULL REDRAW (DrawChannelOverlay) — solo su nuova barra:      |
 //|     Calcola le bande Donchian per tutte le barre storiche        |
-//|     (da bar[0] a bar[depth]) e disegna:                          |
-//|     - Upper/Lower bands come segmenti OBJ_TREND (blu)            |
-//|     - Midline con 3 colori (lime=bull, red=bear, cyan=flat)      |
-//|     - MA filter line (teal)                                      |
-//|     - HS entry channel (arancione tratteggiato, canale esterno)  |
-//|       Formula: banda ± (cw × HsTriggerPct) — Donchian omotetiche|
-//|     - Fill trasparente tra le bande (CCanvas bitmap)             |
+//|     (da bar[0] a bar[depth]) e disegna 6 tipi di segmento:      |
+//|                                                                  |
+//|     a) Upper band (U)  — blu solido, bordo superiore Donchian    |
+//|     b) Lower band (L)  — blu solido, bordo inferiore Donchian    |
+//|     c) Midline (M)     — colore dinamico per barra:              |
+//|                           lime = bullish (midline sale)           |
+//|                           red  = bearish (midline scende)         |
+//|                           cyan = flat (midline stabile)           |
+//|     d) MA filter (A)   — teal, linea media mobile inverted/class |
+//|     e) HS Upper (HU)   — arancione tratteggiato, canale esterno  |
+//|                           upper + (cw × HsTriggerPct)             |
+//|                           Mostra dove entrerebbe BUY STOP HS     |
+//|                           se fosse attiva una SELL Soup           |
+//|     f) HS Lower (HL)   — arancione tratteggiato, canale esterno  |
+//|                           lower - (cw × HsTriggerPct)             |
+//|                           Mostra dove entrerebbe SELL STOP HS    |
+//|                           se fosse attiva una BUY Soup            |
+//|                                                                  |
+//|     + Fill trasparente CCanvas tra upper e lower (alpha=40)      |
 //|                                                                  |
 //|  2. LIVE EDGE UPDATE (UpdateChannelLiveEdge) — ogni 500ms:       |
 //|     Aggiorna SOLO il segmento index=0 (che collega bar[1] a      |
-//|     bar[0]) con i valori DPC correnti. Costo trascurabile:       |
-//|     ~8 chiamate ObjectSet vs ~16,000 del full redraw.            |
+//|     bar[0]) per tutti i 6 tipi. Mantiene il bordo destro del     |
+//|     canale sincronizzato con la candela in formazione.            |
+//|     Costo: ~12 chiamate ObjectSet (vs ~15,000 del full redraw)   |
 //|                                                                  |
+//|  ═══════════════════════════════════════════════════════════════  |
+//|  OTTIMIZZAZIONI PERFORMANCE (v1.7.3):                            |
+//|  ═══════════════════════════════════════════════════════════════  |
+//|                                                                  |
+//|  - DrawOverlayLine(): proprietà statiche (colore, stile,         |
+//|    spessore) impostate SOLO alla prima creazione dell'oggetto.   |
+//|    Dopo, aggiorna SOLO le 4 coordinate (time/price × 2 punti).  |
+//|    Usata per: U, L, A, HU, HL (colore fisso)                    |
+//|                                                                  |
+//|  - DrawOverlayLineDynColor(): come sopra, ma aggiorna anche il   |
+//|    colore ad ogni barra. Usata SOLO per la Midline (M) che       |
+//|    cambia colore lime/red/cyan in base al trend.                 |
+//|                                                                  |
+//|  - IntegerToString() al posto di StringFormat() per i nomi       |
+//|    dei segmenti nel loop tight (evita allocazione heap × 500)    |
+//|                                                                  |
+//|  - Flag bool drawHS pre-calcolato fuori dal loop (evita          |
+//|    3 check booleani × 500 iterazioni)                            |
+//|                                                                  |
+//|  Risultato: ~15,000 API calls per redraw (era ~24,000 = -37%)   |
+//|                                                                  |
+//|  ═══════════════════════════════════════════════════════════════  |
 //|  NAMING CONVENTION OGGETTI CHART:                                |
+//|  ═══════════════════════════════════════════════════════════════  |
+//|                                                                  |
+//|   Canale DPC (4 tipi × depth segmenti):                          |
 //|   "AD_OVL_{i}_U"  — Upper band, segmento i                      |
 //|   "AD_OVL_{i}_L"  — Lower band, segmento i                      |
-//|   "AD_OVL_{i}_M"  — Midline, segmento i                         |
+//|   "AD_OVL_{i}_M"  — Midline, segmento i (colore dinamico)       |
 //|   "AD_OVL_{i}_A"  — MA filter line, segmento i                  |
+//|                                                                  |
+//|   Canale HS entry (2 tipi × depth segmenti, se hedge attivo):    |
 //|   "AD_OVL_{i}_HU" — HS entry channel upper, segmento i          |
 //|   "AD_OVL_{i}_HL" — HS entry channel lower, segmento i          |
+//|                                                                  |
+//|   Canvas e TP:                                                   |
 //|   "AD_OVL_CANVAS"  — CCanvas bitmap per il fill trasparente      |
 //|   "AD_TP_LINE_{id}" — Linea orizzontale TP per ciclo             |
 //|   "AD_TP_DOT_{id}"  — Punto cerchio TP per ciclo                 |
 //|   "AD_TP_HIT_{id}"  — Stella quando TP viene raggiunto           |
+//|   "AD_TP_STAR_{B|S}_{time}" — Asterisco giallo TP preview        |
 //|   "AD_TRIG_VL_{t}"  — VLine trigger (disattivata, func presente) |
 //|                                                                  |
+//|  ═══════════════════════════════════════════════════════════════  |
+//|  CLEANUP:                                                        |
+//|  ═══════════════════════════════════════════════════════════════  |
+//|                                                                  |
+//|  - CleanupOverlay(): ObjectsDeleteAll("AD_OVL_") cattura tutti   |
+//|    i segmenti (U/L/M/A/HU/HL) + canvas. CCanvas.Destroy()       |
+//|    libera la memoria bitmap. Chiamata da OnDeinit().             |
+//|  - Depth change: loop elimina segmenti orfani (inclusi legacy    |
+//|    H2U/H2L dal v1.5.0 Two-Tier hedge rimosso in v1.7.0)        |
+//|  - HedgeDeinit(): pulisce legacy AD_HS_ZONE_* da v1.7.2         |
+//|                                                                  |
+//|  ═══════════════════════════════════════════════════════════════  |
 //|  DIPENDENZE:                                                     |
+//|  ═══════════════════════════════════════════════════════════════  |
+//|                                                                  |
 //|   - Engine/adDPCBands.mqh: DPCComputeBands(), DPCGetMAValue(),   |
 //|     DPCGetMidlineColor()                                         |
-//|   - Config/adVisualTheme.mqh: AD_CHAN_* defines (colori/stili)    |
+//|   - Config/adVisualTheme.mqh: AD_CHAN_* e AD_HS_CHAN_* defines    |
 //|   - Config/adInputParameters.mqh: ShowChannelOverlay,            |
-//|     OverlayDepth, ShowTPTargetLines                              |
+//|     OverlayDepth, ShowTPTargetLines, EnableHedge, HsEnabled,     |
+//|     HsShowZones, HsTriggerPct                                    |
 //|   - Canvas/Canvas.mqh: classe CCanvas per fill trasparente       |
 //+------------------------------------------------------------------+
 #property copyright "AcquaDulza (C) 2026"
@@ -56,9 +119,11 @@ uint    g_ovlLastRedrawMs = 0;     // Timestamp ultimo redraw canvas (throttle s
 int     g_ovlLastDepth   = 0;     // Profondita' effettiva dell'ultimo disegno (per cleanup segmenti)
 
 // v1.7.3: Canale HS entry dinamico — sostituisce i 4 rettangoli statici (AD_HS_ZONE_*)
-// Le linee HU/HL seguono le bande DPC barra per barra come un Donchian esterno
-// Controllato da: EnableHedge, HsEnabled, HsShowZones (input esistenti)
-// Colore/stile: AD_HS_CHAN_CLR/STYLE/WIDTH (definiti in adVisualTheme.mqh)
+//          Le linee HU/HL seguono le bande DPC barra per barra come un Donchian esterno.
+//          Geometria: upper + (cw × 30%) sopra, lower - (cw × 30%) sotto.
+//          Il canale si allarga/stringe proporzionalmente al channel width (omotetia).
+//          Controllato da: EnableHedge, HsEnabled, HsShowZones (input esistenti)
+//          Colore/stile: AD_HS_CHAN_CLR/STYLE/WIDTH (definiti in adVisualTheme.mqh)
 
 //+------------------------------------------------------------------+
 //| IsNewBarOverlay — Rileva nuova barra per l'overlay               |
@@ -398,16 +463,22 @@ void RedrawOverlayFill()
 //| SCOPO: Funzione LEGGERA chiamata ogni 500ms per tenere           |
 //|        aggiornato il segmento index=0 del canale, che collega    |
 //|        bar[1] (confermata) a bar[0] (candela corrente in         |
-//|        formazione). Aggiorna solo le coordinate del punto destro |
-//|        (bar[0]) dei 4 segmenti: Upper, Lower, Midline, MA.      |
+//|        formazione). Aggiorna le coordinate del punto destro      |
+//|        (bar[0]) di tutti i 6 segmenti:                           |
+//|          U  = Upper band                                         |
+//|          L  = Lower band                                         |
+//|          M  = Midline (+ colore dinamico bull/bear/flat)         |
+//|          A  = MA filter line                                     |
+//|          HU = HS entry channel upper (se hedge attivo)           |
+//|          HL = HS entry channel lower (se hedge attivo)           |
 //|                                                                  |
 //| PERCHE' SERVE:                                                   |
 //|   Tra una barra e l'altra, il prezzo cambia ma la barra[0]      |
 //|   e' ancora in formazione. Senza questo update, il bordo destro  |
 //|   del canale resterebbe fermo fino alla prossima barra.          |
 //|                                                                  |
-//| COSTO: ~8 chiamate ObjectSet + 1 DPCComputeBands + 1 MA read    |
-//|        (vs ~16,000 del full DrawChannelOverlay)                  |
+//| COSTO: ~12 chiamate ObjectSet + 1 DPCComputeBands + 1 MA read   |
+//|        (vs ~15,000 del full DrawChannelOverlay)                  |
 //|                                                                  |
 //| CONVENTION PUNTI OBJ_TREND:                                      |
 //|   Punto 0 (OBJPROP_TIME/PRICE 0) = bar[1] (estremo sinistro)    |
@@ -506,10 +577,21 @@ void UpdateChannelLiveEdge()
 
 //+------------------------------------------------------------------+
 //| DrawOverlayLine — Crea o aggiorna un segmento OBJ_TREND         |
+//|                    (versione STATICA — colore fisso)              |
 //|                                                                  |
-//| SCOPO: Funzione helper che gestisce un singolo segmento di linea.|
-//|        Se l'oggetto non esiste, lo crea con tutte le proprieta'. |
-//|        Se esiste gia', aggiorna solo coordinate, colore e stile. |
+//| SCOPO: Gestisce un singolo segmento di linea del canale.         |
+//|        PRIMA CHIAMATA: crea l'oggetto con TUTTE le proprietà     |
+//|          (coordinate + colore + stile + spessore + flags).       |
+//|        CHIAMATE SUCCESSIVE: aggiorna SOLO le 4 coordinate        |
+//|          (time/price × 2 punti). Colore/stile/spessore restano   |
+//|          quelli impostati alla creazione.                        |
+//|                                                                  |
+//| USATA PER: U (upper), L (lower), A (MA filter),                 |
+//|            HU (HS upper), HL (HS lower)                          |
+//|            — tutti segmenti a colore fisso.                      |
+//|                                                                  |
+//| NON usare per la Midline (M) che cambia colore ogni barra       |
+//|   → usare DrawOverlayLineDynColor() per quella.                  |
 //|                                                                  |
 //| PROPRIETA' SETTATE ALLA CREAZIONE:                               |
 //|   - RAY_LEFT/RIGHT = false: segmento finito, non esteso         |
@@ -519,18 +601,11 @@ void UpdateChannelLiveEdge()
 //|     Serve solo a non intasare la finestra Lista Oggetti.         |
 //|   - BACK = true: disegnato dietro le candele                     |
 //|   - ZORDER = 50: priorita' rendering sopra il canvas fill       |
+//|   - COLOR, STYLE, WIDTH: impostati UNA SOLA VOLTA               |
 //|                                                                  |
-//| PARAMETRI:                                                       |
-//|   name  — nome univoco dell'oggetto (es. "AD_OVL_0_U")          |
-//|   t1,p1 — coordinate primo punto (barra piu' vecchia)           |
-//|   t2,p2 — coordinate secondo punto (barra piu' recente)         |
-//|   clr   — colore della linea                                    |
-//|   style — stile (STYLE_SOLID, STYLE_DOT, STYLE_DASH)            |
-//|   width — spessore in pixel                                      |
+//| v1.7.3 OPT: Risparmio ~7,500 ObjectSet per redraw               |
+//|   (5 tipi × 500 segmenti × 3 proprietà statiche skippate)       |
 //+------------------------------------------------------------------+
-// v1.7.3 OPT: Versione base — crea oggetto + imposta proprietà statiche (colore, stile, spessore)
-//              Solo alla prima creazione. Dopo, aggiorna solo coordinate.
-//              Risparmio: ~7500 ObjectSet/barra (5 tipi × 500 segmenti × 3 prop statiche)
 void DrawOverlayLine(string name, datetime t1, double p1, datetime t2, double p2,
                      color clr, ENUM_LINE_STYLE style, int width)
 {
@@ -556,8 +631,21 @@ void DrawOverlayLine(string name, datetime t1, double p1, datetime t2, double p2
    ObjectSetDouble(0, name, OBJPROP_PRICE, 1, p2);
 }
 
-// v1.7.3 OPT: Versione con colore dinamico — per la Midline che cambia colore
-//              ogni barra (bull/bear/flat). Aggiorna coordinate + colore.
+//+------------------------------------------------------------------+
+//| DrawOverlayLineDynColor — Segmento con colore DINAMICO           |
+//|                                                                  |
+//| Come DrawOverlayLine(), ma aggiorna anche il COLORE ad ogni      |
+//| chiamata (non solo le coordinate). Stile e spessore restano      |
+//| statici (impostati solo alla creazione).                         |
+//|                                                                  |
+//| USATA SOLO PER: M (Midline) — cambia colore ogni barra:         |
+//|   lime = bullish (midline sale rispetto a 2 barre fa)            |
+//|   red  = bearish (midline scende)                                |
+//|   cyan = flat (midline stabile entro 2×g_pipSize)                |
+//|                                                                  |
+//| Costo extra vs DrawOverlayLine: +1 ObjectSet (OBJPROP_COLOR)     |
+//|   per segmento × 500 = +500 chiamate. Accettabile per 1 tipo.   |
+//+------------------------------------------------------------------+
 void DrawOverlayLineDynColor(string name, datetime t1, double p1, datetime t2, double p2,
                              color clr, ENUM_LINE_STYLE style, int width)
 {
