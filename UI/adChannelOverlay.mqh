@@ -12,6 +12,8 @@
 //|     - Upper/Lower bands come segmenti OBJ_TREND (blu)            |
 //|     - Midline con 3 colori (lime=bull, red=bear, cyan=flat)      |
 //|     - MA filter line (teal)                                      |
+//|     - HS entry channel (arancione tratteggiato, canale esterno)  |
+//|       Formula: banda ± (cw × HsTriggerPct) — Donchian omotetiche|
 //|     - Fill trasparente tra le bande (CCanvas bitmap)             |
 //|                                                                  |
 //|  2. LIVE EDGE UPDATE (UpdateChannelLiveEdge) — ogni 500ms:       |
@@ -53,7 +55,10 @@ bool    g_canvasCreated = false;   // Flag: true dopo la prima creazione del can
 uint    g_ovlLastRedrawMs = 0;     // Timestamp ultimo redraw canvas (throttle scroll a ~33 FPS)
 int     g_ovlLastDepth   = 0;     // Profondita' effettiva dell'ultimo disegno (per cleanup segmenti)
 
-// HedgeSmart dynamic channel (replaces static rectangle zones)
+// v1.7.3: Canale HS entry dinamico — sostituisce i 4 rettangoli statici (AD_HS_ZONE_*)
+// Le linee HU/HL seguono le bande DPC barra per barra come un Donchian esterno
+// Controllato da: EnableHedge, HsEnabled, HsShowZones (input esistenti)
+// Colore/stile: AD_HS_CHAN_CLR/STYLE/WIDTH (definiti in adVisualTheme.mqh)
 
 //+------------------------------------------------------------------+
 //| IsNewBarOverlay — Rileva nuova barra per l'overlay               |
@@ -103,8 +108,9 @@ bool IsNewBarOverlay()
 //|      - MA filter (teal, solo se valore valido)                   |
 //|   5. Disegna fill trasparente CCanvas tra upper e lower          |
 //|                                                                  |
-//| OGGETTI CREATI: ~depth*4 segmenti OBJ_TREND + 1 CCanvas bitmap  |
-//| COSTO: ~16,000 chiamate API MQL5 con depth=500                  |
+//| OGGETTI CREATI: ~depth*6 segmenti OBJ_TREND + 1 CCanvas bitmap  |
+//|   (U, L, M, A per DPC + HU, HL per canale HS entry)            |
+//| COSTO: ~24,000 chiamate API MQL5 con depth=500 e HS attivo     |
 //+------------------------------------------------------------------+
 
 void DrawChannelOverlay()
@@ -204,9 +210,18 @@ void DrawChannelOverlay()
                          AD_CHAN_MA_CLR, STYLE_SOLID, 2);
       }
 
-      // Hedge Smart entry channel — canale esterno dinamico (arancione tratteggiato)
-      // Mostra dove l'HS entrerebbe se un segnale Soup fosse attivo su questa barra
-      // Formula: banda ± (cw × HsTriggerPct), identica a HsPlaceOrder()
+      // ── v1.7.3: Hedge Smart entry channel (canale esterno dinamico) ──
+      // Disegna 2 linee arancioni tratteggiate esterne al canale DPC.
+      // Rappresentano i livelli a cui l'HS piazzerebbe un ordine STOP
+      // se un segnale Soup fosse attivo su questa barra.
+      //
+      // Formula (identica a HsPlaceOrder in adHedgeManager.mqh):
+      //   HU = upperBand + (channelWidth × HsTriggerPct)  → SELL Soup → BUY STOP HS
+      //   HL = lowerBand - (channelWidth × HsTriggerPct)  → BUY Soup  → SELL STOP HS
+      //
+      // Le linee "respirano" col canale: quando cw si allarga,
+      // il canale HS si espande proporzionalmente (offset = 30% di cw).
+      // Controllato da input HsShowZones (stesso toggle dei vecchi rettangoli).
       if(EnableHedge && HsEnabled && HsShowZones)
       {
          double cw_i  = arrU[i] - arrL[i];
@@ -230,7 +245,7 @@ void DrawChannelOverlay()
    // STEP 3: Disegna fill trasparente tra upper e lower band
    DrawBandFill(arrU, arrL, arrT, depth);
 
-   // HS entry channel disegnato inline nel loop segmenti (sopra)
+   // v1.7.3: HS entry channel disegnato inline nel loop STEP 2 (segmenti HU/HL)
 }
 
 //+------------------------------------------------------------------+
@@ -456,7 +471,9 @@ void UpdateChannelLiveEdge()
       }
    }
 
-   // HS entry channel live edge — aggiorna segmento 0 HU/HL
+   // ── v1.7.3: HS entry channel — aggiorna live edge segmento 0 HU/HL ──
+   // Stesso calcolo del full redraw: banda ± (cw × HsTriggerPct)
+   // Aggiorna solo il punto destro (bar[0]) per seguire la barra in formazione
    if(EnableHedge && HsEnabled && HsShowZones)
    {
       double cw0 = upper0 - lower0;
