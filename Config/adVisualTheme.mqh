@@ -83,6 +83,11 @@
 #define AD_CHAN_STYLE       STYLE_SOLID
 #define AD_CHAN_MID_STYLE   STYLE_DOT
 
+// Hedge Smart entry channel (outer Donchian)
+#define AD_HS_CHAN_CLR      C'255,140,0'       // Arancione (= AD_HEDGE)
+#define AD_HS_CHAN_STYLE    STYLE_DOT          // Tratteggiato
+#define AD_HS_CHAN_WIDTH    1                  // Spessore 1 (leggero, non invadente)
+
 //+------------------------------------------------------------------+
 //| FRECCE SEGNALE — Replica indicatore TBS/TWS                      |
 //+------------------------------------------------------------------+
