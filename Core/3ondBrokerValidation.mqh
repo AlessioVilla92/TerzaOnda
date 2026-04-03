@@ -113,10 +113,10 @@ bool ValidateInputParameters()
       errors++;
    }
 
-   // DPC Engine period
-   if(InpLenDC < 5)
+   // KPC Engine ATR period
+   if(InpKPC_ATRPeriod < 1)
    {
-      Log_SystemError("Validation", 0, StringFormat("InpLenDC must be >= 5 (current: %d)", InpLenDC));
+      Log_SystemError("Validation", 0, StringFormat("InpKPC_ATRPeriod must be >= 1 (current: %d)", InpKPC_ATRPeriod));
       errors++;
    }
 

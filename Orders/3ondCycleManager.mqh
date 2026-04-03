@@ -233,7 +233,7 @@ void DetectFill(const MqlTradeTransaction& trans,
    double dealPrice = HistoryDealGetDouble(dealTicket, DEAL_PRICE);
    string dealComment = HistoryDealGetString(dealTicket, DEAL_COMMENT);
 
-   if(StringFind(dealComment, "3OND_") < 0) return;
+   if(StringFind(dealComment, "TOND_") < 0) return;
 
    for(int i = 0; i < ArraySize(g_cycles); i++)
    {
@@ -448,7 +448,7 @@ void MonitorActive()
                   g_cycles[i].cycleID,
                   g_cycles[i].direction > 0 ? "BUY" : "SELL",
                   netPL, FormatPrice(g_cycles[i].tpPrice), _Symbol));
-            AddFeedItem("TP hit " + FormatPrice(g_cycles[i].tpPrice) + " +$" + DoubleToString(netPL, 2), 3OND_BUY);
+            AddFeedItem("TP hit " + FormatPrice(g_cycles[i].tpPrice) + " +$" + DoubleToString(netPL, 2), TOND_BUY);
          }
          else
          {
@@ -456,7 +456,7 @@ void MonitorActive()
                   g_cycles[i].cycleID,
                   g_cycles[i].direction > 0 ? "BUY" : "SELL",
                   netPL, _Symbol));
-            AddFeedItem("SL hit -$" + DoubleToString(MathAbs(netPL), 2), 3OND_SELL);
+            AddFeedItem("SL hit -$" + DoubleToString(MathAbs(netPL), 2), TOND_SELL);
          }
 
          Log_PositionClosed(g_cycles[i].ticket, result, netPL,

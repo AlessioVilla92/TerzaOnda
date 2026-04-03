@@ -21,26 +21,26 @@
 //|    - Signal Feed (6 righe): ultime azioni EA in tempo reale      |
 //|                                                                  |
 //|  CORNICE PERIMETRALE (stile SugamaraPivot):                      |
-//|    - Sfondo scuro (3OND_BG_DEEP) creato PRIMO (sotto tutto)        |
+//|    - Sfondo scuro (TOND_BG_DEEP) creato PRIMO (sotto tutto)        |
 //|    - 4 rettangoli solidi (T/B/L/R) creati ULTIMI (sopra tutto)   |
 //|    - Titoli decorativi "────── TERZAONDA ──────" top/bottom      |
 //|                                                                  |
 //|  Z-ORDER e VISUAL STACKING:                                      |
-//|    - 3OND_Z_RECT (adVisualTheme): Z-order per rettangoli pannello  |
-//|    - 3OND_Z_LABEL: Z-order per etichette testo (sopra rettangoli)  |
-//|    - Frame border Z = 3OND_Z_LABEL + 1000: sempre in primo piano   |
+//|    - TOND_Z_RECT (adVisualTheme): Z-order per rettangoli pannello  |
+//|    - TOND_Z_LABEL: Z-order per etichette testo (sopra rettangoli)  |
+//|    - Frame border Z = TOND_Z_LABEL + 1000: sempre in primo piano   |
 //|    - BACK=false su tutti: dashboard SOPRA il chart (foreground)   |
 //|    - Overlay (adChannelOverlay) usa BACK=true: DIETRO le candele |
 //|                                                                  |
 //|  THEME COLORS (da adVisualTheme.mqh):                            |
-//|    3OND_BIOLUM      — cyan brillante C'0,212,255' (accento)        |
-//|    3OND_BIOLUM_DIM  — cyan attenuato (titoli secondari)            |
-//|    3OND_BUY/3OND_SELL — lime/rosso (P&L positivo/negativo)           |
-//|    3OND_AMBER       — giallo/ambra (warning, TWS, pending)         |
-//|    3OND_HEDGE       — fucsia (stato HEDG e H1)                     |
-//|    3OND_BG_DEEP     — blu scuro profondo (sfondo pannelli)         |
-//|    3OND_PANEL_BG    — grigio scuro (sfondo sezioni alternate)      |
-//|    3OND_TEXT_HI/MID/LO/MUTED — gerarchia testo (bianco→grigio)     |
+//|    TOND_BIOLUM      — cyan brillante C'0,212,255' (accento)        |
+//|    TOND_BIOLUM_DIM  — cyan attenuato (titoli secondari)            |
+//|    TOND_BUY/TOND_SELL — lime/rosso (P&L positivo/negativo)           |
+//|    TOND_AMBER       — giallo/ambra (warning, TWS, pending)         |
+//|    TOND_HEDGE       — fucsia (stato HEDG e H1)                     |
+//|    TOND_BG_DEEP     — blu scuro profondo (sfondo pannelli)         |
+//|    TOND_PANEL_BG    — grigio scuro (sfondo sezioni alternate)      |
+//|    TOND_TEXT_HI/MID/LO/MUTED — gerarchia testo (bianco→grigio)     |
 //|                                                                  |
 //|  v1.4.0: Integrazione hedge nel dashboard (6 punti)              |
 //|    DrawActiveCycles — stato "HEDG" fucsia + P&L combinato        |
@@ -58,22 +58,22 @@
 //| Alla prima chiamata crea l'oggetto; le successive aggiornano     |
 //| solo posizione, dimensione e colori (no delete+recreate).        |
 //|                                                                  |
-//| NAMING: Tutti i rettangoli hanno prefisso "3OND_" (per cleanup).   |
-//| STACKING: BACK=false + ZORDER=3OND_Z_RECT → foreground chart,     |
-//|           ma sotto le etichette testo (3OND_Z_LABEL > 3OND_Z_RECT).  |
+//| NAMING: Tutti i rettangoli hanno prefisso "TOND_" (per cleanup).   |
+//| STACKING: BACK=false + ZORDER=TOND_Z_RECT → foreground chart,     |
+//|           ma sotto le etichette testo (TOND_Z_LABEL > TOND_Z_RECT).  |
 //| BORDER: BORDER_FLAT = bordo 1px piatto (colore borderClr).       |
 //+------------------------------------------------------------------+
 void DashRectangle(string name, int x, int y, int width, int height,
                    color bgClr, color borderClr)
 {
-   string objName = "3OND_" + name;
+   string objName = "TOND_" + name;
 
    if(ObjectFind(0, objName) < 0)
    {
       ObjectCreate(0, objName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
       ObjectSetInteger(0, objName, OBJPROP_CORNER, CORNER_LEFT_UPPER);
       ObjectSetInteger(0, objName, OBJPROP_BACK, false);
-      ObjectSetInteger(0, objName, OBJPROP_ZORDER, 3OND_Z_RECT);
+      ObjectSetInteger(0, objName, OBJPROP_ZORDER, TOND_Z_RECT);
       ObjectSetInteger(0, objName, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, objName, OBJPROP_HIDDEN, true);
    }
@@ -90,16 +90,16 @@ void DashRectangle(string name, int x, int y, int width, int height,
 //+------------------------------------------------------------------+
 //| DashLabel — Crea/aggiorna un'etichetta testo                     |
 //|                                                                  |
-//| NAMING: Prefisso "3OND_DASH_" + id univoco (es. "3OND_DASH_H_PAIR").|
-//| STACKING: ZORDER=3OND_Z_LABEL → sopra i rettangoli pannello.      |
-//| Font default: 3OND_FONT_BODY / 3OND_FONT_SIZE_BODY (adVisualTheme). |
+//| NAMING: Prefisso "TOND_DASH_" + id univoco (es. "TOND_DASH_H_PAIR").|
+//| STACKING: ZORDER=TOND_Z_LABEL → sopra i rettangoli pannello.      |
+//| Font default: TOND_FONT_BODY / TOND_FONT_SIZE_BODY (adVisualTheme). |
 //| Testo vuoto: sostituito con " " per evitare artefatti MT5.       |
 //+------------------------------------------------------------------+
 void DashLabel(string id, int x, int y, string text, color clr,
-               int fontSize = 3OND_FONT_SIZE_BODY, string fontName = "")
+               int fontSize = TOND_FONT_SIZE_BODY, string fontName = "")
 {
-   if(fontName == "") fontName = 3OND_FONT_BODY;
-   string name = "3OND_DASH_" + id;
+   if(fontName == "") fontName = TOND_FONT_BODY;
+   string name = "TOND_DASH_" + id;
 
    if(ObjectFind(0, name) < 0)
    {
@@ -108,7 +108,7 @@ void DashLabel(string id, int x, int y, string text, color clr,
       ObjectSetInteger(0, name, OBJPROP_BACK, false);
       ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
-      ObjectSetInteger(0, name, OBJPROP_ZORDER, 3OND_Z_LABEL);
+      ObjectSetInteger(0, name, OBJPROP_ZORDER, TOND_Z_LABEL);
    }
 
    ObjectSetString(0, name, OBJPROP_FONT, fontName);
@@ -126,16 +126,16 @@ void DashLabel(string id, int x, int y, string text, color clr,
 //+------------------------------------------------------------------+
 void DrawHeaderRow(int x, int y, int w)
 {
-   DashRectangle("HDR_PANEL", x, y, w, 3OND_H_HEADER, 3OND_BG_SECTION_A, 3OND_BIOLUM_DIM);
+   DashRectangle("HDR_PANEL", x, y, w, TOND_H_HEADER, TOND_BG_SECTION_A, TOND_BIOLUM_DIM);
 
    // TERZAONDA — grande, font title
-   DashLabel("HDR_LOGO", x + 3OND_PAD, y + 7, "TERZAONDA", 3OND_BIOLUM, 14, 3OND_FONT_TITLE);
+   DashLabel("HDR_LOGO", x + TOND_PAD, y + 7, "TERZAONDA", TOND_BIOLUM, 14, TOND_FONT_TITLE);
 
    // Versione
-   DashLabel("HDR_VER", x + 3OND_PAD + 175, y + 12, "v" + EA_VERSION, 3OND_TEXT_MUTED, 9);
+   DashLabel("HDR_VER", x + TOND_PAD + 175, y + 12, "v" + EA_VERSION, TOND_TEXT_MUTED, 9);
 
    // ENGINE: KPC v1.0
-   DashLabel("HDR_ENG", x + w - 280, y + 12, "ENGINE: KPC v1.0", 3OND_BIOLUM_DIM, 9, 3OND_FONT_SECTION);
+   DashLabel("HDR_ENG", x + w - 280, y + 12, "ENGINE: KPC v1.0", TOND_BIOLUM_DIM, 9, TOND_FONT_SECTION);
 }
 
 //+------------------------------------------------------------------+
@@ -143,31 +143,31 @@ void DrawHeaderRow(int x, int y, int w)
 //+------------------------------------------------------------------+
 void DrawTitleBar(int x, int y, int w)
 {
-   int pad = 3OND_PAD;
-   DashRectangle("TITLE_PANEL", x, y, w, 3OND_H_TOPBAR, 3OND_BG_SECTION_A, 3OND_PANEL_BORDER);
+   int pad = TOND_PAD;
+   DashRectangle("TITLE_PANEL", x, y, w, TOND_H_TOPBAR, TOND_BG_SECTION_A, TOND_PANEL_BORDER);
 
    // Pair + price + spread
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   DashLabel("H_PAIR", x + pad, y + 8, _Symbol, 3OND_TEXT_HI, 11, 3OND_FONT_SECTION);
-   DashLabel("H_PRICE", x + pad + 90, y + 8, DoubleToString(bid, _Digits), 3OND_BIOLUM, 11);
-   DashLabel("H_SPREAD", x + pad + 200, y + 10, StringFormat("Spread:%.1f", GetSpreadPips()), 3OND_TEXT_MUTED, 8);
+   DashLabel("H_PAIR", x + pad, y + 8, _Symbol, TOND_TEXT_HI, 11, TOND_FONT_SECTION);
+   DashLabel("H_PRICE", x + pad + 90, y + 8, DoubleToString(bid, _Digits), TOND_BIOLUM, 11);
+   DashLabel("H_SPREAD", x + pad + 200, y + 10, StringFormat("Spread:%.1f", GetSpreadPips()), TOND_TEXT_MUTED, 8);
 
    // TF preset badge
    string tfBadge = "KPC v1.0";
-   if(InpEngineAutoTFPreset)
+   if(InpKPC_TFPreset == TF_PRESET_KC_AUTO)
       tfBadge += " " + EnumToString(Period());
-   DashLabel("H_TF", x + pad + 310, y + 10, tfBadge, 3OND_BIOLUM_DIM, 8);
+   DashLabel("H_TF", x + pad + 310, y + 10, tfBadge, TOND_BIOLUM_DIM, 8);
 
    // State badge with dot
-   string stateStr = "IDLE"; color stateClr = 3OND_TEXT_MUTED;
+   string stateStr = "IDLE"; color stateClr = TOND_TEXT_MUTED;
    switch(g_systemState)
    {
-      case STATE_ACTIVE:       stateStr = "ACTIVE";       stateClr = 3OND_BUY; break;
-      case STATE_PAUSED:       stateStr = "PAUSED";       stateClr = 3OND_AMBER; break;
-      case STATE_ERROR:        stateStr = "ERROR";        stateClr = 3OND_SELL; break;
-      case STATE_INITIALIZING: stateStr = "INIT...";      stateClr = 3OND_BIOLUM; break;
+      case STATE_ACTIVE:       stateStr = "ACTIVE";       stateClr = TOND_BUY; break;
+      case STATE_PAUSED:       stateStr = "PAUSED";       stateClr = TOND_AMBER; break;
+      case STATE_ERROR:        stateStr = "ERROR";        stateClr = TOND_SELL; break;
+      case STATE_INITIALIZING: stateStr = "INIT...";      stateClr = TOND_BIOLUM; break;
    }
-   DashLabel("H_STATE", x + w - 100, y + 8, ShortToString(0x25CF) + " " + stateStr, stateClr, 11, 3OND_FONT_SECTION);
+   DashLabel("H_STATE", x + w - 100, y + 8, ShortToString(0x25CF) + " " + stateStr, stateClr, 11, TOND_FONT_SECTION);
 }
 
 //+------------------------------------------------------------------+
@@ -175,9 +175,9 @@ void DrawTitleBar(int x, int y, int w)
 //+------------------------------------------------------------------+
 void DrawSystemStatus(int x, int y, int w)
 {
-   int pad = 3OND_PAD;
-   DashRectangle("SYS_PANEL", x, y, w, 3OND_H_SYSSTATUS, 3OND_PANEL_BG, 3OND_PANEL_BORDER);
-   DashLabel("SYS_TITLE", x + pad, y + 4, "SYSTEM STATUS", 3OND_BIOLUM_DIM, 9, 3OND_FONT_SECTION);
+   int pad = TOND_PAD;
+   DashRectangle("SYS_PANEL", x, y, w, TOND_H_SYSSTATUS, TOND_PANEL_BG, TOND_PANEL_BORDER);
+   DashLabel("SYS_TITLE", x + pad, y + 4, "SYSTEM STATUS", TOND_BIOLUM_DIM, 9, TOND_FONT_SECTION);
 
    // Grid: 3 rows x 2 columns, labels + values
    int col1 = x + pad;
@@ -188,46 +188,46 @@ void DrawSystemStatus(int x, int y, int w)
    int row3 = y + 58;
 
    // Row 1: Session | Uptime | Free Margin
-   DashLabel("SY_L1", col1, row1, "SESSION", 3OND_TEXT_LO, 7);
-   DashLabel("SY_V1", col1, row1 + 10, GetSessionStatus(), 3OND_TEXT_HI, 10, 3OND_FONT_SECTION);
+   DashLabel("SY_L1", col1, row1, "SESSION", TOND_TEXT_LO, 7);
+   DashLabel("SY_V1", col1, row1 + 10, GetSessionStatus(), TOND_TEXT_HI, 10, TOND_FONT_SECTION);
 
-   DashLabel("SY_L2", col3, row1, "UPTIME", 3OND_TEXT_LO, 7);
+   DashLabel("SY_L2", col3, row1, "UPTIME", TOND_TEXT_LO, 7);
    int upSec = (int)(TimeCurrent() - g_systemStartTime);
    int upH = upSec / 3600; int upM = (upSec % 3600) / 60; int upS = upSec % 60;
    DashLabel("SY_V2", col3, row1 + 10,
-             StringFormat("%02d:%02d:%02d", upH, upM, upS), 3OND_TEXT_HI, 10);
+             StringFormat("%02d:%02d:%02d", upH, upM, upS), TOND_TEXT_HI, 10);
 
    double freeMargin = GetFreeMargin();
    double marginLvl  = GetMarginLevel();
-   DashLabel("SY_L3", col5, row1, "FREE MARGIN", 3OND_TEXT_LO, 7);
+   DashLabel("SY_L3", col5, row1, "FREE MARGIN", TOND_TEXT_LO, 7);
    DashLabel("SY_V3", col5, row1 + 10, FormatMoney(freeMargin),
-             marginLvl > 500 ? 3OND_BUY : (marginLvl > 200 ? 3OND_AMBER : 3OND_SELL), 10);
+             marginLvl > 500 ? TOND_BUY : (marginLvl > 200 ? TOND_AMBER : TOND_SELL), 10);
 
    // Row 2: Spread | ATR | Balance
    double spread = GetSpreadPips();
-   DashLabel("SY_L4", col1, row2, "SPREAD", 3OND_TEXT_LO, 7);
+   DashLabel("SY_L4", col1, row2, "SPREAD", TOND_TEXT_LO, 7);
    DashLabel("SY_V4", col1, row2 + 10,
              StringFormat("%.1f pip", spread),
-             spread > g_inst_maxSpread ? 3OND_SELL : 3OND_BUY, 10);
+             spread > g_inst_maxSpread ? TOND_SELL : TOND_BUY, 10);
 
-   DashLabel("SY_L5", col3, row2, "ATR(14)", 3OND_TEXT_LO, 7);
+   DashLabel("SY_L5", col3, row2, "ATR(14)", TOND_TEXT_LO, 7);
    DashLabel("SY_V5", col3, row2 + 10,
-             StringFormat("%.1f pip", g_atrCache.valuePips), 3OND_BIOLUM, 10);
+             StringFormat("%.1f pip", g_atrCache.valuePips), TOND_BIOLUM, 10);
 
-   DashLabel("SY_L6", col5, row2, "BALANCE", 3OND_TEXT_LO, 7);
-   DashLabel("SY_V6", col5, row2 + 10, FormatMoney(GetBalance()), 3OND_TEXT_HI, 10);
+   DashLabel("SY_L6", col5, row2, "BALANCE", TOND_TEXT_LO, 7);
+   DashLabel("SY_V6", col5, row2 + 10, FormatMoney(GetBalance()), TOND_TEXT_HI, 10);
 
    // Row 3: Equity | Margin Level
    double equity = GetEquity();
    double balance = GetBalance();
-   DashLabel("SY_L7", col1, row3, "EQUITY", 3OND_TEXT_LO, 7);
+   DashLabel("SY_L7", col1, row3, "EQUITY", TOND_TEXT_LO, 7);
    DashLabel("SY_V7", col1, row3 + 10, FormatMoney(equity),
-             equity >= balance ? 3OND_BUY : 3OND_SELL, 10, 3OND_FONT_SECTION);
+             equity >= balance ? TOND_BUY : TOND_SELL, 10, TOND_FONT_SECTION);
 
-   DashLabel("SY_L8", col3, row3, "MARGIN LVL", 3OND_TEXT_LO, 7);
+   DashLabel("SY_L8", col3, row3, "MARGIN LVL", TOND_TEXT_LO, 7);
    DashLabel("SY_V8", col3, row3 + 10,
              marginLvl > 0 ? StringFormat("%.0f%%", marginLvl) : "---",
-             marginLvl > 500 ? 3OND_BUY : (marginLvl > 200 ? 3OND_AMBER : 3OND_SELL), 10);
+             marginLvl > 500 ? TOND_BUY : (marginLvl > 200 ? TOND_AMBER : TOND_SELL), 10);
 }
 
 //+------------------------------------------------------------------+
@@ -235,13 +235,13 @@ void DrawSystemStatus(int x, int y, int w)
 //+------------------------------------------------------------------+
 void DrawEnginePanel(int x, int y, int w)
 {
-   int pad = 3OND_PAD;
-   DashRectangle("ENG_PANEL", x, y, w, 3OND_H_ENGINE, 3OND_BG_DEEP, 3OND_PANEL_BORDER);
-   DashLabel("ENG_TITLE", x + pad, y + 6, "KPC ENGINE", 3OND_BIOLUM, 10, 3OND_FONT_SECTION);
+   int pad = TOND_PAD;
+   DashRectangle("ENG_PANEL", x, y, w, TOND_H_ENGINE, TOND_BG_DEEP, TOND_PANEL_BORDER);
+   DashLabel("ENG_TITLE", x + pad, y + 6, "KPC ENGINE", TOND_BIOLUM, 10, TOND_FONT_SECTION);
 
    bool ready = g_engineReady;
    DashLabel("ENG_STATUS", x + w - 100, y + 6,
-             ready ? "ACTIVE" : "INIT...", ready ? 3OND_BUY : 3OND_AMBER, 10, 3OND_FONT_SECTION);
+             ready ? "ACTIVE" : "INIT...", ready ? TOND_BUY : TOND_AMBER, 10, TOND_FONT_SECTION);
 
    // TP Mode label — centrato tra titolo e status
    string tpStr = "";
@@ -253,27 +253,27 @@ void DrawEnginePanel(int x, int y, int w)
       case TP_ATR_MULTIPLE:  tpStr = "TP: ATR" + ShortToString(0x00D7) + StringFormat("%.1f", TPValue); break;
       case TP_FIXED_PIPS:    tpStr = StringFormat("TP: %.0f pip", TPValue);  break;
    }
-   DashLabel("ENG_TP", x + w / 2, y + 6, tpStr, 3OND_AMBER, 9, 3OND_FONT_SECTION);
+   DashLabel("ENG_TP", x + w / 2, y + 6, tpStr, TOND_AMBER, 9, TOND_FONT_SECTION);
 
    if(g_lastSignal.upperBand > 0)
    {
       DashLabel("ENG_UPPER", x + pad, y + 26,
                 StringFormat("Upper  %s", DoubleToString(g_lastSignal.upperBand, _Digits)),
-                3OND_SELL, 9);
+                TOND_SELL, 9);
       DashLabel("ENG_MID", x + pad + 180, y + 26,
                 StringFormat("Mid    %s", DoubleToString(g_lastSignal.midline, _Digits)),
-                3OND_BIOLUM, 9);
+                TOND_BIOLUM, 9);
       DashLabel("ENG_LOWER", x + pad + 360, y + 26,
                 StringFormat("Lower  %s", DoubleToString(g_lastSignal.lowerBand, _Digits)),
-                3OND_BUY, 9);
+                TOND_BUY, 9);
 
       // Channel width + regime
       string regime = g_lastSignal.isFlat ? "FLAT" : "TRENDING";
-      color regClr = g_lastSignal.isFlat ? 3OND_BUY : 3OND_AMBER;
+      color regClr = g_lastSignal.isFlat ? TOND_BUY : TOND_AMBER;
       DashLabel("ENG_WIDTH", x + pad, y + 44,
                 StringFormat("Width: %.1f pip", g_lastSignal.channelWidthPip),
-                3OND_BIOLUM, 9, 3OND_FONT_SECTION);
-      DashLabel("ENG_REGIME", x + pad + 140, y + 44, regime, regClr, 9, 3OND_FONT_SECTION);
+                TOND_BIOLUM, 9, TOND_FONT_SECTION);
+      DashLabel("ENG_REGIME", x + pad + 140, y + 44, regime, regClr, 9, TOND_FONT_SECTION);
 
       // SmartCooldown (reads engine config from extraValues[5-9])
       int eDcLen  = (int)g_lastSignal.extraValues[5];
@@ -282,26 +282,24 @@ void DrawEnginePanel(int x, int y, int w)
       int eNSame  = (int)g_lastSignal.extraValues[8];
       int eNOpp   = (int)g_lastSignal.extraValues[9];
 
-      string cdStr = InpUseSmartCooldown
-         ? StringFormat("SmartCD ON (S%d/O%d)", eNSame, eNOpp)
-         : StringFormat("Fixed CD (%d bars)", eDcLen);
-      DashLabel("ENG_CD", x + pad + 280, y + 44, cdStr, 3OND_TEXT_SECONDARY, 9);
+      string cdStr = StringFormat("SmartCD ON (S%d/O%d)", eNSame, eNOpp);
+      DashLabel("ENG_CD", x + pad + 280, y + 44, cdStr, TOND_TEXT_SECONDARY, 9);
 
       // Engine config summary
       DashLabel("ENG_CFG", x + pad, y + 62,
-                StringFormat("Period:%d | MA:%s(%d) | MinW:%.0f",
-                eDcLen, EnumToString(InpMAType), eMaLen, eMinW),
-                3OND_TEXT_MUTED, 8);
+                StringFormat("Period:%d | MA:KAMA(%d) | MinW:%.0f",
+                eDcLen, eMaLen, eMinW),
+                TOND_TEXT_MUTED, 8);
    }
    else
    {
-      DashLabel("ENG_UPPER", x + pad, y + 26, "Waiting for data...", 3OND_TEXT_MUTED, 9);
-      DashLabel("ENG_MID", x + pad + 180, y + 26, " ", 3OND_TEXT_MUTED, 9);
-      DashLabel("ENG_LOWER", x + pad + 360, y + 26, " ", 3OND_TEXT_MUTED, 9);
-      DashLabel("ENG_WIDTH", x + pad, y + 44, " ", 3OND_TEXT_MUTED, 9);
-      DashLabel("ENG_REGIME", x + pad + 140, y + 44, " ", 3OND_TEXT_MUTED, 9);
-      DashLabel("ENG_CD", x + pad + 280, y + 44, " ", 3OND_TEXT_MUTED, 9);
-      DashLabel("ENG_CFG", x + pad, y + 62, " ", 3OND_TEXT_MUTED, 8);
+      DashLabel("ENG_UPPER", x + pad, y + 26, "Waiting for data...", TOND_TEXT_MUTED, 9);
+      DashLabel("ENG_MID", x + pad + 180, y + 26, " ", TOND_TEXT_MUTED, 9);
+      DashLabel("ENG_LOWER", x + pad + 360, y + 26, " ", TOND_TEXT_MUTED, 9);
+      DashLabel("ENG_WIDTH", x + pad, y + 44, " ", TOND_TEXT_MUTED, 9);
+      DashLabel("ENG_REGIME", x + pad + 140, y + 44, " ", TOND_TEXT_MUTED, 9);
+      DashLabel("ENG_CD", x + pad + 280, y + 44, " ", TOND_TEXT_MUTED, 9);
+      DashLabel("ENG_CFG", x + pad, y + 62, " ", TOND_TEXT_MUTED, 8);
    }
 }
 
@@ -310,20 +308,20 @@ void DrawEnginePanel(int x, int y, int w)
 //+------------------------------------------------------------------+
 void DrawFilterBar(int x, int y, int w)
 {
-   DashRectangle("FILT_PANEL", x, y, w, 3OND_H_FILTERS, 3OND_PANEL_BG, 3OND_PANEL_BORDER);
+   DashRectangle("FILT_PANEL", x, y, w, TOND_H_FILTERS, TOND_PANEL_BG, TOND_PANEL_BORDER);
 
-   int px = x + 3OND_PAD;
+   int px = x + TOND_PAD;
    for(int f = 0; f < g_lastSignal.filterCount && f < 8; f++)
    {
       string state = "";
-      color  clr   = 3OND_TEXT_MUTED;
+      color  clr   = TOND_TEXT_MUTED;
 
       if(g_lastSignal.filterStates[f] == 1)
-      {  state = "+"; clr = 3OND_BUY; }
+      {  state = "+"; clr = TOND_BUY; }
       else if(g_lastSignal.filterStates[f] == -1)
-      {  state = "!"; clr = 3OND_SELL; }
+      {  state = "!"; clr = TOND_SELL; }
       else
-      {  state = "_"; clr = 3OND_TEXT_LO; }
+      {  state = "_"; clr = TOND_TEXT_LO; }
 
       string pill = "[" + state + g_lastSignal.filterNames[f] + "]";
       DashLabel(StringFormat("FP%d", f), px, y + 3, pill, clr, 8);
@@ -334,13 +332,13 @@ void DrawFilterBar(int x, int y, int w)
    bool inSession = IsWithinSession();
    DashLabel("FP_SESS", px, y + 3,
              inSession ? "[+Sess]" : "[!Sess]",
-             inSession ? 3OND_BUY : 3OND_SELL, 8);
+             inSession ? TOND_BUY : TOND_SELL, 8);
    px += 48;
 
    // Hedge pill
    DashLabel("FP_HEDGE", px, y + 3,
              EnableHedge ? "[+Hedge]" : "[_Hedge]",
-             EnableHedge ? 3OND_HEDGE : 3OND_TEXT_LO, 8);
+             EnableHedge ? TOND_HEDGE : TOND_TEXT_LO, 8);
 }
 
 //+------------------------------------------------------------------+
@@ -348,12 +346,12 @@ void DrawFilterBar(int x, int y, int w)
 //+------------------------------------------------------------------+
 void DrawLastSignals(int x, int y, int w)
 {
-   int pad = 3OND_PAD;
-   DashRectangle("SIG_PANEL", x, y, w, 3OND_H_LASTSIG, 3OND_BG_SECTION_B, 3OND_PANEL_BORDER);
-   DashLabel("SIG_TITLE", x + pad, y + 4, "LAST SIGNALS", 3OND_AMBER_DIM, 9, 3OND_FONT_SECTION);
+   int pad = TOND_PAD;
+   DashRectangle("SIG_PANEL", x, y, w, TOND_H_LASTSIG, TOND_BG_SECTION_B, TOND_PANEL_BORDER);
+   DashLabel("SIG_TITLE", x + pad, y + 4, "LAST SIGNALS", TOND_AMBER_DIM, 9, TOND_FONT_SECTION);
    DashLabel("SIG_CNT", x + w - 120, y + 5,
              StringFormat("B:%d S:%d Tot:%d", g_buySignals, g_sellSignals, g_totalSignals),
-             3OND_TEXT_MUTED, 8);
+             TOND_TEXT_MUTED, 8);
 
    int ly = y + 22;
    for(int i = 0; i < 3; i++)
@@ -362,27 +360,27 @@ void DrawLastSignals(int x, int y, int w)
       {
          string arrow = g_signalHist[i].dir > 0 ? "\x25B2" : "\x25BC";
          string dirStr = g_signalHist[i].dir > 0 ? "BUY " : "SELL";
-         color dirClr = g_signalHist[i].dir > 0 ? 3OND_BUY : 3OND_SELL;
+         color dirClr = g_signalHist[i].dir > 0 ? TOND_BUY : TOND_SELL;
          string qStr = g_signalHist[i].quality == PATTERN_TBS ? "[TBS]" : "[TWS]";
-         color qClr = g_signalHist[i].quality == PATTERN_TBS ? 3OND_BUY : 3OND_AMBER;
+         color qClr = g_signalHist[i].quality == PATTERN_TBS ? TOND_BUY : TOND_AMBER;
 
          DashLabel(StringFormat("SH%d_DIR", i), x + pad, ly,
                    arrow + " " + dirStr + FormatPrice(g_signalHist[i].entry) +
                    " -> " + FormatPrice(g_signalHist[i].tp),
                    dirClr, 9);
-         DashLabel(StringFormat("SH%d_Q", i), x + pad + 350, ly, qStr, qClr, 9, 3OND_FONT_SECTION);
+         DashLabel(StringFormat("SH%d_Q", i), x + pad + 350, ly, qStr, qClr, 9, TOND_FONT_SECTION);
          DashLabel(StringFormat("SH%d_T", i), x + w - 80, ly,
                    TimeToString(g_signalHist[i].time, TIME_MINUTES),
-                   3OND_TEXT_MUTED, 8);
+                   TOND_TEXT_MUTED, 8);
          DashLabel(StringFormat("SH%d_S", i), x + w - 40, ly,
-                   g_signalHist[i].status, 3OND_TEXT_MID, 8);
+                   g_signalHist[i].status, TOND_TEXT_MID, 8);
       }
       else
       {
-         DashLabel(StringFormat("SH%d_DIR", i), x + pad, ly, " ", 3OND_TEXT_MUTED, 9);
-         DashLabel(StringFormat("SH%d_Q", i), x + pad + 350, ly, " ", 3OND_TEXT_MUTED, 9);
-         DashLabel(StringFormat("SH%d_T", i), x + w - 80, ly, " ", 3OND_TEXT_MUTED, 8);
-         DashLabel(StringFormat("SH%d_S", i), x + w - 40, ly, " ", 3OND_TEXT_MUTED, 8);
+         DashLabel(StringFormat("SH%d_DIR", i), x + pad, ly, " ", TOND_TEXT_MUTED, 9);
+         DashLabel(StringFormat("SH%d_Q", i), x + pad + 350, ly, " ", TOND_TEXT_MUTED, 9);
+         DashLabel(StringFormat("SH%d_T", i), x + w - 80, ly, " ", TOND_TEXT_MUTED, 8);
+         DashLabel(StringFormat("SH%d_S", i), x + w - 40, ly, " ", TOND_TEXT_MUTED, 8);
       }
       ly += 16;
    }
@@ -393,9 +391,9 @@ void DrawLastSignals(int x, int y, int w)
 //|                                                                  |
 //| Mostra fino a 4 cicli attivi con: ID Dir State Lot Entry toTP PL |
 //| STATI CICLO (colori):                                            |
-//|   PEND (3OND_AMBER) — ordine pending stop, in attesa di fill       |
-//|   LIVE (3OND_BUY/3OND_SELL) — posizione aperta, colore per direzione |
-//|   HEDG (3OND_HEDGE/fucsia) — hedge attivo, P&L separato S: e H:   |
+//|   PEND (TOND_AMBER) — ordine pending stop, in attesa di fill       |
+//|   LIVE (TOND_BUY/TOND_SELL) — posizione aperta, colore per direzione |
+//|   HEDG (TOND_HEDGE/fucsia) — hedge attivo, P&L separato S: e H:   |
 //|                                                                  |
 //| P&L DISPLAY (HEDGING):                                           |
 //|   Quando state=HEDG, mostra "S:+12 H:-8" con colori separati    |
@@ -405,18 +403,18 @@ void DrawLastSignals(int x, int y, int w)
 //+------------------------------------------------------------------+
 void DrawActiveCycles(int x, int y, int w)
 {
-   int pad = 3OND_PAD;
-   int cycH = 3OND_H_CYCLES;
-   DashRectangle("CYCLE_PANEL", x, y, w, cycH, 3OND_BG_DEEP, 3OND_PANEL_BORDER);
-   DashLabel("CY_TITLE", x + pad, y + 4, "ACTIVE CYCLES", 3OND_BUY_DIM, 9, 3OND_FONT_SECTION);
+   int pad = TOND_PAD;
+   int cycH = TOND_H_CYCLES;
+   DashRectangle("CYCLE_PANEL", x, y, w, cycH, TOND_BG_DEEP, TOND_PANEL_BORDER);
+   DashLabel("CY_TITLE", x + pad, y + 4, "ACTIVE CYCLES", TOND_BUY_DIM, 9, TOND_FONT_SECTION);
 
    int activeCycles = CountActiveCycles();
    DashLabel("CY_CNT", x + w - 70, y + 5,
-             StringFormat("%d/%d", activeCycles, MaxConcurrentTrades), 3OND_BUY, 9, 3OND_FONT_SECTION);
+             StringFormat("%d/%d", activeCycles, MaxConcurrentTrades), TOND_BUY, 9, TOND_FONT_SECTION);
 
    // Column header
    DashLabel("CY_HDR", x + pad, y + 20,
-             "#   Dir  State  Lot    Entry         toTP     P&L", 3OND_TEXT_LO, 7);
+             "#   Dir  State  Lot    Entry         toTP     P&L", TOND_TEXT_LO, 7);
 
    int cy = y + 34;
    int displayed = 0;
@@ -426,9 +424,9 @@ void DrawActiveCycles(int x, int y, int w)
 
       string dirStr = g_cycles[i].direction > 0 ? "BUY " : "SELL";
       string stStr = "LIVE";
-      color  rowClr = g_cycles[i].direction > 0 ? 3OND_BUY : 3OND_SELL;
-      if(g_cycles[i].state == CYCLE_PENDING)      { stStr = "PEND"; rowClr = 3OND_AMBER; }
-      else if(g_cycles[i].state == CYCLE_HEDGING) { stStr = "HEDG"; rowClr = 3OND_HEDGE; }
+      color  rowClr = g_cycles[i].direction > 0 ? TOND_BUY : TOND_SELL;
+      if(g_cycles[i].state == CYCLE_PENDING)      { stStr = "PEND"; rowClr = TOND_AMBER; }
+      else if(g_cycles[i].state == CYCLE_HEDGING) { stStr = "HEDG"; rowClr = TOND_HEDGE; }
 
       // Lot size display
       string lotStr = StringFormat("%.2f", g_cycles[i].lotSize);
@@ -464,7 +462,7 @@ void DrawActiveCycles(int x, int y, int w)
             hedgePL = GetFloatingProfit(g_cycles[i].hsTicket);
          floatPL = soupPL + hedgePL;
       }
-      color plClr = floatPL >= 0 ? 3OND_BUY : 3OND_SELL;
+      color plClr = floatPL >= 0 ? TOND_BUY : TOND_SELL;
 
       // Riga principale: ID Dir State Lot Entry toTP
       DashLabel(StringFormat("CY%d", displayed), x + pad, cy,
@@ -474,13 +472,13 @@ void DrawActiveCycles(int x, int y, int w)
 
       // TP distance (colonna separata per allineamento)
       DashLabel(StringFormat("CY%d_TP", displayed), x + w - 150, cy,
-                tpDistStr, 3OND_BIOLUM_DIM, 9);
+                tpDistStr, TOND_BIOLUM_DIM, 9);
 
       // P&L — se HEDG mostra "S:+12 H:-8" altrimenti solo totale
       if(g_cycles[i].state == CYCLE_HEDGING)
       {
-         color splClr = soupPL >= 0 ? 3OND_BUY : 3OND_SELL;
-         color hplClr = hedgePL >= 0 ? 3OND_BUY : 3OND_SELL;
+         color splClr = soupPL >= 0 ? TOND_BUY : TOND_SELL;
+         color hplClr = hedgePL >= 0 ? TOND_BUY : TOND_SELL;
          DashLabel(StringFormat("CY%d_PL", displayed), x + w - 100, cy,
                    StringFormat("S:%+.0f", soupPL), splClr, 8);
          DashLabel(StringFormat("CY%d_HPL", displayed), x + w - 50, cy,
@@ -491,7 +489,7 @@ void DrawActiveCycles(int x, int y, int w)
          DashLabel(StringFormat("CY%d_PL", displayed), x + w - 80, cy,
                    StringFormat("%+.2f", floatPL), plClr, 9);
          DashLabel(StringFormat("CY%d_HPL", displayed), x + w - 50, cy,
-                   " ", 3OND_TEXT_MUTED, 8);
+                   " ", TOND_TEXT_MUTED, 8);
       }
 
       cy += 16;
@@ -499,10 +497,10 @@ void DrawActiveCycles(int x, int y, int w)
    }
    for(int c = displayed; c < 4; c++)
    {
-      DashLabel(StringFormat("CY%d", c), x + pad, cy, " ", 3OND_TEXT_MUTED, 9);
-      DashLabel(StringFormat("CY%d_TP", c), x + w - 150, cy, " ", 3OND_TEXT_MUTED, 9);
-      DashLabel(StringFormat("CY%d_PL", c), x + w - 80, cy, " ", 3OND_TEXT_MUTED, 9);
-      DashLabel(StringFormat("CY%d_HPL", c), x + w - 50, cy, " ", 3OND_TEXT_MUTED, 8);
+      DashLabel(StringFormat("CY%d", c), x + pad, cy, " ", TOND_TEXT_MUTED, 9);
+      DashLabel(StringFormat("CY%d_TP", c), x + w - 150, cy, " ", TOND_TEXT_MUTED, 9);
+      DashLabel(StringFormat("CY%d_PL", c), x + w - 80, cy, " ", TOND_TEXT_MUTED, 9);
+      DashLabel(StringFormat("CY%d_HPL", c), x + w - 50, cy, " ", TOND_TEXT_MUTED, 8);
       cy += 16;
    }
 }
@@ -521,15 +519,15 @@ void DrawActiveCycles(int x, int y, int w)
 //|   g_dailyRealizedProfit — solo profitti del giorno corrente      |
 //|                                                                  |
 //| COLORI CONDIZIONALI:                                              |
-//|   P&L >= 0 → 3OND_BUY (lime), < 0 → 3OND_SELL (rosso)               |
-//|   WinRate >= 50% → 3OND_BUY, < 50% → 3OND_SELL                      |
-//|   MaxDD > 3% → 3OND_SELL (allarme), altrimenti 3OND_TEXT_HI          |
+//|   P&L >= 0 → TOND_BUY (lime), < 0 → TOND_SELL (rosso)               |
+//|   WinRate >= 50% → TOND_BUY, < 50% → TOND_SELL                      |
+//|   MaxDD > 3% → TOND_SELL (allarme), altrimenti TOND_TEXT_HI          |
 //+------------------------------------------------------------------+
 void DrawPLSession(int x, int y, int w)
 {
-   int pad = 3OND_PAD;
-   DashRectangle("PL_PANEL", x, y, w, 3OND_H_PL, 3OND_PANEL_BG, 3OND_PANEL_BORDER);
-   DashLabel("PL_TITLE", x + pad, y + 4, "P&L SESSION", 3OND_SELL_DIM, 9, 3OND_FONT_SECTION);
+   int pad = TOND_PAD;
+   DashRectangle("PL_PANEL", x, y, w, TOND_H_PL, TOND_PANEL_BG, TOND_PANEL_BORDER);
+   DashLabel("PL_TITLE", x + pad, y + 4, "P&L SESSION", TOND_SELL_DIM, 9, TOND_FONT_SECTION);
 
    int colW = (w - 2 * pad) / 3;
    int c1 = x + pad;
@@ -539,30 +537,30 @@ void DrawPLSession(int x, int y, int w)
    int r2 = y + 54;
 
    // Row 1: P&L | Win Rate | Max DD
-   color plClr = g_sessionRealizedProfit >= 0 ? 3OND_BUY : 3OND_SELL;
-   DashLabel("PL_L1", c1, r1, "P&L", 3OND_TEXT_LO, 7);
-   DashLabel("PL_V1", c1, r1 + 10, StringFormat("%+.2f", g_sessionRealizedProfit), plClr, 11, 3OND_FONT_SECTION);
+   color plClr = g_sessionRealizedProfit >= 0 ? TOND_BUY : TOND_SELL;
+   DashLabel("PL_L1", c1, r1, "P&L", TOND_TEXT_LO, 7);
+   DashLabel("PL_V1", c1, r1 + 10, StringFormat("%+.2f", g_sessionRealizedProfit), plClr, 11, TOND_FONT_SECTION);
    double pnlPct = GetBalance() > 0 ? (g_sessionRealizedProfit / GetBalance() * 100) : 0;
-   DashLabel("PL_S1", c1, r1 + 24, StringFormat("%+.2f%%", pnlPct), 3OND_TEXT_MID, 8);
+   DashLabel("PL_S1", c1, r1 + 24, StringFormat("%+.2f%%", pnlPct), TOND_TEXT_MID, 8);
 
    int totalT = g_sessionWins + g_sessionLosses;
    double winrate = totalT > 0 ? (double)g_sessionWins / totalT * 100.0 : 0;
-   DashLabel("PL_L2", c2, r1, "WIN RATE", 3OND_TEXT_LO, 7);
+   DashLabel("PL_L2", c2, r1, "WIN RATE", TOND_TEXT_LO, 7);
    DashLabel("PL_V2", c2, r1 + 10, StringFormat("%.0f%%", winrate),
-             winrate >= 50 ? 3OND_BUY : 3OND_SELL, 11, 3OND_FONT_SECTION);
+             winrate >= 50 ? TOND_BUY : TOND_SELL, 11, TOND_FONT_SECTION);
    DashLabel("PL_S2", c2, r1 + 24,
-             StringFormat("%dW · %dL", g_sessionWins, g_sessionLosses), 3OND_TEXT_MID, 8);
+             StringFormat("%dW · %dL", g_sessionWins, g_sessionLosses), TOND_TEXT_MID, 8);
 
-   DashLabel("PL_L3", c3, r1, "MAX DD", 3OND_TEXT_LO, 7);
+   DashLabel("PL_L3", c3, r1, "MAX DD", TOND_TEXT_LO, 7);
    DashLabel("PL_V3", c3, r1 + 10, StringFormat("%.1f%%", g_maxDrawdownPct),
-             g_maxDrawdownPct > 3.0 ? 3OND_SELL : 3OND_TEXT_HI, 11, 3OND_FONT_SECTION);
+             g_maxDrawdownPct > 3.0 ? TOND_SELL : TOND_TEXT_HI, 11, TOND_FONT_SECTION);
    double ddMoney = GetBalance() * g_maxDrawdownPct / 100.0;
-   DashLabel("PL_S3", c3, r1 + 24, StringFormat("-$%.0f", ddMoney), 3OND_TEXT_MID, 8);
+   DashLabel("PL_S3", c3, r1 + 24, StringFormat("-$%.0f", ddMoney), TOND_TEXT_MID, 8);
 
    // Row 2: Trades | Float | Daily Loss
-   DashLabel("PL_L4", c1, r2, "TRADES", 3OND_TEXT_LO, 7);
-   DashLabel("PL_V4", c1, r2 + 10, IntegerToString(totalT), 3OND_TEXT_HI, 11, 3OND_FONT_SECTION);
-   DashLabel("PL_S4", c1, r2 + 24, "total", 3OND_TEXT_MID, 8);
+   DashLabel("PL_L4", c1, r2, "TRADES", TOND_TEXT_LO, 7);
+   DashLabel("PL_V4", c1, r2 + 10, IntegerToString(totalT), TOND_TEXT_HI, 11, TOND_FONT_SECTION);
+   DashLabel("PL_S4", c1, r2 + 24, "total", TOND_TEXT_MID, 8);
 
    double totalFloat = 0;
    for(int fi = 0; fi < ArraySize(g_cycles); fi++)
@@ -574,15 +572,15 @@ void DrawPLSession(int x, int y, int w)
          && g_cycles[fi].hsActive && g_cycles[fi].hsTicket > 0)
          totalFloat += GetFloatingProfit(g_cycles[fi].hsTicket);
    }
-   color fClr = totalFloat >= 0 ? 3OND_BUY : 3OND_SELL;
-   DashLabel("PL_L5", c2, r2, "FLOAT", 3OND_TEXT_LO, 7);
-   DashLabel("PL_V5", c2, r2 + 10, StringFormat("%+.2f", totalFloat), fClr, 11, 3OND_FONT_SECTION);
-   DashLabel("PL_S5", c2, r2 + 24, "open", 3OND_TEXT_MID, 8);
+   color fClr = totalFloat >= 0 ? TOND_BUY : TOND_SELL;
+   DashLabel("PL_L5", c2, r2, "FLOAT", TOND_TEXT_LO, 7);
+   DashLabel("PL_V5", c2, r2 + 10, StringFormat("%+.2f", totalFloat), fClr, 11, TOND_FONT_SECTION);
+   DashLabel("PL_S5", c2, r2 + 24, "open", TOND_TEXT_MID, 8);
 
-   color dClr = g_dailyRealizedProfit >= 0 ? 3OND_BUY : 3OND_SELL;
-   DashLabel("PL_L6", c3, r2, "DAILY", 3OND_TEXT_LO, 7);
-   DashLabel("PL_V6", c3, r2 + 10, StringFormat("%+.2f", g_dailyRealizedProfit), dClr, 11, 3OND_FONT_SECTION);
-   DashLabel("PL_S6", c3, r2 + 24, "today", 3OND_TEXT_MID, 8);
+   color dClr = g_dailyRealizedProfit >= 0 ? TOND_BUY : TOND_SELL;
+   DashLabel("PL_L6", c3, r2, "DAILY", TOND_TEXT_LO, 7);
+   DashLabel("PL_V6", c3, r2 + 10, StringFormat("%+.2f", g_dailyRealizedProfit), dClr, 11, TOND_FONT_SECTION);
+   DashLabel("PL_S6", c3, r2 + 24, "today", TOND_TEXT_MID, 8);
 }
 
 //+------------------------------------------------------------------+
@@ -590,15 +588,15 @@ void DrawPLSession(int x, int y, int w)
 //+------------------------------------------------------------------+
 void DrawControls(int x, int y, int w)
 {
-   int pad = 3OND_PAD;
-   DashRectangle("CTRL_PANEL", x, y, w, 3OND_H_CONTROLS, 3OND_PANEL_BG, 3OND_PANEL_BORDER);
-   DashLabel("CT_TITLE", x + pad, y + 4, "CONTROLS", 3OND_AMBER_DIM, 9, 3OND_FONT_SECTION);
+   int pad = TOND_PAD;
+   DashRectangle("CTRL_PANEL", x, y, w, TOND_H_CONTROLS, TOND_PANEL_BG, TOND_PANEL_BORDER);
+   DashLabel("CT_TITLE", x + pad, y + 4, "CONTROLS", TOND_AMBER_DIM, 9, TOND_FONT_SECTION);
 
    DashLabel("CT_TIME", x + w - 80, y + 5,
-             TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES), 3OND_TEXT_MUTED, 8);
+             TimeToString(TimeCurrent(), TIME_DATE|TIME_MINUTES), TOND_TEXT_MUTED, 8);
 
    // Button feedback
-   if(ObjectFind(0, "3OND_BTN_START_" + _Symbol) >= 0)
+   if(ObjectFind(0, "TOND_BTN_START_" + _Symbol) >= 0)
       UpdateButtonFeedback();
 }
 
@@ -607,7 +605,7 @@ void DrawControls(int x, int y, int w)
 //+------------------------------------------------------------------+
 void DrawStatusBar(int x, int y, int w)
 {
-   DashRectangle("SBAR_PANEL", x, y, w, 3OND_H_STATUSBAR, 3OND_BG_SECTION_A, 3OND_PANEL_BORDER);
+   DashRectangle("SBAR_PANEL", x, y, w, TOND_H_STATUSBAR, TOND_BG_SECTION_A, TOND_PANEL_BORDER);
 
    string stateStr = "IDLE";
    switch(g_systemState)
@@ -618,8 +616,8 @@ void DrawStatusBar(int x, int y, int w)
       case STATE_INITIALIZING: stateStr = "INIT";   break;
    }
 
-   string cdMode = InpUseSmartCooldown ? "SmartCD:ON" : "FixedCD";
-   string twsMode = InpShowTWSSignals ? "TWS:ON" : "TWS:HID";
+   string cdMode = "SmartCD:ON";
+   string twsMode = InpKPC_ShowHalfSignals ? "TWS:ON" : "TWS:HID";
    string ltfMode = g_kpc_useLTFEntry ? "LTF:ON" : "";
    string hedgeMode = EnableHedge ? "Hedge:ON" : "Hedge:OFF";
 
@@ -632,13 +630,13 @@ void DrawStatusBar(int x, int y, int w)
               + "  v" + EA_VERSION
               + "  M:" + IntegerToString(MagicNumber);
 
-   DashLabel("SBAR_TXT", x + 3OND_PAD, y + 3, bar, 3OND_TEXT_MID, 8);
+   DashLabel("SBAR_TXT", x + TOND_PAD, y + 3, bar, TOND_TEXT_MID, 8);
 }
 
 //+------------------------------------------------------------------+
 //| UpdateSidePanel — Engine Monitor (13 righe) + Signal Feed (6)    |
 //|                                                                  |
-//| Posizionato a destra del dashboard (offset 3OND_DASH_W + 10px).    |
+//| Posizionato a destra del dashboard (offset TOND_DASH_W + 10px).    |
 //| Due sezioni:                                                     |
 //|                                                                  |
 //| ENGINE MONITOR (235px, 13 righe da lh=15px):                     |
@@ -659,107 +657,107 @@ void DrawStatusBar(int x, int y, int w)
 //|                                                                  |
 //| SIGNAL FEED (110px, MAX_FEED_ITEMS righe):                       |
 //|   Feed cronologico delle ultime azioni EA (g_feedLines[]).        |
-//|   Colori per tipo: 3OND_BUY, 3OND_SELL, 3OND_AMBER, 3OND_TEXT_MUTED.     |
+//|   Colori per tipo: TOND_BUY, TOND_SELL, TOND_AMBER, TOND_TEXT_MUTED.     |
 //+------------------------------------------------------------------+
 void UpdateSidePanel()
 {
-   int sx = 3OND_DASH_X + 3OND_DASH_W + 10;
-   int sy = 3OND_DASH_Y;
-   int sw = 3OND_SIDE_W;
+   int sx = TOND_DASH_X + TOND_DASH_W + 10;
+   int sy = TOND_DASH_Y;
+   int sw = TOND_SIDE_W;
 
    // === ENGINE MONITOR ===
-   DashRectangle("SIDE_MON", sx, sy, sw, 235, 3OND_BG_DEEP, 3OND_SIDE_BORDER);
-   DashLabel("SM_TITLE", sx + 10, sy + 5, "ENGINE MONITOR", 3OND_BIOLUM_DIM, 9, 3OND_FONT_SECTION);
+   DashRectangle("SIDE_MON", sx, sy, sw, 235, TOND_BG_DEEP, TOND_SIDE_BORDER);
+   DashLabel("SM_TITLE", sx + 10, sy + 5, "ENGINE MONITOR", TOND_BIOLUM_DIM, 9, TOND_FONT_SECTION);
 
    int ly = sy + 22;
    int lh = 15;
    int valX = sx + 100;
 
    // 1. Engine status
-   DashLabel("SM_R01L", sx + 10, ly, "KPC Engine", 3OND_TEXT_MID, 8);
-   DashLabel("SM_R01V", valX, ly, g_engineReady ? "ACTIVE" : "INIT", g_engineReady ? 3OND_BUY : 3OND_AMBER, 8, 3OND_FONT_SECTION);
+   DashLabel("SM_R01L", sx + 10, ly, "KPC Engine", TOND_TEXT_MID, 8);
+   DashLabel("SM_R01V", valX, ly, g_engineReady ? "ACTIVE" : "INIT", g_engineReady ? TOND_BUY : TOND_AMBER, 8, TOND_FONT_SECTION);
    ly += lh;
 
    // 2. ATR
-   DashLabel("SM_R02L", sx + 10, ly, "ATR(14)", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R02L", sx + 10, ly, "ATR(14)", TOND_TEXT_MID, 8);
    DashLabel("SM_R02V", valX, ly,
              StringFormat("%.1f pip", g_lastSignal.extraValues[0] > 0 ? PointsToPips(g_lastSignal.extraValues[0]) : g_atrCache.valuePips),
-             3OND_BIOLUM, 8);
+             TOND_BIOLUM, 8);
    ly += lh;
 
    // 3. EMA ATR
-   DashLabel("SM_R03L", sx + 10, ly, "EMA ATR", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R03L", sx + 10, ly, "EMA ATR", TOND_TEXT_MID, 8);
    DashLabel("SM_R03V", valX, ly,
              StringFormat("%.1f pip", g_lastSignal.extraValues[1] > 0 ? PointsToPips(g_lastSignal.extraValues[1]) : 0),
-             3OND_TEXT_SECONDARY, 8);
+             TOND_TEXT_SECONDARY, 8);
    ly += lh;
 
    // 4. Daily Trades (sostituisce Spread — gia' in System Status)
-   DashLabel("SM_R04L", sx + 10, ly, "Daily Trades", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R04L", sx + 10, ly, "Daily Trades", TOND_TEXT_MID, 8);
    DashLabel("SM_R04V", valX, ly,
              StringFormat("%dW %dL", g_dailyWins, g_dailyLosses),
-             g_dailyWins >= g_dailyLosses ? 3OND_BUY : 3OND_SELL, 8);
+             g_dailyWins >= g_dailyLosses ? TOND_BUY : TOND_SELL, 8);
    ly += lh;
 
    // 5. TF Preset
-   DashLabel("SM_R05L", sx + 10, ly, "TF Preset", 3OND_TEXT_MID, 8);
-   DashLabel("SM_R05V", valX, ly, EnumToString(Period()), 3OND_TEXT_SECONDARY, 8);
+   DashLabel("SM_R05L", sx + 10, ly, "TF Preset", TOND_TEXT_MID, 8);
+   DashLabel("SM_R05V", valX, ly, EnumToString(Period()), TOND_TEXT_SECONDARY, 8);
    ly += lh;
 
    // 6. DC Period
    int dcLen = (int)g_lastSignal.extraValues[5];
-   DashLabel("SM_R06L", sx + 10, ly, "DC Period", 3OND_TEXT_MID, 8);
-   DashLabel("SM_R06V", valX, ly, IntegerToString(dcLen > 0 ? dcLen : 20), 3OND_TEXT_SECONDARY, 8);
+   DashLabel("SM_R06L", sx + 10, ly, "DC Period", TOND_TEXT_MID, 8);
+   DashLabel("SM_R06V", valX, ly, IntegerToString(dcLen > 0 ? dcLen : 20), TOND_TEXT_SECONDARY, 8);
    ly += lh;
 
    // 7. MA value
-   DashLabel("SM_R07L", sx + 10, ly, "MA Value", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R07L", sx + 10, ly, "MA Value", TOND_TEXT_MID, 8);
    DashLabel("SM_R07V", valX, ly,
              g_lastSignal.extraValues[2] > 0 ? DoubleToString(g_lastSignal.extraValues[2], _Digits) : "---",
-             3OND_TEXT_SECONDARY, 8);
+             TOND_TEXT_SECONDARY, 8);
    ly += lh;
 
    // 8. SmartCD
    int nS = (int)g_lastSignal.extraValues[8];
    int nO = (int)g_lastSignal.extraValues[9];
-   DashLabel("SM_R08L", sx + 10, ly, "SmartCD", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R08L", sx + 10, ly, "SmartCD", TOND_TEXT_MID, 8);
    DashLabel("SM_R08V", valX, ly,
-             InpUseSmartCooldown ? StringFormat("ON S%d/O%d", nS, nO) : "OFF",
-             InpUseSmartCooldown ? 3OND_BUY : 3OND_TEXT_MUTED, 8);
+             StringFormat("ON S%d/O%d", nS, nO),
+             TOND_BUY, 8);
    ly += lh;
 
    // 9. LTF
-   DashLabel("SM_R09L", sx + 10, ly, "LTF Entry", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R09L", sx + 10, ly, "LTF Entry", TOND_TEXT_MID, 8);
    DashLabel("SM_R09V", valX, ly,
              g_kpc_useLTFEntry ? EnumToString(KPCGetLTFTimeframe()) : "OFF",
-             g_kpc_useLTFEntry ? 3OND_BIOLUM : 3OND_TEXT_MUTED, 8);
+             g_kpc_useLTFEntry ? TOND_BIOLUM : TOND_TEXT_MUTED, 8);
    ly += lh;
 
    // 10. Expired Orders (sostituisce Session — gia' in System Status)
-   DashLabel("SM_R10L", sx + 10, ly, "Expired", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R10L", sx + 10, ly, "Expired", TOND_TEXT_MID, 8);
    DashLabel("SM_R10V", valX, ly,
              g_totalExpiredOrders > 0 ? IntegerToString(g_totalExpiredOrders) : "0",
-             g_totalExpiredOrders > 0 ? 3OND_AMBER : 3OND_TEXT_MUTED, 8);
+             g_totalExpiredOrders > 0 ? TOND_AMBER : TOND_TEXT_MUTED, 8);
    ly += lh;
 
    // 11. AutoSave
-   DashLabel("SM_R11L", sx + 10, ly, "AutoSave", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R11L", sx + 10, ly, "AutoSave", TOND_TEXT_MID, 8);
    string saveStr = "---";
    if(g_lastAutoSaveTime > 0)
    {
       int ago = (int)(TimeCurrent() - g_lastAutoSaveTime);
       saveStr = IntegerToString(ago) + "s ago";
    }
-   DashLabel("SM_R11V", valX, ly, saveStr, 3OND_TEXT_MUTED, 8);
+   DashLabel("SM_R11V", valX, ly, saveStr, TOND_TEXT_MUTED, 8);
    ly += lh;
 
    // 12. HTF
-   DashLabel("SM_R12L", sx + 10, ly, "HTF Filter", 3OND_TEXT_MID, 8);
-   DashLabel("SM_R12V", valX, ly, HTFGetStatusString(), 3OND_TEXT_SECONDARY, 8);
+   DashLabel("SM_R12L", sx + 10, ly, "HTF Filter", TOND_TEXT_MID, 8);
+   DashLabel("SM_R12V", valX, ly, HTFGetStatusString(), TOND_TEXT_SECONDARY, 8);
    ly += lh;
 
    // 13. Hedge
-   DashLabel("SM_R13L", sx + 10, ly, "Hedge", 3OND_TEXT_MID, 8);
+   DashLabel("SM_R13L", sx + 10, ly, "Hedge", TOND_TEXT_MID, 8);
    if(EnableHedge)
    {
       int hedgeCount = 0;
@@ -769,25 +767,25 @@ void UpdateSidePanel()
       }
       DashLabel("SM_R13V", valX, ly,
                 hedgeCount > 0 ? StringFormat("ON (%d)", hedgeCount) : "ON",
-                3OND_HEDGE, 8, 3OND_FONT_SECTION);
+                TOND_HEDGE, 8, TOND_FONT_SECTION);
    }
    else
-      DashLabel("SM_R13V", valX, ly, "OFF", 3OND_TEXT_MUTED, 8);
+      DashLabel("SM_R13V", valX, ly, "OFF", TOND_TEXT_MUTED, 8);
    ly += lh;
 
    // Virtual mode indicator
    if(VirtualMode)
    {
       ly += 4;
-      DashLabel("SM_VIRT", sx + 10, ly, "VIRTUAL MODE", 3OND_AMBER, 9, 3OND_FONT_SECTION);
+      DashLabel("SM_VIRT", sx + 10, ly, "VIRTUAL MODE", TOND_AMBER, 9, TOND_FONT_SECTION);
    }
    else
-      DashLabel("SM_VIRT", sx + 10, ly + 4, " ", 3OND_TEXT_MUTED, 8);
+      DashLabel("SM_VIRT", sx + 10, ly + 4, " ", TOND_TEXT_MUTED, 8);
 
    // === SIGNAL FEED ===
    int feedY = sy + 245;
-   DashRectangle("SIDE_FEED", sx, feedY, sw, 110, 3OND_BG_PANEL, 3OND_SIDE_BORDER);
-   DashLabel("SF_TITLE", sx + 10, feedY + 5, "SIGNAL FEED", 3OND_AMBER_DIM, 9, 3OND_FONT_SECTION);
+   DashRectangle("SIDE_FEED", sx, feedY, sw, 110, TOND_BG_PANEL, TOND_SIDE_BORDER);
+   DashLabel("SF_TITLE", sx + 10, feedY + 5, "SIGNAL FEED", TOND_AMBER_DIM, 9, TOND_FONT_SECTION);
 
    int fy = feedY + 22;
    for(int i = 0; i < MAX_FEED_ITEMS; i++)
@@ -795,7 +793,7 @@ void UpdateSidePanel()
       if(i < g_feedCount)
          DashLabel(StringFormat("SF%d", i), sx + 10, fy, g_feedLines[i], g_feedColors[i], 8);
       else
-         DashLabel(StringFormat("SF%d", i), sx + 10, fy, " ", 3OND_TEXT_MUTED, 8);
+         DashLabel(StringFormat("SF%d", i), sx + 10, fy, " ", TOND_TEXT_MUTED, 8);
       fy += 15;
    }
 }
@@ -814,18 +812,18 @@ void UpdateSidePanel()
 //| La tecnica dei 4 rettangoli bordo separati (SugamaraPivot) e'    |
 //| necessaria perche' BORDER_FLAT su OBJ_RECTANGLE_LABEL produce    |
 //| solo 1px, insufficiente. I 4 rettangoli sono filled (bgClr =     |
-//| borderClr = 3OND_BIOLUM) e spessi 3px.                             |
+//| borderClr = TOND_BIOLUM) e spessi 3px.                             |
 //+------------------------------------------------------------------+
 void UpdateDashboard()
 {
-   int x = 3OND_DASH_X;
-   int y = 3OND_DASH_Y;
-   int w = 3OND_DASH_W;
+   int x = TOND_DASH_X;
+   int y = TOND_DASH_Y;
+   int w = TOND_DASH_W;
 
    // Altezza totale dashboard: somma pannelli + 9 gap
-   int totalH = 3OND_H_HEADER + 3OND_H_TOPBAR + 3OND_H_SYSSTATUS + 3OND_H_ENGINE
-              + 3OND_H_FILTERS + 3OND_H_LASTSIG + 3OND_H_CYCLES + 3OND_H_PL
-              + 3OND_H_CONTROLS + 3OND_H_STATUSBAR + (9 * 3OND_GAP);
+   int totalH = TOND_H_HEADER + TOND_H_TOPBAR + TOND_H_SYSSTATUS + TOND_H_ENGINE
+              + TOND_H_FILTERS + TOND_H_LASTSIG + TOND_H_CYCLES + TOND_H_PL
+              + TOND_H_CONTROLS + TOND_H_STATUSBAR + (9 * TOND_GAP);
 
    // ── Cornice perimetrale con bordo solido 3px (stile SugamaraPivot) ──
    int fm = 4;    // margine cornice (px tra bordo e pannelli)
@@ -838,7 +836,7 @@ void UpdateDashboard()
 
    // Sfondo completo frame (creato primo = disegnato sotto i pannelli)
    DashRectangle("FRAME_BG", frameX, frameY,
-                 frameW, frameH, 3OND_BG_DEEP, 3OND_BG_DEEP);
+                 frameW, frameH, TOND_BG_DEEP, TOND_BG_DEEP);
 
    // Barra decorativa orizzontale (─────)
    string hBar = "";
@@ -846,33 +844,33 @@ void UpdateDashboard()
 
    // Titolo superiore centrato "────── TERZAONDA ──────"
    DashLabel("FRAME_TITLE", x + w / 2, frameY + 3,
-             hBar + " TERZAONDA " + hBar, 3OND_BORDER_FRAME, 11, 3OND_FONT_TITLE);
-   ObjectSetInteger(0, "3OND_DASH_FRAME_TITLE", OBJPROP_ANCHOR, ANCHOR_UPPER);
-   ObjectSetInteger(0, "3OND_DASH_FRAME_TITLE", OBJPROP_ZORDER, 3OND_Z_LABEL + 1000);
+             hBar + " TERZAONDA " + hBar, TOND_BORDER_FRAME, 11, TOND_FONT_TITLE);
+   ObjectSetInteger(0, "TOND_DASH_FRAME_TITLE", OBJPROP_ANCHOR, ANCHOR_UPPER);
+   ObjectSetInteger(0, "TOND_DASH_FRAME_TITLE", OBJPROP_ZORDER, TOND_Z_LABEL + 1000);
 
    // Titolo inferiore centrato "────── vX.X.X · KPC v1.0 Engine ──────" (usa EA_VERSION)
    DashLabel("FRAME_BOTTOM", x + w / 2, y + totalH + fm + 1,
              hBar + " v" + EA_VERSION + " " + ShortToString(0x00B7) + " KPC v1.0 Engine " + hBar,
-             3OND_BORDER_FRAME, 8, 3OND_FONT_SECTION);
-   ObjectSetInteger(0, "3OND_DASH_FRAME_BOTTOM", OBJPROP_ANCHOR, ANCHOR_UPPER);
-   ObjectSetInteger(0, "3OND_DASH_FRAME_BOTTOM", OBJPROP_ZORDER, 3OND_Z_LABEL + 1000);
+             TOND_BORDER_FRAME, 8, TOND_FONT_SECTION);
+   ObjectSetInteger(0, "TOND_DASH_FRAME_BOTTOM", OBJPROP_ANCHOR, ANCHOR_UPPER);
+   ObjectSetInteger(0, "TOND_DASH_FRAME_BOTTOM", OBJPROP_ZORDER, TOND_Z_LABEL + 1000);
 
-   DrawHeaderRow(x, y, w);       y += 3OND_H_HEADER + 3OND_GAP;
-   DrawTitleBar(x, y, w);        y += 3OND_H_TOPBAR + 3OND_GAP;
-   DrawSystemStatus(x, y, w);    y += 3OND_H_SYSSTATUS + 3OND_GAP;
-   DrawEnginePanel(x, y, w);     y += 3OND_H_ENGINE + 3OND_GAP;
-   DrawFilterBar(x, y, w);       y += 3OND_H_FILTERS + 3OND_GAP;
-   DrawLastSignals(x, y, w);     y += 3OND_H_LASTSIG + 3OND_GAP;
-   DrawActiveCycles(x, y, w);    y += 3OND_H_CYCLES + 3OND_GAP;
-   DrawPLSession(x, y, w);       y += 3OND_H_PL + 3OND_GAP;
-   DrawControls(x, y, w);        y += 3OND_H_CONTROLS + 3OND_GAP;
+   DrawHeaderRow(x, y, w);       y += TOND_H_HEADER + TOND_GAP;
+   DrawTitleBar(x, y, w);        y += TOND_H_TOPBAR + TOND_GAP;
+   DrawSystemStatus(x, y, w);    y += TOND_H_SYSSTATUS + TOND_GAP;
+   DrawEnginePanel(x, y, w);     y += TOND_H_ENGINE + TOND_GAP;
+   DrawFilterBar(x, y, w);       y += TOND_H_FILTERS + TOND_GAP;
+   DrawLastSignals(x, y, w);     y += TOND_H_LASTSIG + TOND_GAP;
+   DrawActiveCycles(x, y, w);    y += TOND_H_CYCLES + TOND_GAP;
+   DrawPLSession(x, y, w);       y += TOND_H_PL + TOND_GAP;
+   DrawControls(x, y, w);        y += TOND_H_CONTROLS + TOND_GAP;
    DrawStatusBar(x, y, w);
 
    UpdateSidePanel();
 
    // ── Bordo solido 4 rettangoli (creati ULTIMI per stacking MT5) ──
    int bw = 3;
-   color bClr = 3OND_BIOLUM;  // cyan brillante C'0,212,255'
+   color bClr = TOND_BIOLUM;  // cyan brillante C'0,212,255'
    DashRectangle("FRAME_BORDER_T", frameX - bw, frameY - bw,
                  frameW + 2*bw, bw, bClr, bClr);
    DashRectangle("FRAME_BORDER_B", frameX - bw, frameY + frameH,
@@ -898,28 +896,28 @@ void CreateDashboard()
    UpdateDashboard();
 
    // Calculate controls Y position for buttons
-   int ctrlY = 3OND_DASH_Y;
-   ctrlY += 3OND_H_HEADER + 3OND_GAP;
-   ctrlY += 3OND_H_TOPBAR + 3OND_GAP;
-   ctrlY += 3OND_H_SYSSTATUS + 3OND_GAP;
-   ctrlY += 3OND_H_ENGINE + 3OND_GAP;
-   ctrlY += 3OND_H_FILTERS + 3OND_GAP;
-   ctrlY += 3OND_H_LASTSIG + 3OND_GAP;
-   ctrlY += 3OND_H_CYCLES + 3OND_GAP;
-   ctrlY += 3OND_H_PL + 3OND_GAP;
+   int ctrlY = TOND_DASH_Y;
+   ctrlY += TOND_H_HEADER + TOND_GAP;
+   ctrlY += TOND_H_TOPBAR + TOND_GAP;
+   ctrlY += TOND_H_SYSSTATUS + TOND_GAP;
+   ctrlY += TOND_H_ENGINE + TOND_GAP;
+   ctrlY += TOND_H_FILTERS + TOND_GAP;
+   ctrlY += TOND_H_LASTSIG + TOND_GAP;
+   ctrlY += TOND_H_CYCLES + TOND_GAP;
+   ctrlY += TOND_H_PL + TOND_GAP;
 
-   CreateControlButtons(3OND_DASH_X, ctrlY, 3OND_DASH_W);
+   CreateControlButtons(TOND_DASH_X, ctrlY, TOND_DASH_W);
    AdLogI(LOG_CAT_UI, "Dashboard created (Ocean Pragmatic v1.0)");
 }
 
 //+------------------------------------------------------------------+
-//| DestroyDashboard — Rimuove TUTTI gli oggetti con prefisso "3OND_"  |
+//| DestroyDashboard — Rimuove TUTTI gli oggetti con prefisso "TOND_"  |
 //|                                                                  |
-//| Chiamata in OnDeinit(). ObjectsDeleteAll con prefisso "3OND_"      |
+//| Chiamata in OnDeinit(). ObjectsDeleteAll con prefisso "TOND_"      |
 //| cancella dashboard, overlay, markers, bottoni — tutto in un colpo.|
 //| Il chart torna completamente pulito.                             |
 //+------------------------------------------------------------------+
 void DestroyDashboard()
 {
-   ObjectsDeleteAll(0, "3OND_");
+   ObjectsDeleteAll(0, "TOND_");
 }

@@ -10,12 +10,12 @@
 //+------------------------------------------------------------------+
 //| Global Variable Prefix                                           |
 //|                                                                  |
-//| Namespace: 3OND_STATE_{SYMBOL}_{MAGIC}_{varName}                   |
-//| Es: 3OND_STATE_EURUSD_12345_sessionProfit                          |
+//| Namespace: TOND_STATE_{SYMBOL}_{MAGIC}_{varName}                   |
+//| Es: TOND_STATE_EURUSD_12345_sessionProfit                          |
 //| Ogni combinazione Symbol+Magic ha il suo namespace isolato,      |
 //| permettendo EA multipli sullo stesso terminale.                  |
 //+------------------------------------------------------------------+
-#define 3OND_GV_PREFIX "3OND_STATE_"
+#define TOND_GV_PREFIX "TOND_STATE_"
 
 //+------------------------------------------------------------------+
 //| Persistence State Variables                                      |
@@ -33,7 +33,7 @@ int      g_saveErrors          = 0;
 //+------------------------------------------------------------------+
 string GetStateKey(string varName)
 {
-   return 3OND_GV_PREFIX + _Symbol + "_" + IntegerToString(MagicNumber) + "_" + varName;
+   return TOND_GV_PREFIX + _Symbol + "_" + IntegerToString(MagicNumber) + "_" + varName;
 }
 
 //+------------------------------------------------------------------+
@@ -398,7 +398,7 @@ void ExecuteAutoSave()
 //+------------------------------------------------------------------+
 void ClearSavedState()
 {
-   string prefix = 3OND_GV_PREFIX + _Symbol + "_" + IntegerToString(MagicNumber) + "_";
+   string prefix = TOND_GV_PREFIX + _Symbol + "_" + IntegerToString(MagicNumber) + "_";
    int deleted = 0;
 
    for(int i = GlobalVariablesTotal() - 1; i >= 0; i--)

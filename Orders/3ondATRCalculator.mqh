@@ -9,7 +9,7 @@
 
 //+------------------------------------------------------------------+
 //| GetATRPips — Get ATR in pips (from framework handle)            |
-//|  Uses g_atrHandle, InpATR_Period, g_symbolPoint, g_symbolDigits  |
+//|  Uses g_atrHandle, g_kpc_atrPeriod_eff, g_symbolPoint, g_symbolDigits  |
 //|  Fallback: 10.0 pips if ATR not available                        |
 //+------------------------------------------------------------------+
 double GetATRPips()
@@ -21,10 +21,10 @@ double GetATRPips()
    }
 
    int calculated = BarsCalculated(g_atrHandle);
-   if(calculated < InpATR_Period + 1)
+   if(calculated < g_kpc_atrPeriod_eff + 1)
    {
       AdLogW(LOG_CAT_ATR, StringFormat("GetATRPips: insufficient bars (%d < %d) — fallback 10.0",
-         calculated, InpATR_Period + 1));
+         calculated, g_kpc_atrPeriod_eff + 1));
       return 10.0;
    }
 
@@ -48,7 +48,7 @@ bool CreateATRHandle()
    if(g_atrHandle != INVALID_HANDLE)
       IndicatorRelease(g_atrHandle);
 
-   g_atrHandle = iATR(_Symbol, InpATR_Timeframe, InpATR_Period);
+   g_atrHandle = iATR(_Symbol, PERIOD_CURRENT, g_kpc_atrPeriod_eff);
 
    if(g_atrHandle == INVALID_HANDLE)
    {
@@ -57,7 +57,7 @@ bool CreateATRHandle()
    }
 
    AdLogI(LOG_CAT_ATR, StringFormat("ATR handle created: Period=%d TF=%s",
-          InpATR_Period, EnumToString(InpATR_Timeframe)));
+          g_kpc_atrPeriod_eff, EnumToString(PERIOD_CURRENT)));
    return true;
 }
 
@@ -86,7 +86,7 @@ bool WaitForATRData(int maxWaitMs = 5000)
    ArraySetAsSeries(atrBuffer, true);
 
    int calculated = BarsCalculated(g_atrHandle);
-   if(calculated >= InpATR_Period + 1)
+   if(calculated >= g_kpc_atrPeriod_eff + 1)
    {
       if(CopyBuffer(g_atrHandle, 0, 0, 1, atrBuffer) > 0 && atrBuffer[0] > 0)
          return true;
@@ -100,7 +100,7 @@ bool WaitForATRData(int maxWaitMs = 5000)
    while(waitCount * waitInterval < maxWaitMs)
    {
       calculated = BarsCalculated(g_atrHandle);
-      if(calculated >= InpATR_Period + 1)
+      if(calculated >= g_kpc_atrPeriod_eff + 1)
       {
          if(CopyBuffer(g_atrHandle, 0, 0, 1, atrBuffer) > 0 && atrBuffer[0] > 0)
             return true;
@@ -124,7 +124,7 @@ bool InitializeATR()
    // Update cache
    g_atrCache.valuePips = GetATRPips();
    g_atrCache.lastFullUpdate = TimeCurrent();
-   g_atrCache.lastBarTime = iTime(_Symbol, InpATR_Timeframe, 0);
+   g_atrCache.lastBarTime = iTime(_Symbol, PERIOD_CURRENT, 0);
    g_atrCache.isValid = (g_atrCache.valuePips > 0);
    g_atrPips = g_atrCache.valuePips;
 
@@ -146,7 +146,7 @@ void UpdateATR()
       g_atrCache.valuePips     = newATR;
       g_atrPips                = newATR;
       g_atrCache.lastFullUpdate = TimeCurrent();
-      g_atrCache.lastBarTime   = iTime(_Symbol, InpATR_Timeframe, 0);
+      g_atrCache.lastBarTime   = iTime(_Symbol, PERIOD_CURRENT, 0);
       g_atrCache.isValid       = true;
    }
 }

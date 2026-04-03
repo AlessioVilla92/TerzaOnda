@@ -318,10 +318,10 @@ int OnInit()
 
    // Feed: engine ready
    if(_UninitReason == REASON_CHARTCHANGE)
-      AddFeedItem("TF changed -> " + EnumToString(Period()), 3OND_BIOLUM);
-   AddFeedItem("Engine KPC ready · " + EnumToString(Period()), 3OND_BIOLUM);
+      AddFeedItem("TF changed -> " + EnumToString(Period()), TOND_BIOLUM);
+   AddFeedItem("Engine KPC ready · " + EnumToString(Period()), TOND_BIOLUM);
    if(g_systemState == STATE_IDLE)
-      AddFeedItem("Press START to begin trading", 3OND_AMBER);
+      AddFeedItem("Press START to begin trading", TOND_AMBER);
 
    AdLogI(LOG_CAT_INIT, StringFormat("TERZAONDA ready — %s",
           g_recoveryPerformed ? "RECOVERED" : "IDLE (press START)"));
@@ -462,7 +462,7 @@ void OnTick()
       if(passChecks)
       {
          string dirStr = sig.direction > 0 ? "BUY" : "SELL";
-         color  dirClr = sig.direction > 0 ? 3OND_BUY : 3OND_SELL;
+         color  dirClr = sig.direction > 0 ? TOND_BUY : TOND_SELL;
          string qStr   = sig.quality == PATTERN_TBS ? "TBS" : "TWS";
 
          AdLogI(LOG_CAT_ENGINE, StringFormat("*** SIGNAL %s Q=%d | Entry=%s | SL=%s | TP=%s ***",

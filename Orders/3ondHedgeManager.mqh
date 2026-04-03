@@ -24,7 +24,7 @@
 //|   3. Soup chiusa → cleanup contestuale in MonitorActive           |
 //|                                                                   |
 //|  MAGIC: HS = MagicNumber + 1                                      |
-//|  COMMENT FORMAT: "3OND_HS_SELL_#12" / "3OND_HS_BUY_#12"             |
+//|  COMMENT FORMAT: "TOND_HS_SELL_#12" / "TOND_HS_BUY_#12"             |
 //|                                                                   |
 //|  API PUBBLICA:                                                     |
 //|    HedgeInit()                                                    |
@@ -34,9 +34,9 @@
 //+------------------------------------------------------------------+
 #property copyright "TerzaOnda (C) 2026"
 
-#define HS_LINE_PREFIX    "3OND_HS_LINE_"
-#define HS_ZONE_TRIGGER   "3OND_HS_ZONE_TRG"
-#define HS_ZONE_TP        "3OND_HS_ZONE_TP"
+#define HS_LINE_PREFIX    "TOND_HS_LINE_"
+#define HS_ZONE_TRIGGER   "TOND_HS_ZONE_TRG"
+#define HS_ZONE_TP        "TOND_HS_ZONE_TP"
 
 //+------------------------------------------------------------------+
 //| HedgeInit                                                         |
@@ -71,8 +71,8 @@ void HedgeDeinit()
       if(StringFind(name, HS_LINE_PREFIX)  >= 0 ||
          StringFind(name, HS_ZONE_TRIGGER) >= 0 ||
          StringFind(name, HS_ZONE_TP)      >= 0 ||
-         StringFind(name, "3OND_HS_BE_")     >= 0 ||
-         StringFind(name, "3OND_HS_TP_")     >= 0)
+         StringFind(name, "TOND_HS_BE_")     >= 0 ||
+         StringFind(name, "TOND_HS_TP_")     >= 0)
       {
          ObjectDelete(0, name);
          removed++;
@@ -155,7 +155,7 @@ void HsDrawTriggerLine(int slot, double triggerLevel, datetime barTime)
 
    if(ObjectCreate(0, name, OBJ_TREND, 0, t1, triggerLevel, t2, triggerLevel))
    {
-      ObjectSetInteger(0, name, OBJPROP_COLOR,     3OND_HS_TRIGGER_CLR);
+      ObjectSetInteger(0, name, OBJPROP_COLOR,     TOND_HS_TRIGGER_CLR);
       ObjectSetInteger(0, name, OBJPROP_STYLE,     STYLE_DASH);
       ObjectSetInteger(0, name, OBJPROP_WIDTH,     1);
       ObjectSetInteger(0, name, OBJPROP_RAY_RIGHT, false);
@@ -183,11 +183,11 @@ void HsRemoveLine(int slot)
 //+------------------------------------------------------------------+
 void HsDrawBEMarker(int slot, double fillPrice)
 {
-   string name = StringFormat("3OND_HS_BE_%d", g_cycles[slot].cycleID);
+   string name = StringFormat("TOND_HS_BE_%d", g_cycles[slot].cycleID);
    ObjectDelete(0, name);
    ObjectCreate(0, name, OBJ_ARROW, 0, TimeCurrent(), fillPrice);
    ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 4);      // Rombo (◆)
-   ObjectSetInteger(0, name, OBJPROP_COLOR,     3OND_HS_BE_CLR);
+   ObjectSetInteger(0, name, OBJPROP_COLOR,     TOND_HS_BE_CLR);
    ObjectSetInteger(0, name, OBJPROP_WIDTH,     2);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, name, OBJPROP_HIDDEN,    true);
@@ -202,11 +202,11 @@ void HsDrawBEMarker(int slot, double fillPrice)
 //+------------------------------------------------------------------+
 void HsDrawTPMarker(int slot, double tpRefLevel)
 {
-   string name = StringFormat("3OND_HS_TP_%d", g_cycles[slot].cycleID);
+   string name = StringFormat("TOND_HS_TP_%d", g_cycles[slot].cycleID);
    ObjectDelete(0, name);
    ObjectCreate(0, name, OBJ_ARROW, 0, TimeCurrent(), tpRefLevel);
    ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 4);      // Rombo (◆)
-   ObjectSetInteger(0, name, OBJPROP_COLOR,     3OND_HS_TP_CLR);
+   ObjectSetInteger(0, name, OBJPROP_COLOR,     TOND_HS_TP_CLR);
    ObjectSetInteger(0, name, OBJPROP_WIDTH,     2);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, name, OBJPROP_HIDDEN,    true);
@@ -303,7 +303,7 @@ void HsPlaceOrder(int slot, const EngineSignal &sig)
    if(hsLot <= 0) hsLot = g_symbolMinLot;
 
    // Comment per recovery
-   string comment = StringFormat("3OND_HS_%s_#%d",
+   string comment = StringFormat("TOND_HS_%s_#%d",
       g_cycles[slot].direction > 0 ? "SELL" : "BUY",
       g_cycles[slot].cycleID);
 

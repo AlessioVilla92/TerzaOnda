@@ -234,7 +234,7 @@ ulong OrderPlacePending(ENUM_ORDER_TYPE orderType, double lots, double price,
 ulong OrderPlace(const EngineSignal &sig, double lots, int cycleID)
 {
    string dirStr = sig.direction > 0 ? "BUY" : "SELL";
-   string comment = StringFormat("3OND_%s_#%d", dirStr, cycleID);
+   string comment = StringFormat("TOND_%s_#%d", dirStr, cycleID);
 
    // ── DIAG: Log ingresso in OrderPlace ──
    AdLogD(LOG_CAT_ORDER, StringFormat("DIAG OrderPlace: %s #%d | Lot=%.4f | Entry=%s | TP=%s | Mode=%s",

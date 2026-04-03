@@ -8,20 +8,20 @@
 //|                                                                  |
 //|  1. REAL-TIME (DrawSignalMarkers) — segnali nuovi in tempo reale |
 //|     Chiamata da OnTick() quando engine genera un nuovo segnale.  |
-//|     Oggetti: 3OND_SIG_*, 3OND_DOT_*, 3OND_LBL_*, 3OND_TRIG_*            |
+//|     Oggetti: TOND_SIG_*, TOND_DOT_*, TOND_LBL_*, TOND_TRIG_*            |
 //|                                                                  |
 //|  2. SCAN STORICO (ScanHistoricalSignals) — frecce passate        |
 //|     Chiamata su ogni nuova barra (pre-gate, indipendente dallo   |
 //|     stato EA). Replica la pipeline COMPLETA di EngineCalculate() |
 //|     per allineare frecce storiche ai trigger reali.              |
-//|     Oggetti: 3OND_HSIG_*, 3OND_HDOT_*, 3OND_HLBL_*                    |
+//|     Oggetti: TOND_HSIG_*, TOND_HDOT_*, TOND_HLBL_*                    |
 //|                                                                  |
 //|  COLORI FRECCE:                                                   |
 //|     TBS (Turtle Breakout Soup): lime/rosso brillante             |
 //|     TWS (Turtle Wick Soup): verde/rosso scuro (attenuato)        |
 //|                                                                  |
 //|  ARROW PLACEMENT (offset verticale):                              |
-//|     offset = ATR * 3OND_ARROW_OFFSET (0.15)                        |
+//|     offset = ATR * TOND_ARROW_OFFSET (0.15)                        |
 //|     BUY: sotto la lower band (bandPrice - offset)                |
 //|     SELL: sopra la upper band (bandPrice + offset)                |
 //|     Con ATR scaling l'offset e' proporzionale alla volatilita'.   |
@@ -32,7 +32,7 @@
 //|     Entry dots: default Z (centro sulla banda)                    |
 //|                                                                  |
 //|  DIPENDENZE:                                                      |
-//|     Config/adVisualTheme.mqh: 3OND_ARROW_*, 3OND_ENTRY_*_CLR         |
+//|     Config/adVisualTheme.mqh: TOND_ARROW_*, TOND_ENTRY_*_CLR         |
 //|     Engine/adDPCBands.mqh: KPCComputeOverlayBands, KPCGetATR, etc.      |
 //|     Engine/3ondKPCFilters.mqh: KPCCheckF1, KPCClassifySignal |
 //+------------------------------------------------------------------+
@@ -44,9 +44,9 @@
 color GetSignalArrowColor(bool isBuy, int quality)
 {
    if(quality >= PATTERN_TBS)
-      return isBuy ? 3OND_ARROW_TBS_BUY : 3OND_ARROW_TBS_SELL;
+      return isBuy ? TOND_ARROW_TBS_BUY : TOND_ARROW_TBS_SELL;
    else
-      return isBuy ? 3OND_ARROW_TWS_BUY : 3OND_ARROW_TWS_SELL;
+      return isBuy ? TOND_ARROW_TWS_BUY : TOND_ARROW_TWS_SELL;
 }
 
 //+------------------------------------------------------------------+
@@ -59,7 +59,7 @@ void DrawSignalArrow(const EngineSignal &sig)
    if(sig.direction == 0 || !sig.isNewSignal) return;
 
    bool isBuy = (sig.direction > 0);
-   string name = StringFormat("3OND_SIG_%s_%d_%s",
+   string name = StringFormat("TOND_SIG_%s_%d_%s",
                  isBuy ? "BUY" : "SELL", sig.quality,
                  TimeToString(sig.barTime, TIME_DATE|TIME_MINUTES));
 
@@ -68,7 +68,7 @@ void DrawSignalArrow(const EngineSignal &sig)
 
    // Arrow placement: band level with ATR offset
    double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] : 0;
-   double offset = atr * 3OND_ARROW_OFFSET;
+   double offset = atr * TOND_ARROW_OFFSET;
    double bandPrice = isBuy ? sig.lowerBand : sig.upperBand;
    if(bandPrice <= 0) bandPrice = sig.entryPrice;
    double price = isBuy ? (bandPrice - offset) : (bandPrice + offset);
@@ -77,7 +77,7 @@ void DrawSignalArrow(const EngineSignal &sig)
    ObjectCreate(0, name, OBJ_ARROW, 0, sig.barTime, price);
    ObjectSetInteger(0, name, OBJPROP_ARROWCODE, arrowCode);
    ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
-   ObjectSetInteger(0, name, OBJPROP_WIDTH, 3OND_ARROW_SIZE);
+   ObjectSetInteger(0, name, OBJPROP_WIDTH, TOND_ARROW_SIZE);
    ObjectSetInteger(0, name, OBJPROP_ANCHOR, isBuy ? ANCHOR_TOP : ANCHOR_BOTTOM);
    ObjectSetInteger(0, name, OBJPROP_BACK, false);
    ObjectSetInteger(0, name, OBJPROP_ZORDER, 400);
@@ -102,7 +102,7 @@ void DrawSignalLabel(const EngineSignal &sig)
    if(sig.direction == 0 || !sig.isNewSignal) return;
 
    bool isBuy = (sig.direction > 0);
-   string name = StringFormat("3OND_LBL_%s_%s",
+   string name = StringFormat("TOND_LBL_%s_%s",
                  isBuy ? "BUY" : "SELL",
                  TimeToString(sig.barTime, TIME_DATE|TIME_MINUTES));
 
@@ -112,7 +112,7 @@ void DrawSignalLabel(const EngineSignal &sig)
 
    // Place near arrow
    double atr = (sig.extraValues[0] > 0) ? sig.extraValues[0] : 0;
-   double offset = atr * (3OND_ARROW_OFFSET + 0.5);
+   double offset = atr * (TOND_ARROW_OFFSET + 0.5);
    double bandPrice = isBuy ? sig.lowerBand : sig.upperBand;
    if(bandPrice <= 0) bandPrice = sig.entryPrice;
    double price = isBuy ? (bandPrice - offset) : (bandPrice + offset);
@@ -142,11 +142,11 @@ void DrawEntryDot(const EngineSignal &sig)
    double bandPrice = isBuy ? sig.lowerBand : sig.upperBand;
    if(bandPrice <= 0) return;
 
-   string name = StringFormat("3OND_DOT_%s_%s",
+   string name = StringFormat("TOND_DOT_%s_%s",
                  isBuy ? "BUY" : "SELL",
                  TimeToString(sig.barTime, TIME_DATE|TIME_MINUTES));
 
-   color clr = isBuy ? 3OND_ENTRY_BUY_CLR : 3OND_ENTRY_SELL_CLR;
+   color clr = isBuy ? TOND_ENTRY_BUY_CLR : TOND_ENTRY_SELL_CLR;
 
    ObjectCreate(0, name, OBJ_ARROW, 0, sig.barTime, bandPrice);
    ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 159);
@@ -168,7 +168,7 @@ void DrawEntryDot(const EngineSignal &sig)
 //|                                                                  |
 //| Sovrapposta alla freccia segnale (Z=600 > Z=400) per indicare    |
 //| che l'ordine e' stato effettivamente piazzato dal CycleManager.  |
-//| Colore 3OND_BIOLUM (cyan brillante), spessore 3 — risalta sopra    |
+//| Colore TOND_BIOLUM (cyan brillante), spessore 3 — risalta sopra    |
 //| le frecce TBS/TWS piu' piccole.                                  |
 //|                                                                  |
 //| CHIAMATA DA: TerzaOnda.mq5 OnTick() dopo CreateCycle()          |
@@ -177,7 +177,7 @@ void DrawTriggerArrow(int cycleID, double price, datetime barTime, bool isBuy)
 {
    if(!ShowSignalArrows) return;
 
-   string name = StringFormat("3OND_TRIG_%s_%d_%s",
+   string name = StringFormat("TOND_TRIG_%s_%d_%s",
                  isBuy ? "BUY" : "SELL", cycleID,
                  TimeToString(barTime, TIME_DATE|TIME_MINUTES));
 
@@ -185,7 +185,7 @@ void DrawTriggerArrow(int cycleID, double price, datetime barTime, bool isBuy)
 
    ObjectCreate(0, name, OBJ_ARROW, 0, barTime, price);
    ObjectSetInteger(0, name, OBJPROP_ARROWCODE, arrowCode);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, 3OND_BIOLUM);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, TOND_BIOLUM);
    ObjectSetInteger(0, name, OBJPROP_WIDTH, 3);
    ObjectSetInteger(0, name, OBJPROP_ANCHOR, isBuy ? ANCHOR_TOP : ANCHOR_BOTTOM);
    ObjectSetInteger(0, name, OBJPROP_BACK, false);
@@ -237,18 +237,18 @@ void ScanHistoricalSignals()
 
    int depth = MathMax(1, OverlayDepth);
    int totalBars = iBars(_Symbol, PERIOD_CURRENT);
-   int dcLen = (20 > 0) ? 20 : 20;
-   if(totalBars < dcLen + 5)
+   int kpcPeriod = g_kpc_kamaPeriod_eff;
+   if(totalBars < kpcPeriod + 5)
    {
-      AdLogW(LOG_CAT_UI, StringFormat("ScanHistoricalSignals: insufficient bars (%d < %d)", totalBars, dcLen + 5));
+      AdLogW(LOG_CAT_UI, StringFormat("ScanHistoricalSignals: insufficient bars (%d < %d)", totalBars, kpcPeriod + 5));
       return;
    }
    depth = MathMin(depth, totalBars - 2);
 
    // Pulizia vecchi marker storici
-   ObjectsDeleteAll(0, "3OND_HSIG_");
-   ObjectsDeleteAll(0, "3OND_HDOT_");
-   ObjectsDeleteAll(0, "3OND_HLBL_");
+   ObjectsDeleteAll(0, "TOND_HSIG_");
+   ObjectsDeleteAll(0, "TOND_HDOT_");
+   ObjectsDeleteAll(0, "TOND_HLBL_");
 
    // ── SmartCooldown state machine (replica di adDPCCooldown.mqh) ──
    // Simuliamo lo stato del cooldown barra per barra, come fa l'engine
@@ -268,12 +268,12 @@ void ScanHistoricalSignals()
    // Loop da barra più vecchia (depth) a più recente (1)
    for(int i = depth; i >= 1; i--)
    {
-      // ── Lookback guard: servono dcLen barre di storia ──
-      if(i >= totalBars - dcLen) continue;
+      // ── Lookback guard: servono kpcPeriod barre di storia ──
+      if(i >= totalBars - kpcPeriod) continue;
 
-      // ── Calcolo bande Donchian per barra [i] ──
+      // ── Calcolo bande Keltner per barra [i] ──
       double upper, lower, mid;
-      KPCComputeOverlayBands(i, dcLen, upper, lower, mid);
+      KPCComputeOverlayBands(i, upper, lower, mid);
       if(upper <= 0 || lower <= 0) continue;
 
       // ── Dati OHLC della barra [i] ──
@@ -328,21 +328,16 @@ void ScanHistoricalSignals()
       // Blocca il segnale se la banda toccata si e' espansa oltre
       // flatTolerance (= g_kpc_erTrending_eff * ATR) nelle ultime g_kpc_minSqueezeBars_eff barre.
       // Una banda in espansione indica un breakout in corso, non un rejection.
-      if(InpUseBandFlatness)
       {
-         double atr_i = KPCGetATR(i);
-         if(atr_i > 0)
+         double er_i = 0;
+         KPCComputeKAMA(i, er_i);
+         if(bearBase)
          {
-            if(bearBase)
-            {
-               // Controlla se la upper band si e' espansa verso l'alto
-               if(!KPCCheckF1_ERRegime(i, atr_i)) bearBase = false;
-            }
-            if(bullBase)
-            {
-               // Controlla se la lower band si e' espansa verso il basso
-               if(!KPCCheckF1_ERRegime(i, atr_i)) bullBase = false;
-            }
+            if(!KPCCheckF1_ERRegime(er_i)) bearBase = false;
+         }
+         if(bullBase)
+         {
+            if(!KPCCheckF1_ERRegime(er_i)) bullBase = false;
          }
       }
       if(!bearBase && !bullBase) { filteredCount++; flatBlocked++; continue; }
@@ -355,15 +350,14 @@ void ScanHistoricalSignals()
       // (±2 points) per almeno g_kpc_minSqueezeBars_eff barre consecutive.
       // Una banda "giovane" (appena formata da un nuovo max/min)
       // non e' un livello affidabile per il pattern Turtle Soup.
-      if(true)
       {
          if(bearBase)
          {
-            if(!KPCCheckF2_Squeeze(i)) bearBase = false;
+            if(!KPCCheckF2_Squeeze()) bearBase = false;
          }
          if(bullBase)
          {
-            if(!KPCCheckF2_Squeeze(i)) bullBase = false;
+            if(!KPCCheckF2_Squeeze()) bullBase = false;
          }
       }
       if(!bearBase && !bullBase) { filteredCount++; ageBlocked++; continue; }
@@ -375,7 +369,7 @@ void ScanHistoricalSignals()
       // Il canale deve essere largo almeno g_kpc_minWidthPips_eff pips
       // (scalato per strumento e timeframe tramite preset).
       // Un canale troppo stretto genera segnali inaffidabili.
-      if(InpUseWidthFilter)
+      if(InpKPC_UseWidthFilter)
       {
          if(!KPCCheckF6_Width(upper, lower))
          {
@@ -391,20 +385,10 @@ void ScanHistoricalSignals()
       // Blocca segnali contro-trend: se la midline si e' spostata
       // oltre InpTrendContextMult * ATR in un periodo dcLen.
       // Attualmente OFF di default (InpUseTrendContext = false).
-      if(InpUseTrendContext)
+      if(!KPCCheckF4_Fire())
       {
-         double atr_i = KPCGetATR(i);
-         if(atr_i > 0)
-         {
-            if(bearBase)
-            {
-               if(!KPCCheckF4_Fire(i, atr_i)) bearBase = false;
-            }
-            if(bullBase)
-            {
-               if(!KPCCheckF4_Fire(i, atr_i)) bullBase = false;
-            }
-         }
+         if(bearBase) bearBase = false;
+         if(bullBase) bullBase = false;
       }
       if(!bearBase && !bullBase) { filteredCount++; trendBlocked++; continue; }
 
@@ -414,19 +398,19 @@ void ScanHistoricalSignals()
       // Replica IsInBlockedTime() di adSessionManager.mqh.
       // Per lo scan storico usiamo l'ora della barra (non TimeCurrent).
       // Attualmente OFF di default (InpUseTimeFilter = false).
-      if(InpUseTimeFilter)
+      if(InpKPC_UseTimeFilter)
       {
          MqlDateTime barDT;
          TimeToStruct(barTime, barDT);
          int barMinutes = barDT.hour * 60 + barDT.min;
-         if(g_dpcTimeBlockStartMin < g_dpcTimeBlockEndMin)
+         if(g_kpcTimeBlockStartMin < g_kpcTimeBlockEndMin)
          {
-            if(barMinutes >= g_dpcTimeBlockStartMin && barMinutes < g_dpcTimeBlockEndMin)
+            if(barMinutes >= g_kpcTimeBlockStartMin && barMinutes < g_kpcTimeBlockEndMin)
             { filteredCount++; timeBlocked++; continue; }
          }
-         else if(g_dpcTimeBlockStartMin > g_dpcTimeBlockEndMin)
+         else if(g_kpcTimeBlockStartMin > g_kpcTimeBlockEndMin)
          {
-            if(barMinutes >= g_dpcTimeBlockStartMin || barMinutes < g_dpcTimeBlockEndMin)
+            if(barMinutes >= g_kpcTimeBlockStartMin || barMinutes < g_kpcTimeBlockEndMin)
             { filteredCount++; timeBlocked++; continue; }
          }
       }
@@ -438,19 +422,12 @@ void ScanHistoricalSignals()
       // Filtra in base alla posizione del close rispetto alla MA.
       // CLASSIC: trend-following (SELL solo sotto MA, BUY solo sopra).
       // INVERTED: mean-reversion Soup (SELL sopra MA, BUY sotto MA).
-      if(InpMAFilterMode != MA_FILTER_DISABLED)
       {
-         double ma_i = KPCGetOverlayMA(i);
-         if(ma_i > 0)
+         int dir_tmp = bearBase ? -1 : +1;
+         if(!KPCCheckF5_WPR(dir_tmp))
          {
-            if(bearBase)
-            {
-               if(!KPCCheckF5_WPR(close1, ma_i, -1)) bearBase = false;
-            }
-            if(bullBase)
-            {
-               if(!KPCCheckF5_WPR(close1, ma_i, +1)) bullBase = false;
-            }
+            if(bearBase) bearBase = false;
+            if(bullBase) bullBase = false;
          }
       }
       if(!bearBase && !bullBase) { filteredCount++; maBlocked++; continue; }
@@ -468,12 +445,7 @@ void ScanHistoricalSignals()
       int direction = bullBase ? +1 : -1;
       bool cooldownOK = false;
 
-      if(!InpUseSmartCooldown)
-      {
-         // Cooldown fisso: almeno dcLen barre dall'ultimo segnale
-         cooldownOK = (currentBarIdx - hsLastSignalBarIdx >= dcLen);
-      }
-      else if(hsLastDirection == 0)
+      if(hsLastDirection == 0)
       {
          // Primo segnale in assoluto: sempre accettato
          cooldownOK = true;
@@ -482,11 +454,8 @@ void ScanHistoricalSignals()
       {
          // Stessa direzione (es. SELL dopo SELL):
          // richiede midline touch + g_kpc_nSameBars_eff barre dopo il touch
-         if(InpRequireMidTouch)
-            cooldownOK = hsMidlineTouched &&
-                         (currentBarIdx - hsMidlineTouchBarIdx >= g_kpc_nSameBars_eff);
-         else
-            cooldownOK = (currentBarIdx - hsLastSignalBarIdx >= g_kpc_nSameBars_eff);
+         cooldownOK = hsMidlineTouched &&
+                      (currentBarIdx - hsMidlineTouchBarIdx >= g_kpc_nSameBars_eff);
       }
       else
       {
@@ -504,9 +473,12 @@ void ScanHistoricalSignals()
       // TBS (Turtle Breakout Soup): body penetra la banda — segnale forte
       // TWS (Turtle Wick Soup): solo wick penetra — segnale debole
       // Se InpShowTWSSignals e' false, i TWS vengono scartati.
-      int quality = KPCClassifySignal(direction, open1, close1, upper, lower);
+      double atrI = KPCGetATR(i);
+      double upperHalf = mid + atrI * g_kpc_halfMultiplier_eff;
+      double lowerHalf = mid - atrI * g_kpc_halfMultiplier_eff;
+      int quality = KPCClassifySignal(direction, open1, close1, upper, lower, upperHalf, lowerHalf);
 
-      if(!InpShowTWSSignals && quality == PATTERN_TWS) { filteredCount++; twsBlocked++; continue; }
+      if(!InpKPC_ShowHalfSignals && quality == PATTERN_TWS) { filteredCount++; twsBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
       // ══ SEGNALE CONFERMATO — aggiorna SmartCooldown + disegna ═
@@ -529,11 +501,11 @@ void ScanHistoricalSignals()
       // ATR per offset verticale della freccia
       double atr = KPCGetATR(i);
       double atrPrice = (atr > 0) ? atr : 0;
-      double offset = atrPrice * 3OND_ARROW_OFFSET;
+      double offset = atrPrice * TOND_ARROW_OFFSET;
 
       // Freccia direzionale (su=BUY, giu'=SELL)
       {
-         string name = StringFormat("3OND_HSIG_%s_%d_%s",
+         string name = StringFormat("TOND_HSIG_%s_%d_%s",
                        isBuy ? "BUY" : "SELL", quality, timeStr);
          int arrowCode = isBuy ? 233 : 234;
          double price = isBuy ? (bandPrice - offset) : (bandPrice + offset);
@@ -542,7 +514,7 @@ void ScanHistoricalSignals()
          ObjectCreate(0, name, OBJ_ARROW, 0, barTime, price);
          ObjectSetInteger(0, name, OBJPROP_ARROWCODE, arrowCode);
          ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
-         ObjectSetInteger(0, name, OBJPROP_WIDTH, 3OND_ARROW_SIZE);
+         ObjectSetInteger(0, name, OBJPROP_WIDTH, TOND_ARROW_SIZE);
          ObjectSetInteger(0, name, OBJPROP_ANCHOR, isBuy ? ANCHOR_TOP : ANCHOR_BOTTOM);
          ObjectSetInteger(0, name, OBJPROP_BACK, false);
          ObjectSetInteger(0, name, OBJPROP_ZORDER, 400);
@@ -557,11 +529,11 @@ void ScanHistoricalSignals()
 
       // Punto d'ingresso (cerchio pieno) sulla banda
       {
-         string name = StringFormat("3OND_HDOT_%s_%s",
+         string name = StringFormat("TOND_HDOT_%s_%s",
                        isBuy ? "BUY" : "SELL", timeStr);
          ObjectCreate(0, name, OBJ_ARROW, 0, barTime, bandPrice);
          ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 159);
-         ObjectSetInteger(0, name, OBJPROP_COLOR, isBuy ? 3OND_ENTRY_BUY_CLR : 3OND_ENTRY_SELL_CLR);
+         ObjectSetInteger(0, name, OBJPROP_COLOR, isBuy ? TOND_ENTRY_BUY_CLR : TOND_ENTRY_SELL_CLR);
          ObjectSetInteger(0, name, OBJPROP_WIDTH, 2);
          ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
          ObjectSetInteger(0, name, OBJPROP_BACK, false);
@@ -571,10 +543,10 @@ void ScanHistoricalSignals()
 
       // Etichetta testo "TRIGGER BUY [TBS]"
       {
-         string name = StringFormat("3OND_HLBL_%s_%s",
+         string name = StringFormat("TOND_HLBL_%s_%s",
                        isBuy ? "BUY" : "SELL", timeStr);
          string text = StringFormat("TRIGGER %s [%s]", isBuy ? "BUY" : "SELL", patternName);
-         double labelOffset = atrPrice * (3OND_ARROW_OFFSET + 0.5);
+         double labelOffset = atrPrice * (TOND_ARROW_OFFSET + 0.5);
          double price = isBuy ? (bandPrice - labelOffset) : (bandPrice + labelOffset);
 
          ObjectCreate(0, name, OBJ_TEXT, 0, barTime, price);
@@ -608,23 +580,23 @@ void ScanHistoricalSignals()
 //| CleanupSignalMarkers — Rimuove tutti i marker segnale            |
 //|                                                                  |
 //| Cancella 7 famiglie di oggetti per prefisso:                     |
-//|   3OND_SIG_  — frecce segnale real-time                            |
-//|   3OND_DOT_  — entry dots real-time                                |
-//|   3OND_LBL_  — labels testo real-time                              |
-//|   3OND_TRIG_ — frecce trigger cyan (ordine piazzato)               |
-//|   3OND_HSIG_ — frecce storiche (scan)                              |
-//|   3OND_HDOT_ — entry dots storici                                  |
-//|   3OND_HLBL_ — labels testo storici                                |
+//|   TOND_SIG_  — frecce segnale real-time                            |
+//|   TOND_DOT_  — entry dots real-time                                |
+//|   TOND_LBL_  — labels testo real-time                              |
+//|   TOND_TRIG_ — frecce trigger cyan (ordine piazzato)               |
+//|   TOND_HSIG_ — frecce storiche (scan)                              |
+//|   TOND_HDOT_ — entry dots storici                                  |
+//|   TOND_HLBL_ — labels testo storici                                |
 //|                                                                  |
 //| CHIAMATA DA: OnDeinit() in TerzaOnda.mq5                       |
 //+------------------------------------------------------------------+
 void CleanupSignalMarkers()
 {
-   ObjectsDeleteAll(0, "3OND_SIG_");
-   ObjectsDeleteAll(0, "3OND_DOT_");
-   ObjectsDeleteAll(0, "3OND_LBL_");
-   ObjectsDeleteAll(0, "3OND_TRIG_");
-   ObjectsDeleteAll(0, "3OND_HSIG_");
-   ObjectsDeleteAll(0, "3OND_HDOT_");
-   ObjectsDeleteAll(0, "3OND_HLBL_");
+   ObjectsDeleteAll(0, "TOND_SIG_");
+   ObjectsDeleteAll(0, "TOND_DOT_");
+   ObjectsDeleteAll(0, "TOND_LBL_");
+   ObjectsDeleteAll(0, "TOND_TRIG_");
+   ObjectsDeleteAll(0, "TOND_HSIG_");
+   ObjectsDeleteAll(0, "TOND_HDOT_");
+   ObjectsDeleteAll(0, "TOND_HLBL_");
 }

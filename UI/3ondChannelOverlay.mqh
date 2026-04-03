@@ -65,33 +65,33 @@
 //|  ═══════════════════════════════════════════════════════════════  |
 //|                                                                  |
 //|   Canale DPC (4 tipi × depth segmenti):                          |
-//|   "3OND_OVL_{i}_U"  — Upper band, segmento i                      |
-//|   "3OND_OVL_{i}_L"  — Lower band, segmento i                      |
-//|   "3OND_OVL_{i}_M"  — Midline, segmento i (colore dinamico)       |
-//|   "3OND_OVL_{i}_A"  — MA filter line, segmento i                  |
+//|   "TOND_OVL_{i}_U"  — Upper band, segmento i                      |
+//|   "TOND_OVL_{i}_L"  — Lower band, segmento i                      |
+//|   "TOND_OVL_{i}_M"  — Midline, segmento i (colore dinamico)       |
+//|   "TOND_OVL_{i}_A"  — MA filter line, segmento i                  |
 //|                                                                  |
 //|   Canale HS entry (2 tipi × depth segmenti, se hedge attivo):    |
-//|   "3OND_OVL_{i}_HU" — HS entry channel upper, segmento i          |
-//|   "3OND_OVL_{i}_HL" — HS entry channel lower, segmento i          |
+//|   "TOND_OVL_{i}_HU" — HS entry channel upper, segmento i          |
+//|   "TOND_OVL_{i}_HL" — HS entry channel lower, segmento i          |
 //|                                                                  |
 //|   Canvas e TP:                                                   |
-//|   "3OND_OVL_CANVAS"  — CCanvas bitmap per il fill trasparente      |
-//|   "3OND_TP_LINE_{id}" — Linea orizzontale TP per ciclo             |
-//|   "3OND_TP_DOT_{id}"  — Punto cerchio TP per ciclo                 |
-//|   "3OND_TP_HIT_{id}"  — Stella quando TP viene raggiunto           |
-//|   "3OND_TP_STAR_{B|S}_{time}" — Asterisco giallo TP preview        |
-//|   "3OND_TRIG_VL_{t}"  — VLine trigger (disattivata, func presente) |
+//|   "TOND_OVL_CANVAS"  — CCanvas bitmap per il fill trasparente      |
+//|   "TOND_TP_LINE_{id}" — Linea orizzontale TP per ciclo             |
+//|   "TOND_TP_DOT_{id}"  — Punto cerchio TP per ciclo                 |
+//|   "TOND_TP_HIT_{id}"  — Stella quando TP viene raggiunto           |
+//|   "TOND_TP_STAR_{B|S}_{time}" — Asterisco giallo TP preview        |
+//|   "TOND_TRIG_VL_{t}"  — VLine trigger (disattivata, func presente) |
 //|                                                                  |
 //|  ═══════════════════════════════════════════════════════════════  |
 //|  CLEANUP:                                                        |
 //|  ═══════════════════════════════════════════════════════════════  |
 //|                                                                  |
-//|  - CleanupOverlay(): ObjectsDeleteAll("3OND_OVL_") cattura tutti   |
+//|  - CleanupOverlay(): ObjectsDeleteAll("TOND_OVL_") cattura tutti   |
 //|    i segmenti (U/L/M/A/HU/HL) + canvas. CCanvas.Destroy()       |
 //|    libera la memoria bitmap. Chiamata da OnDeinit().             |
 //|  - Depth change: loop elimina segmenti orfani (inclusi legacy    |
 //|    H2U/H2L dal v1.5.0 Two-Tier hedge rimosso in v1.7.0)        |
-//|  - HedgeDeinit(): pulisce legacy 3OND_HS_ZONE_* da v1.7.2         |
+//|  - HedgeDeinit(): pulisce legacy TOND_HS_ZONE_* da v1.7.2         |
 //|                                                                  |
 //|  ═══════════════════════════════════════════════════════════════  |
 //|  DIPENDENZE:                                                     |
@@ -99,7 +99,7 @@
 //|                                                                  |
 //|   - Engine/adDPCBands.mqh: KPCComputeOverlayBands(), KPCGetOverlayMA(),   |
 //|     KPCGetMidlineColorState()                                         |
-//|   - Config/adVisualTheme.mqh: 3OND_CHAN_* e 3OND_HS_CHAN_* defines    |
+//|   - Config/adVisualTheme.mqh: TOND_CHAN_* e TOND_HS_CHAN_* defines    |
 //|   - Config/adInputParameters.mqh: ShowChannelOverlay,            |
 //|     OverlayDepth, ShowTPTargetLines, EnableHedge, HsEnabled,     |
 //|     HsShowZones, HsTriggerPct                                    |
@@ -113,17 +113,17 @@
 //| VARIABILI GLOBALI OVERLAY                                        |
 //+------------------------------------------------------------------+
 CCanvas g_canvasFill;              // Oggetto CCanvas per il fill trasparente tra le bande
-string  g_canvasName = "3OND_OVL_CANVAS";  // Nome univoco dell'oggetto canvas sul chart
+string  g_canvasName = "TOND_OVL_CANVAS";  // Nome univoco dell'oggetto canvas sul chart
 bool    g_canvasCreated = false;   // Flag: true dopo la prima creazione del canvas
 uint    g_ovlLastRedrawMs = 0;     // Timestamp ultimo redraw canvas (throttle scroll a ~33 FPS)
 int     g_ovlLastDepth   = 0;     // Profondita' effettiva dell'ultimo disegno (per cleanup segmenti)
 
-// v1.7.3: Canale HS entry dinamico — sostituisce i 4 rettangoli statici (3OND_HS_ZONE_*)
+// v1.7.3: Canale HS entry dinamico — sostituisce i 4 rettangoli statici (TOND_HS_ZONE_*)
 //          Le linee HU/HL seguono le bande DPC barra per barra come un Donchian esterno.
 //          Geometria: upper + (cw × 30%) sopra, lower - (cw × 30%) sotto.
 //          Il canale si allarga/stringe proporzionalmente al channel width (omotetia).
 //          Controllato da: EnableHedge, HsEnabled, HsShowZones (input esistenti)
-//          Colore/stile: 3OND_HS_CHAN_CLR/STYLE/WIDTH (definiti in adVisualTheme.mqh)
+//          Colore/stile: TOND_HS_CHAN_CLR/STYLE/WIDTH (definiti in adVisualTheme.mqh)
 
 //+------------------------------------------------------------------+
 //| IsNewBarOverlay — Rileva nuova barra per l'overlay               |
@@ -167,8 +167,8 @@ bool IsNewBarOverlay()
 //|   2. Cleanup segmenti stale se la depth e' diminuita             |
 //|   3. Calcola bande DPC per ogni barra (loop bar[0]..bar[depth])  |
 //|   4. Disegna 4 linee per ogni coppia di barre adiacenti:         |
-//|      - Upper band (blu, 3OND_CHAN_UPPER_CLR)                       |
-//|      - Lower band (blu, 3OND_CHAN_LOWER_CLR)                       |
+//|      - Upper band (blu, TOND_CHAN_UPPER_CLR)                       |
+//|      - Lower band (blu, TOND_CHAN_LOWER_CLR)                       |
 //|      - Midline (lime/red/cyan in base al trend)                  |
 //|      - MA filter (teal, solo se valore valido)                   |
 //|   5. Disegna fill trasparente CCanvas tra upper e lower          |
@@ -202,7 +202,7 @@ void DrawChannelOverlay()
    {
       for(int i = depth; i < g_ovlLastDepth; i++)
       {
-         string pfx = "3OND_OVL_" + IntegerToString(i) + "_";
+         string pfx = "TOND_OVL_" + IntegerToString(i) + "_";
          ObjectDelete(0, pfx + "U");
          ObjectDelete(0, pfx + "L");
          ObjectDelete(0, pfx + "M");
@@ -250,26 +250,26 @@ void DrawChannelOverlay()
       datetime t2 = arrT[i + 1];  // Tempo barra piu' vecchia (punto sinistro)
 
       // v1.7.3 OPT: IntegerToString + concatenazione (evita StringFormat heap alloc × 500)
-      string prefix = "3OND_OVL_" + IntegerToString(i) + "_";
+      string prefix = "TOND_OVL_" + IntegerToString(i) + "_";
 
       // Banda superiore — colore blu, stile solido
       DrawOverlayLine(prefix + "U", t2, arrU[i + 1], t1, arrU[i],
-                      3OND_CHAN_UPPER_CLR, 3OND_CHAN_STYLE, 3OND_CHAN_WIDTH);
+                      TOND_CHAN_UPPER_CLR, TOND_CHAN_STYLE, TOND_CHAN_WIDTH);
 
       // Banda inferiore — colore blu, stile solido
       DrawOverlayLine(prefix + "L", t2, arrL[i + 1], t1, arrL[i],
-                      3OND_CHAN_LOWER_CLR, 3OND_CHAN_STYLE, 3OND_CHAN_WIDTH);
+                      TOND_CHAN_LOWER_CLR, TOND_CHAN_STYLE, TOND_CHAN_WIDTH);
 
       // Midline — colore dinamico per segmento (usa DrawOverlayLineDynColor):
       //   0 = bullish (lime): midline sale
       //   1 = bearish (red):  midline scende
       //   2 = flat (cyan):    midline stabile
       int midState = KPCGetMidlineColorState(i);
-      color midClr = 3OND_CHAN_MID_FLAT_CLR;
-      if(midState == 0) midClr = 3OND_CHAN_MID_UP_CLR;
-      else if(midState == 1) midClr = 3OND_CHAN_MID_DN_CLR;
+      color midClr = TOND_CHAN_MID_FLAT_CLR;
+      if(midState == 0) midClr = TOND_CHAN_MID_UP_CLR;
+      else if(midState == 1) midClr = TOND_CHAN_MID_DN_CLR;
       DrawOverlayLineDynColor(prefix + "M", t2, arrM[i + 1], t1, arrM[i],
-                              midClr, 3OND_CHAN_MID_STYLE, 3OND_CHAN_WIDTH);
+                              midClr, TOND_CHAN_MID_STYLE, TOND_CHAN_WIDTH);
 
       // MA filter line — teal, spessore 2, solo se valore valido
       // Serve come filtro visivo: segnali validi solo se prezzo
@@ -277,7 +277,7 @@ void DrawChannelOverlay()
       if(arrMA[i] > 0 && arrMA[i + 1] > 0)
       {
          DrawOverlayLine(prefix + "A", t2, arrMA[i + 1], t1, arrMA[i],
-                         3OND_CHAN_MA_CLR, STYLE_SOLID, 2);
+                         TOND_CHAN_MA_CLR, STYLE_SOLID, 2);
       }
 
       // ── v1.7.3: Hedge Smart entry channel (canale esterno dinamico) ──
@@ -304,9 +304,9 @@ void DrawChannelOverlay()
             double hl_i1 = arrL[i + 1] - cw_i1 * HsTriggerPct;
 
             DrawOverlayLine(prefix + "HU", t2, hu_i1, t1, hu_i,
-                            3OND_HS_CHAN_CLR, 3OND_HS_CHAN_STYLE, 3OND_HS_CHAN_WIDTH);
+                            TOND_HS_CHAN_CLR, TOND_HS_CHAN_STYLE, TOND_HS_CHAN_WIDTH);
             DrawOverlayLine(prefix + "HL", t2, hl_i1, t1, hl_i,
-                            3OND_HS_CHAN_CLR, 3OND_HS_CHAN_STYLE, 3OND_HS_CHAN_WIDTH);
+                            TOND_HS_CHAN_CLR, TOND_HS_CHAN_STYLE, TOND_HS_CHAN_WIDTH);
          }
       }
 
@@ -331,7 +331,7 @@ void DrawChannelOverlay()
 //|   3. Per ogni coppia di barre adiacenti, converte coordinate     |
 //|      price/time in pixel X/Y con ChartTimePriceToXY()            |
 //|   4. Disegna un quadrilatero riempito come 2 triangoli           |
-//|   5. Il colore usa 3OND_CHAN_FILL_CLR con alpha 3OND_CHAN_FILL_ALPHA  |
+//|   5. Il colore usa TOND_CHAN_FILL_CLR con alpha TOND_CHAN_FILL_ALPHA  |
 //|                                                                  |
 //| PROPRIETA' CANVAS:                                               |
 //|   - OBJPROP_BACK=true: dietro le candele e i segmenti           |
@@ -377,8 +377,8 @@ void DrawBandFill(double &upper[], double &lower[], datetime &times[],
    g_canvasFill.Erase(0x00000000);
 
    // Colore fill con trasparenza: ColorToARGB converte da BGR (MQL5) a ARGB
-   // 3OND_CHAN_FILL_ALPHA=40 su 255 = ~16% opacita' (blu tenue)
-   uint fillARGB = ColorToARGB(3OND_CHAN_FILL_CLR, 3OND_CHAN_FILL_ALPHA);
+   // TOND_CHAN_FILL_ALPHA=40 su 255 = ~16% opacita' (blu tenue)
+   uint fillARGB = ColorToARGB(TOND_CHAN_FILL_CLR, TOND_CHAN_FILL_ALPHA);
 
    // Disegna un quadrilatero riempito tra ogni coppia di barre
    // Ogni quad e' scomposto in 2 triangoli per il rasterizzatore
@@ -501,7 +501,7 @@ void UpdateChannelLiveEdge()
    if(upper0 <= 0 || lower0 <= 0 || mid0 <= 0) return;
 
    datetime t0 = iTime(_Symbol, PERIOD_CURRENT, 0);
-   string prefix = "3OND_OVL_0_";
+   string prefix = "TOND_OVL_0_";
 
    // Aggiorna banda superiore — solo il punto 1 (bar[0], estremo destro)
    string nameU = prefix + "U";
@@ -527,9 +527,9 @@ void UpdateChannelLiveEdge()
       ObjectSetDouble(0, nameM, OBJPROP_PRICE, 1, mid0);
       // Colore midline: confronta mid[0] vs mid[2] per determinare trend
       int midState = KPCGetMidlineColorState(0);
-      color midClr = 3OND_CHAN_MID_FLAT_CLR;
-      if(midState == 0) midClr = 3OND_CHAN_MID_UP_CLR;
-      else if(midState == 1) midClr = 3OND_CHAN_MID_DN_CLR;
+      color midClr = TOND_CHAN_MID_FLAT_CLR;
+      if(midState == 0) midClr = TOND_CHAN_MID_UP_CLR;
+      else if(midState == 1) midClr = TOND_CHAN_MID_DN_CLR;
       ObjectSetInteger(0, nameM, OBJPROP_COLOR, midClr);
    }
 
@@ -680,9 +680,9 @@ void DrawTPLine(int cycleID, double tpPrice, bool isBuy)
 {
    if(!ShowTPTargetLines) return;
 
-   string lineName = StringFormat("3OND_TP_LINE_%d", cycleID);
-   color tpClr = isBuy ? 3OND_TP_DOT_BUY : 3OND_TP_DOT_SELL;
-   CreateHLine(lineName, tpPrice, tpClr, 3OND_TP_LINE_WIDTH, STYLE_DASH);
+   string lineName = StringFormat("TOND_TP_LINE_%d", cycleID);
+   color tpClr = isBuy ? TOND_TP_DOT_BUY : TOND_TP_DOT_SELL;
+   CreateHLine(lineName, tpPrice, tpClr, TOND_TP_LINE_WIDTH, STYLE_DASH);
    ObjectSetString(0, lineName, OBJPROP_TOOLTIP,
        StringFormat("TP #%d %s @ %s", cycleID, isBuy ? "BUY" : "SELL",
                     DoubleToString(tpPrice, _Digits)));
@@ -703,12 +703,12 @@ void DrawTPDot(int cycleID, double tpPrice, datetime signalTime, bool isBuy)
 {
    if(!ShowTPTargetLines) return;
 
-   string name = StringFormat("3OND_TP_DOT_%d", cycleID);
+   string name = StringFormat("TOND_TP_DOT_%d", cycleID);
    if(ObjectFind(0, name) < 0)
       ObjectCreate(0, name, OBJ_ARROW, 0, signalTime, tpPrice);
 
    ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 159);  // Cerchio pieno
-   ObjectSetInteger(0, name, OBJPROP_COLOR, isBuy ? 3OND_TP_DOT_BUY : 3OND_TP_DOT_SELL);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, isBuy ? TOND_TP_DOT_BUY : TOND_TP_DOT_SELL);
    ObjectSetInteger(0, name, OBJPROP_WIDTH, 2);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
@@ -730,7 +730,7 @@ void DrawTPDot(int cycleID, double tpPrice, datetime signalTime, bool isBuy)
 void DrawTPAsterisk(double tpPrice, datetime signalTime, bool isBuy)
 {
    // Usa timestamp + direzione per nome univoco (un asterisco per segnale)
-   string name = StringFormat("3OND_TP_STAR_%s_%s",
+   string name = StringFormat("TOND_TP_STAR_%s_%s",
       isBuy ? "B" : "S",
       TimeToString(signalTime, TIME_DATE|TIME_MINUTES));
 
@@ -764,12 +764,12 @@ void DrawTPAsterisk(double tpPrice, datetime signalTime, bool isBuy)
 //+------------------------------------------------------------------+
 void DrawTPHitMarker(int cycleID, double tpPrice, datetime hitTime)
 {
-   string name = StringFormat("3OND_TP_HIT_%d", cycleID);
+   string name = StringFormat("TOND_TP_HIT_%d", cycleID);
    if(ObjectFind(0, name) < 0)
       ObjectCreate(0, name, OBJ_ARROW, 0, hitTime, tpPrice);
 
    ObjectSetInteger(0, name, OBJPROP_ARROWCODE, 169);  // Stella
-   ObjectSetInteger(0, name, OBJPROP_COLOR, 3OND_TP_HIT_CLR);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, TOND_TP_HIT_CLR);
    ObjectSetInteger(0, name, OBJPROP_WIDTH, 3);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
@@ -786,10 +786,10 @@ void DrawTPHitMarker(int cycleID, double tpPrice, datetime hitTime)
 //+------------------------------------------------------------------+
 void RemoveTPLine(int cycleID)
 {
-   string lineName = StringFormat("3OND_TP_LINE_%d", cycleID);
+   string lineName = StringFormat("TOND_TP_LINE_%d", cycleID);
    if(ObjectFind(0, lineName) >= 0) ObjectDelete(0, lineName);
 
-   string dotName = StringFormat("3OND_TP_DOT_%d", cycleID);
+   string dotName = StringFormat("TOND_TP_DOT_%d", cycleID);
    if(ObjectFind(0, dotName) >= 0) ObjectDelete(0, dotName);
 }
 
@@ -801,18 +801,18 @@ void RemoveTPLine(int cycleID)
 //|        rimosso o quando cambia timeframe.                        |
 //|                                                                  |
 //| OGGETTI RIMOSSI:                                                 |
-//|   - "3OND_OVL_*": tutti i segmenti canale + canvas                |
-//|   - "3OND_TP_*": linee e pallini TP                                |
-//|   - "3OND_TRIG_VL_*": VLine trigger                                |
+//|   - "TOND_OVL_*": tutti i segmenti canale + canvas                |
+//|   - "TOND_TP_*": linee e pallini TP                                |
+//|   - "TOND_TRIG_VL_*": VLine trigger                                |
 //|   - CCanvas: distrutto esplicitamente per liberare memoria       |
 //|                                                                  |
 //| CHIAMATA DA: OnDeinit() in TerzaOnda.mq5                       |
 //+------------------------------------------------------------------+
 void CleanupOverlay()
 {
-   ObjectsDeleteAll(0, "3OND_OVL_");     // Segmenti canale + canvas
-   ObjectsDeleteAll(0, "3OND_TP_");      // Linee e dot TP
-   ObjectsDeleteAll(0, "3OND_TRIG_VL_"); // VLine trigger
+   ObjectsDeleteAll(0, "TOND_OVL_");     // Segmenti canale + canvas
+   ObjectsDeleteAll(0, "TOND_TP_");      // Linee e dot TP
+   ObjectsDeleteAll(0, "TOND_TRIG_VL_"); // VLine trigger
    if(g_canvasCreated)
    {
       g_canvasFill.Destroy();           // Libera memoria bitmap

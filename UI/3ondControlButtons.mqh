@@ -13,10 +13,10 @@
 //+------------------------------------------------------------------+
 //| Button Name Constants                                            |
 //+------------------------------------------------------------------+
-#define BTN_START    "3OND_BTN_START"
-#define BTN_PAUSE    "3OND_BTN_PAUSE"
-#define BTN_RECOVER  "3OND_BTN_RECOVER"
-#define BTN_STOP     "3OND_BTN_STOP"
+#define BTN_START    "TOND_BTN_START"
+#define BTN_PAUSE    "TOND_BTN_PAUSE"
+#define BTN_RECOVER  "TOND_BTN_RECOVER"
+#define BTN_STOP     "TOND_BTN_STOP"
 
 //+------------------------------------------------------------------+
 //| Button Colors (Ocean)                                            |
@@ -57,12 +57,12 @@ void CreateControlButton(string name, int x, int y, int width, int height,
    ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, bgColor);
    ObjectSetInteger(0, objName, OBJPROP_BORDER_COLOR, clrBlack);
    ObjectSetInteger(0, objName, OBJPROP_FONTSIZE, 9);
-   ObjectSetString(0, objName, OBJPROP_FONT, 3OND_FONT_SECTION);
+   ObjectSetString(0, objName, OBJPROP_FONT, TOND_FONT_SECTION);
    ObjectSetInteger(0, objName, OBJPROP_BACK, false);
    ObjectSetInteger(0, objName, OBJPROP_STATE, false);
    ObjectSetInteger(0, objName, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, objName, OBJPROP_HIDDEN, true);
-   ObjectSetInteger(0, objName, OBJPROP_ZORDER, 3OND_Z_BUTTON);
+   ObjectSetInteger(0, objName, OBJPROP_ZORDER, TOND_Z_BUTTON);
 }
 
 //+------------------------------------------------------------------+

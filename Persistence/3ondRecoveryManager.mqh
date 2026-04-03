@@ -20,8 +20,8 @@ int      g_recoveredPendings  = 0;
 //| ParseCycleIDFromComment — Extract cycle ID from order comment   |
 //|                                                                  |
 //| Il comment di ogni ordine/posizione TerzaOnda segue il formato: |
-//|   Soup: "3OND_BUY_#12" / "3OND_SELL_#3"                             |
-//|   HS:   "3OND_HS_SELL_#12" / "3OND_HS_BUY_#3"                      |
+//|   Soup: "TOND_BUY_#12" / "TOND_SELL_#3"                             |
+//|   HS:   "TOND_HS_SELL_#12" / "TOND_HS_BUY_#3"                      |
 //| Questa funzione estrae il numero dopo "#".                       |
 //| Il cycleID e' l'unico modo affidabile per collegare              |
 //| Soup → HS durante il recovery (non il ticket).                   |
@@ -54,8 +54,8 @@ int ParseCycleIDFromComment(string comment)
 //+------------------------------------------------------------------+
 int ParseDirectionFromComment(string comment)
 {
-   if(StringFind(comment, "3OND_BUY") >= 0)  return +1;
-   if(StringFind(comment, "3OND_SELL") >= 0) return -1;
+   if(StringFind(comment, "TOND_BUY") >= 0)  return +1;
+   if(StringFind(comment, "TOND_SELL") >= 0) return -1;
    return 0;
 }
 
