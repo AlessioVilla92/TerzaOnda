@@ -545,9 +545,11 @@ void OnTick()
                DrawTPLine(g_cycles[slot].cycleID, sig.tpPrice, sig.direction > 0);
                DrawTPDot(g_cycles[slot].cycleID, sig.tpPrice, sig.barTime, sig.direction > 0);
 
-               // === Hedge Smart: piazza HS contestualmente al ciclo ===
-               if(EnableHedge && HsEnabled && !VirtualMode)
-                  HsPlaceOrder(slot, sig);
+               // v1.8.0: HS piazzato al FILL della Soup, non al piazzamento.
+               // Per ordini STOP/LIMIT la Soup è ancora pending qui — l'HS
+               // viene piazzato da DetectFill/PollFills (adCycleManager) quando
+               // il broker filla la Soup, o da HsMonitor (adHedgeManager) come
+               // fallback per ENTRY_MARKET e recovery post-crash.
             }
             else
             {

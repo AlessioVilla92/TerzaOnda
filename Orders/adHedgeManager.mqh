@@ -553,6 +553,22 @@ void HsMonitor(int slot, const EngineSignal &sig, bool hasNewSignal)
       return;
    }
 
+   // v1.8.0: Soup ACTIVE ma HS mai piazzato → piazza ora.
+   // Copre due scenari:
+   //   1) ENTRY_MARKET: fill avviene in CreateCycle (state=ACTIVE prima di DetectFill),
+   //      DetectFill non scatta (cerca solo CYCLE_PENDING), HS non piazzato.
+   //   2) Recovery: EA crasha, Soup filla offline, al restart AttemptRecovery
+   //      ripristina CYCLE_ACTIVE ma HS è assente.
+   // Guard hsTriggerPrice==0: evita ri-piazzamento dopo HsClose/HsCancel
+   //   (queste funzioni non resettano hsTriggerPrice, che resta > 0).
+   if(st == CYCLE_ACTIVE && !g_cycles[slot].hsPending && !g_cycles[slot].hsActive
+      && g_cycles[slot].hsTicket == 0 && g_cycles[slot].hsTriggerPrice == 0
+      && !VirtualMode)
+   {
+      HsPlaceOrder(slot, sig);
+      return;
+   }
+
    // ── Detect fill se pendente ──
    if(g_cycles[slot].hsPending)
       HsDetectFill(slot);

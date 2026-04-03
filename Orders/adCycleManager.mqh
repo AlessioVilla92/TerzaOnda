@@ -250,6 +250,13 @@ void DetectFill(const MqlTradeTransaction& trans,
                 g_cycles[i].cycleID,
                 g_cycles[i].direction > 0 ? "BUY" : "SELL",
                 FormatPrice(dealPrice), slippage));
+
+         // v1.8.0: Soup fillata → piazza HS pending (ordine STOP opposto al Soup).
+         // g_lastSignal contiene le bande correnti dall'ultimo EngineCalculate.
+         // HsPlaceOrder ha guard interni (hsPending/hsActive → skip).
+         if(EnableHedge && HsEnabled && !VirtualMode)
+            HsPlaceOrder(i, g_lastSignal);
+
          break;
       }
    }
@@ -303,6 +310,12 @@ void PollFills()
 
                AdLogI(LOG_CAT_CYCLE, StringFormat("POLL FILLED #%d | Ticket=%d @ %s",
                       g_cycles[i].cycleID, posTicket, FormatPrice(g_cycles[i].entryPrice)));
+
+               // v1.8.0: Soup fillata (poll fallback) → piazza HS pending.
+               // Identico a DetectFill: backup se OnTradeTransaction non arriva.
+               if(EnableHedge && HsEnabled && !VirtualMode)
+                  HsPlaceOrder(i, g_lastSignal);
+
                break;
             }
          }
