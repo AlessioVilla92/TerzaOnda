@@ -244,7 +244,12 @@ int OnInit()
       return INIT_SUCCEEDED;
    }
 
-   // 4. ATR
+   // 4. Engine preset (DEVE girare PRIMA di InitializeATR perche'
+   //    KPCPresetsInit imposta g_kpc_atrPeriod_eff usato da CreateATRHandle.
+   //    Senza questo, M1 userebbe ATR(14) invece di ATR(7), M5 ATR(14) invece di ATR(10).)
+   KPCPresetsInit();
+
+   // 4b. ATR (usa g_kpc_atrPeriod_eff gia' impostato dal preset)
    if(!InitializeATR())
    {
       AdLogE(LOG_CAT_INIT, "FAILED: InitializeATR");
@@ -253,7 +258,9 @@ int OnInit()
       return INIT_SUCCEEDED;
    }
 
-   // 5. Engine init (DPC: handle iATR + iMA, preset, bande iniziali)
+   // 5. Engine init (KPC: KAMA seeding, bande iniziali, filtri, cooldown)
+   //    NOTA: EngineInit chiama KPCPresetsInit() di nuovo internamente,
+   //    ma e' idempotente (sovrascrive con gli stessi valori).
    if(!EngineInit())
    {
       AdLogE(LOG_CAT_INIT, "FAILED: EngineInit");

@@ -14,6 +14,10 @@
 //|     Chiamata su ogni nuova barra (pre-gate, indipendente dallo   |
 //|     stato EA). Replica la pipeline COMPLETA di EngineCalculate() |
 //|     per allineare frecce storiche ai trigger reali.              |
+//|     NOTA KPC: i filtri F2 (Squeeze) e F4 (Fire) sono STATEFUL   |
+//|     e richiedono stato accumulato per-bar. Lo scan ricostruisce  |
+//|     questo stato LOCALMENTE (hsSqueezeBarsCount, hsFireActive)   |
+//|     senza toccare le variabili globali g_kpc* dell'engine.       |
 //|     Oggetti: TOND_HSIG_*, TOND_HDOT_*, TOND_HLBL_*                    |
 //|                                                                  |
 //|  COLORI FRECCE:                                                   |
@@ -213,20 +217,20 @@ void DrawSignalMarkers(const EngineSignal &sig)
 //| ScanHistoricalSignals — Scansione storica segnali allineata      |
 //|                         con EngineCalculate()                     |
 //|                                                                  |
-//| [MOD] RISCRITTA per allineare le frecce storiche ai trigger      |
-//| reali dell'engine. Prima usava solo la condizione base Turtle    |
-//| Soup (touch banda + close inside) SENZA alcun filtro avanzato.   |
-//| Ora applica la stessa pipeline completa di EngineCalculate():    |
-//|   1. Condizione base Turtle Soup (touch banda + close inside)    |
+//| [MOD v2.0] RISCRITTA per KPC (Keltner Predictive Channel).       |
+//| I filtri DPC (Flatness/LevelAge) erano stateless. I filtri KPC  |
+//| (F2 Squeeze, F4 Fire) sono STATEFUL e richiedono ricostruzione  |
+//| dello stato accumulato per-bar. Pipeline allineata a             |
+//| EngineCalculate() + KPCUpdateSqueezeState():                     |
+//|   1. Base Turtle Soup (Primary + Half band + wick ratio)         |
 //|   2. Anti-ambiguita' (skip se entrambe le bande toccate)         |
-//|   3. Filtro Flatness  — banda stabile (non in espansione)        |
-//|   4. Filtro LevelAge  — banda allo stesso livello per N barre   |
-//|   5. Filtro Width     — canale largo almeno g_kpc_minWidthPips_eff pip   |
-//|   6. Filtro TrendCtx  — blocca segnali contro-trend forte       |
-//|   7. Filtro TimeFilter — blocca in finestra oraria bloccata      |
-//|   8. Filtro MA         — direzionale su media mobile             |
-//|   9. SmartCooldown    — stato midline touch + spacing barre      |
-//|  10. Classifica TBS/TWS + filtro TWS                             |
+//|   3. F1 ER Regime — trend estremo (ER inline, no KAMA side eff) |
+//|   4. F2 Squeeze   — DCW percentile + decay (stato locale)       |
+//|   5. F6 Width     — canale largo almeno g_kpc_minWidthPips_eff  |
+//|   6. F4 Fire      — post-squeeze DCW spike (stato locale)       |
+//|   7. F7 Time      — finestra oraria bloccata                    |
+//|   8. SimpleCooldown — conteggio barre + fire block (no midTouch) |
+//|   9. Classifica TBS/TWS + filtro TWS                             |
 //|                                                                  |
 //| Risultato: le frecce nel grafico corrispondono esattamente ai    |
 //| segnali che l'engine avrebbe generato in tempo reale.            |
@@ -250,22 +254,39 @@ void ScanHistoricalSignals()
    ObjectsDeleteAll(0, "TOND_HDOT_");
    ObjectsDeleteAll(0, "TOND_HLBL_");
 
-   // ── SmartCooldown state machine (replica di adDPCCooldown.mqh) ──
-   // Simuliamo lo stato del cooldown barra per barra, come fa l'engine
-   // in tempo reale. Variabili locali per non interferire con lo stato globale.
-   int    hsLastSignalBarIdx   = 0;      // indice barra dell'ultimo segnale emesso
-   int    hsLastDirection      = 0;      // +1=BUY, -1=SELL, 0=nessuno
-   bool   hsMidlineTouched     = false;  // prezzo ha toccato la midline dopo l'ultimo segnale
-   int    hsMidlineTouchBarIdx = 0;      // indice barra del tocco midline
-   bool   hsWaitingForMidTouch = false;  // in attesa di midline touch
+   // ── LOCAL squeeze/fire state (per-bar, replica di KPCUpdateSqueezeState) ──
+   // I filtri F2 (Squeeze) e F4 (Fire) di KPC sono STATEFUL: richiedono
+   // stato accumulato barra per barra. A differenza di DPC (Flatness/LevelAge
+   // stateless), dobbiamo ricostruire lo stato localmente senza toccare
+   // le variabili globali g_kpc* usate dall'engine real-time.
+   int    hsSqueezeBarsCount      = 0;
+   bool   hsSqueezeWasActive      = false;
+   bool   hsFireActive            = false;
+   int    hsFireCooldownRemaining = 0;
+   double hsLastDCW               = 0;
+   double hsPrevDCW               = 0;
+   double hsPrev2DCW              = 0;
+
+   // ── LOCAL DCW ring buffer per percentile (F2 Squeeze) ──
+   int    hsDcwLookback = MathMax(10, InpKPC_F2_DCWLookback);
+   double hsDcwRing[];
+   ArrayResize(hsDcwRing, hsDcwLookback);
+   ArrayInitialize(hsDcwRing, 0);
+   int    hsDcwRingIdx    = 0;
+   bool   hsDcwRingFilled = false;
+
+   // ── LOCAL SimpleCooldown (allineato a 3ondKPCCooldown.mqh) ──
+   // KPC v1.03: rimosso midline touch gate. Solo conteggio barre + fire block.
+   int    hsCDLastDirection    = 0;   // +1=BUY, -1=SELL, 0=nessuno
+   int    hsCDLastSignalBarIdx = 0;   // indice barra ultimo segnale
 
    int signalCount = 0;
-   int filteredCount = 0;  // contatore segnali base filtrati (per log diagnostico)
-   int baseDetected = 0;   // contatore segnali base rilevati
-   int flatBlocked = 0, ageBlocked = 0, widthBlocked = 0;
-   int trendBlocked = 0, timeBlocked = 0, maBlocked = 0, cdBlocked = 0, twsBlocked = 0;
+   int filteredCount = 0;
+   int baseDetected = 0;
+   int erBlocked = 0, sqzBlocked = 0, widthBlocked = 0;
+   int fireBlocked = 0, timeBlocked = 0, cdBlocked = 0, twsBlocked = 0;
 
-   // Loop da barra più vecchia (depth) a più recente (1)
+   // Loop da barra piu' vecchia (depth) a piu' recente (1)
    for(int i = depth; i >= 1; i--)
    {
       // ── Lookback guard: servono kpcPeriod barre di storia ──
@@ -276,6 +297,9 @@ void ScanHistoricalSignals()
       KPCComputeOverlayBands(i, upper, lower, mid);
       if(upper <= 0 || lower <= 0) continue;
 
+      // ── ATR per barra [i] ──
+      double atrI = KPCGetATR(i);
+
       // ── Dati OHLC della barra [i] ──
       double high1  = iHigh(_Symbol, PERIOD_CURRENT, i);
       double low1   = iLow(_Symbol, PERIOD_CURRENT, i);
@@ -283,92 +307,168 @@ void ScanHistoricalSignals()
       double close1 = iClose(_Symbol, PERIOD_CURRENT, i);
       datetime barTime = iTime(_Symbol, PERIOD_CURRENT, i);
 
-      // ── currentBarIdx: indice assoluto della barra (per SmartCooldown) ──
+      // ── currentBarIdx: indice assoluto della barra (per cooldown) ──
       int currentBarIdx = totalBars - 1 - i;
 
-      // ── SmartCooldown: aggiorna stato midline touch ad ogni barra ──
-      // Replica la logica di logica KPC SimpleCooldown.mqh.
-      // Dopo un segnale, monitora se il prezzo ha raggiunto la midline
-      // (high >= mid dopo BUY, low <= mid dopo SELL). Quando la midline
-      // viene toccata, sblocca i segnali nella stessa direzione.
-      if(hsWaitingForMidTouch && hsLastDirection != 0 && mid > 0)
+      // ══════════════════════════════════════════════════════════
+      // ══ PER-BAR: Aggiorna stato squeeze/fire locale ═══════════
+      // ══════════════════════════════════════════════════════════
+      // Replica KPCUpdateSqueezeState() di 3ondKPCFilters.mqh (linee 128-201)
+      // e KPCCheckFire() (linee 206-230) con variabili locali.
+      // Eseguito su OGNI barra (non solo segnali) perche' lo stato e' cumulativo.
+      if(atrI > 0)
       {
-         bool midCrossed = false;
-         if(hsLastDirection == +1 && high1 >= mid)
-            midCrossed = true;
-         else if(hsLastDirection == -1 && low1 <= mid)
-            midCrossed = true;
-
-         if(midCrossed)
+         // DCW: range Donchian 20 barre / ATR (normalizzato)
+         double hh20 = iHigh(_Symbol, PERIOD_CURRENT, i);
+         double ll20 = iLow(_Symbol, PERIOD_CURRENT, i);
+         for(int k = 1; k < 20 && (i + k) < totalBars; k++)
          {
-            hsMidlineTouched     = true;
-            hsMidlineTouchBarIdx = currentBarIdx;
-            hsWaitingForMidTouch = false;
+            double h = iHigh(_Symbol, PERIOD_CURRENT, i + k);
+            double l = iLow(_Symbol, PERIOD_CURRENT, i + k);
+            if(h > hh20) hh20 = h;
+            if(l < ll20) ll20 = l;
+         }
+         double dcwRaw = hh20 - ll20;
+         double dcw = dcwRaw / atrI;
+
+         // Shift storia DCW
+         hsPrev2DCW = hsPrevDCW;
+         hsPrevDCW  = hsLastDCW;
+         hsLastDCW  = dcw;
+
+         // Ring buffer per percentile
+         hsDcwRing[hsDcwRingIdx] = dcw;
+         hsDcwRingIdx++;
+         if(hsDcwRingIdx >= hsDcwLookback)
+         {
+            hsDcwRingIdx = 0;
+            hsDcwRingFilled = true;
+         }
+
+         // Calcolo percentile DCW
+         int ringCount = hsDcwRingFilled ? hsDcwLookback : hsDcwRingIdx;
+         double dcwPercentile = 0.5;
+         if(ringCount > 0)
+         {
+            int countBelow = 0;
+            for(int r = 0; r < ringCount; r++)
+               if(hsDcwRing[r] < dcw) countBelow++;
+            dcwPercentile = (double)countBelow / (double)ringCount;
+         }
+
+         // ATR fast/slow ratio (opzionale per squeeze)
+         double atrFast = KPCCalcATRSimple(i, 5);
+         double atrSlow = KPCCalcATRSimple(i, 20);
+         double atrRatio = (atrSlow > 1e-10) ? atrFast / atrSlow : 1.0;
+
+         // Squeeze detection con decay graduale
+         bool squeezeNow = (dcwPercentile < (double)g_kpc_dcwPercentile_eff / 100.0) &&
+                           (!InpKPC_F2_UseATRRatio || atrRatio < g_kpc_atrRatioThresh_eff);
+
+         if(squeezeNow)
+            hsSqueezeBarsCount++;
+         else if(hsSqueezeBarsCount > 0)
+            hsSqueezeBarsCount--;
+
+         if(hsSqueezeBarsCount >= 3)
+            hsSqueezeWasActive = true;
+
+         // Fire detection (post-squeeze DCW spike)
+         if(hsSqueezeWasActive)
+         {
+            bool fireNow = (hsLastDCW > g_kpc_fireDCWThresh_eff) &&
+                           ((hsPrevDCW > 0 && hsLastDCW > hsPrevDCW * 1.20) ||
+                            (hsPrev2DCW > 0 && hsLastDCW > hsPrev2DCW * 1.15));
+            if(fireNow)
+            {
+               hsFireActive = true;
+               hsFireCooldownRemaining = g_kpc_fireCooldown_eff;
+            }
+            else if(hsFireActive && hsFireCooldownRemaining > 0)
+            {
+               hsFireCooldownRemaining--;
+               if(hsFireCooldownRemaining == 0)
+               {
+                  hsFireActive = false;
+                  hsSqueezeWasActive = false;
+               }
+            }
          }
       }
 
       // ══════════════════════════════════════════════════════════
       // ══ STEP 1: Condizione base Turtle Soup ═══════════════════
       // ══════════════════════════════════════════════════════════
-      // Identica a EngineCalculate() linee 189-190:
-      // SELL (bearBase): wick/body tocca upper band, close DENTRO il canale
-      // BUY  (bullBase): wick/body tocca lower band, close DENTRO il canale
-      bool bearBase = (high1 >= upper) && (close1 < upper);
-      bool bullBase = (low1 <= lower)  && (close1 > lower);
+      // Allineata a EngineCalculate() linee 206-228:
+      // Controlla tocco Primary E Half band con wick ratio.
+      double upperHalf = mid + atrI * g_kpc_halfMultiplier_eff;
+      double lowerHalf = mid - atrI * g_kpc_halfMultiplier_eff;
+
+      bool touchUpperPrimary = (high1 > upper) && (close1 < upper);
+      bool touchUpperHalf    = (high1 > upperHalf) && (close1 < upperHalf) && (high1 <= upper);
+      bool touchLowerPrimary = (low1 < lower) && (close1 > lower);
+      bool touchLowerHalf    = (low1 < lowerHalf) && (close1 > lowerHalf) && (low1 >= lower);
+
+      // Wick ratio: stoppino di rejection / dimensione candela
+      double upperWick  = high1 - MathMax(open1, close1);
+      double lowerWick  = MathMin(open1, close1) - low1;
+      double candleSize = high1 - low1;
+      bool wickOK = (candleSize > _Point * 2);
+
+      double wickRatioUpper = wickOK ? upperWick / candleSize : 0;
+      double wickRatioLower = wickOK ? lowerWick / candleSize : 0;
+
+      bool bearBase = (touchUpperPrimary || touchUpperHalf) && (wickRatioUpper >= InpKPC_WickRatio);
+      bool bullBase = (touchLowerPrimary || touchLowerHalf) && (wickRatioLower >= InpKPC_WickRatio);
+
+      // Qualita': 2=Primary (TBS), 1=Half (TWS)
+      int bearQuality = touchUpperPrimary ? 2 : 1;
+      int bullQuality = touchLowerPrimary ? 2 : 1;
 
       // ── Anti-ambiguita': entrambe le bande toccate → skip ──
-      if(bearBase && bullBase) continue;
+      if(bearBase && bullBase) { bearBase = false; bullBase = false; }
       if(!bearBase && !bullBase) continue;
       baseDetected++;
 
       // ══════════════════════════════════════════════════════════
-      // ══ STEP 2: Filtro Flatness (banda stabile) ═══════════════
+      // ══ STEP 2: Filtro F1 ER Regime (trend estremo) ═══════════
       // ══════════════════════════════════════════════════════════
-      // Replica KPCCheckF1_ERRegime/Buy() di adDPCFilters.mqh.
-      // Blocca il segnale se la banda toccata si e' espansa oltre
-      // flatTolerance (= g_kpc_erTrending_eff * ATR) nelle ultime g_kpc_minSqueezeBars_eff barre.
-      // Una banda in espansione indica un breakout in corso, non un rejection.
+      // Calcolo ER inline senza modificare g_kpcKAMA (BUG 5 fix).
+      // ER = |close[i]-close[i+N]| / sum|close[k]-close[k+1]|
       {
+         int period = g_kpc_kamaPeriod_eff;
+         double close0_er = iClose(_Symbol, PERIOD_CURRENT, i);
+         double closeN_er = iClose(_Symbol, PERIOD_CURRENT, i + period);
          double er_i = 0;
-         KPCComputeKAMA(i, er_i);
-         if(bearBase)
+         if(close0_er > 0 && closeN_er > 0)
          {
-            if(!KPCCheckF1_ERRegime(er_i)) bearBase = false;
+            double dir_val = MathAbs(close0_er - closeN_er);
+            double vol = 0;
+            for(int k = 0; k < period; k++)
+            {
+               double c1 = iClose(_Symbol, PERIOD_CURRENT, i + k);
+               double c2 = iClose(_Symbol, PERIOD_CURRENT, i + k + 1);
+               if(c1 > 0 && c2 > 0) vol += MathAbs(c1 - c2);
+            }
+            er_i = (vol > 1e-10) ? dir_val / vol : 0;
          }
-         if(bullBase)
-         {
-            if(!KPCCheckF1_ERRegime(er_i)) bullBase = false;
-         }
+
+         if(!KPCCheckF1_ERRegime(er_i))
+         { bearBase = false; bullBase = false; }
       }
-      if(!bearBase && !bullBase) { filteredCount++; flatBlocked++; continue; }
+      if(!bearBase && !bullBase) { filteredCount++; erBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
-      // ══ STEP 3: Filtro LevelAge (banda matura) ════════════════
+      // ══ STEP 3: Filtro F2 Squeeze (stato locale per-bar) ══════
       // ══════════════════════════════════════════════════════════
-      // Replica KPCCheckF2_Squeeze/Buy() di adDPCFilters.mqh.
-      // Richiede che la banda toccata sia allo stesso prezzo esatto
-      // (±2 points) per almeno g_kpc_minSqueezeBars_eff barre consecutive.
-      // Una banda "giovane" (appena formata da un nuovo max/min)
-      // non e' un livello affidabile per il pattern Turtle Soup.
-      {
-         if(bearBase)
-         {
-            if(!KPCCheckF2_Squeeze()) bearBase = false;
-         }
-         if(bullBase)
-         {
-            if(!KPCCheckF2_Squeeze()) bullBase = false;
-         }
-      }
-      if(!bearBase && !bullBase) { filteredCount++; ageBlocked++; continue; }
+      // Usa hsSqueezeBarsCount locale (accumulato sopra), non g_kpc* globale.
+      if(hsSqueezeBarsCount < g_kpc_minSqueezeBars_eff)
+      { bearBase = false; bullBase = false; }
+      if(!bearBase && !bullBase) { filteredCount++; sqzBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
-      // ══ STEP 4: Filtro Width (larghezza canale) ═══════════════
+      // ══ STEP 4: Filtro F6 Width (larghezza canale) ════════════
       // ══════════════════════════════════════════════════════════
-      // Replica KPCCheckF6_Width() di adDPCFilters.mqh.
-      // Il canale deve essere largo almeno g_kpc_minWidthPips_eff pips
-      // (scalato per strumento e timeframe tramite preset).
-      // Un canale troppo stretto genera segnali inaffidabili.
       if(InpKPC_UseWidthFilter)
       {
          if(!KPCCheckF6_Width(upper, lower))
@@ -379,25 +479,16 @@ void ScanHistoricalSignals()
       }
 
       // ══════════════════════════════════════════════════════════
-      // ══ STEP 5: Filtro TrendContext (trend macro) ═════════════
+      // ══ STEP 5: Filtro F4 Fire (stato locale per-bar) ═════════
       // ══════════════════════════════════════════════════════════
-      // Replica KPCCheckF4_Fire/Buy() di adDPCFilters.mqh.
-      // Blocca segnali contro-trend: se la midline si e' spostata
-      // oltre InpTrendContextMult * ATR in un periodo dcLen.
-      // Attualmente OFF di default (InpUseTrendContext = false).
-      if(!KPCCheckF4_Fire())
-      {
-         if(bearBase) bearBase = false;
-         if(bullBase) bullBase = false;
-      }
-      if(!bearBase && !bullBase) { filteredCount++; trendBlocked++; continue; }
+      // Usa hsFireActive locale (accumulato sopra), non g_kpc* globale.
+      if(hsFireActive)
+      { bearBase = false; bullBase = false; }
+      if(!bearBase && !bullBase) { filteredCount++; fireBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
       // ══ STEP 6: Filtro Time (finestra oraria bloccata) ════════
       // ══════════════════════════════════════════════════════════
-      // Replica IsInBlockedTime() di adSessionManager.mqh.
-      // Per lo scan storico usiamo l'ora della barra (non TimeCurrent).
-      // Attualmente OFF di default (InpUseTimeFilter = false).
       if(InpKPC_UseTimeFilter)
       {
          MqlDateTime barDT;
@@ -416,91 +507,69 @@ void ScanHistoricalSignals()
       }
 
       // ══════════════════════════════════════════════════════════
-      // ══ STEP 7: Filtro MA (direzione media mobile) ════════════
+      // ══ STEP 7: SimpleCooldown (frequenza segnali) ════════════
       // ══════════════════════════════════════════════════════════
-      // Replica KPCCheckF5_WPR() di adDPCFilters.mqh.
-      // Filtra in base alla posizione del close rispetto alla MA.
-      // CLASSIC: trend-following (SELL solo sotto MA, BUY solo sopra).
-      // INVERTED: mean-reversion Soup (SELL sopra MA, BUY sotto MA).
-      {
-         int dir_tmp = bearBase ? -1 : +1;
-         if(!KPCCheckF5_WPR(dir_tmp))
-         {
-            if(bearBase) bearBase = false;
-            if(bullBase) bullBase = false;
-         }
-      }
-      if(!bearBase && !bullBase) { filteredCount++; maBlocked++; continue; }
-
-      // ══════════════════════════════════════════════════════════
-      // ══ STEP 8: SmartCooldown (frequenza segnali) ═════════════
-      // ══════════════════════════════════════════════════════════
-      // Replica KPCCheckCooldown di 3ondKPCCooldown.mqh.
-      // Controlla il tempo minimo tra segnali:
-      //   - SmartCooldown OFF: cooldown fisso di dcLen barre
-      //   - SmartCooldown ON, primo segnale: sempre accettato
-      //   - SmartCooldown ON, stessa direzione: richiede midline touch
-      //     + g_kpc_nSameBars_eff barre dopo il touch
-      //   - SmartCooldown ON, direzione opposta: solo g_kpc_nOppositeBars_eff barre
+      // Replica 3ondKPCCooldown.mqh (linee 29-62):
+      //   - Primo segnale: sempre accettato
+      //   - Stessa direzione: barsFromLast >= g_kpc_nSameBars_eff
+      //   - Direzione opposta: barsFromLast >= g_kpc_nOppositeBars_eff
+      //   - Fire block: se hsFireActive → cooldown non passa
+      // KPC v1.03: NO midline touch gate (rimosso).
       int direction = bullBase ? +1 : -1;
       bool cooldownOK = false;
 
-      if(hsLastDirection == 0)
+      if(hsFireActive)
       {
-         // Primo segnale in assoluto: sempre accettato
-         cooldownOK = true;
+         cooldownOK = false;  // Fire block integrato nel cooldown
       }
-      else if(direction == hsLastDirection)
+      else if(hsCDLastDirection == 0)
       {
-         // Stessa direzione (es. SELL dopo SELL):
-         // richiede midline touch + g_kpc_nSameBars_eff barre dopo il touch
-         cooldownOK = hsMidlineTouched &&
-                      (currentBarIdx - hsMidlineTouchBarIdx >= g_kpc_nSameBars_eff);
+         cooldownOK = true;   // Primo segnale: nessun cooldown
       }
       else
       {
-         // Direzione opposta (es. SELL dopo BUY):
-         // solo minimum barre
-         cooldownOK = (currentBarIdx - hsLastSignalBarIdx >= g_kpc_nOppositeBars_eff);
+         int barsFromLast = currentBarIdx - hsCDLastSignalBarIdx;
+         if(direction == hsCDLastDirection)
+            cooldownOK = (barsFromLast >= g_kpc_nSameBars_eff);     // Stessa direzione
+         else
+            cooldownOK = (barsFromLast >= g_kpc_nOppositeBars_eff); // Direzione opposta
       }
 
       if(!cooldownOK) { filteredCount++; cdBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
-      // ══ STEP 9: Classifica TBS/TWS + filtro TWS ═══════════════
+      // ══ STEP 8: Classifica TBS/TWS + filtro TWS ═══════════════
       // ══════════════════════════════════════════════════════════
-      // Replica KPCClassifySignal() di adDPCFilters.mqh.
-      // TBS (Turtle Breakout Soup): body penetra la banda — segnale forte
-      // TWS (Turtle Wick Soup): solo wick penetra — segnale debole
-      // Se InpShowTWSSignals e' false, i TWS vengono scartati.
-      double atrI = KPCGetATR(i);
-      double upperHalf = mid + atrI * g_kpc_halfMultiplier_eff;
-      double lowerHalf = mid - atrI * g_kpc_halfMultiplier_eff;
-      int quality = KPCClassifySignal(direction, open1, close1, upper, lower, upperHalf, lowerHalf);
+      // Usa bearQuality/bullQuality da STEP 1 (come EngineCalculate linee 358-361):
+      // Primary touch (quality=2) → TBS, Half touch (quality=1) → TWS
+      int quality;
+      if(direction == -1)
+         quality = (bearQuality == 2) ? PATTERN_TBS : PATTERN_TWS;
+      else
+         quality = (bullQuality == 2) ? PATTERN_TBS : PATTERN_TWS;
 
       if(!InpKPC_ShowHalfSignals && quality == PATTERN_TWS) { filteredCount++; twsBlocked++; continue; }
 
       // ══════════════════════════════════════════════════════════
-      // ══ SEGNALE CONFERMATO — aggiorna SmartCooldown + disegna ═
+      // ══ SEGNALE CONFERMATO — aggiorna cooldown + disegna ══════
       // ══════════════════════════════════════════════════════════
-      // Aggiorna lo stato del cooldown (replica KPCUpdateCooldownState).
-      // Resetta il flag midline touch, registra direzione e indice barra.
-      hsLastSignalBarIdx   = currentBarIdx;
-      hsLastDirection      = direction;
-      hsMidlineTouched     = false;
-      hsMidlineTouchBarIdx = 0;
-      hsWaitingForMidTouch = true;
+      hsCDLastDirection    = direction;
+      hsCDLastSignalBarIdx = currentBarIdx;
 
       // === DISEGNO MARKER STORICI ===
       bool isBuy = (direction > 0);
       color clr = GetSignalArrowColor(isBuy, quality);
       string patternName = (quality >= PATTERN_TBS) ? "TBS" : "TWS";
       string timeStr = TimeToString(barTime, TIME_DATE|TIME_MINUTES);
-      double bandPrice = isBuy ? lower : upper;
+      // bandPrice: la banda toccata (Primary o Half)
+      double bandPrice;
+      if(isBuy)
+         bandPrice = (bullQuality == 2) ? lower : lowerHalf;
+      else
+         bandPrice = (bearQuality == 2) ? upper : upperHalf;
 
       // ATR per offset verticale della freccia
-      double atr = KPCGetATR(i);
-      double atrPrice = (atr > 0) ? atr : 0;
+      double atrPrice = (atrI > 0) ? atrI : 0;
       double offset = atrPrice * TOND_ARROW_OFFSET;
 
       // Freccia direzionale (su=BUY, giu'=SELL)
@@ -562,18 +631,18 @@ void ScanHistoricalSignals()
       // DIAG: Log posizionamento freccia (solo prime 3 per non inondare il log)
       if(signalCount < 3)
          AdLogD(LOG_CAT_UI, StringFormat(
-            "DIAG Arrow #%d: %s @ bar=%d | band=%.2f | atr=%.2f | offset=%.2f | arrowPrice=%.2f",
-            signalCount + 1, isBuy ? "BUY" : "SELL", i, bandPrice, atrPrice, offset,
-            isBuy ? (bandPrice - offset) : (bandPrice + offset)));
+            "DIAG Arrow #%d: %s %s @ bar=%d | band=%.5f | sqz=%d | atr=%.5f",
+            signalCount + 1, patternName, isBuy ? "BUY" : "SELL", i,
+            bandPrice, hsSqueezeBarsCount, atrPrice));
 
       signalCount++;
    }
 
    // Log con conteggio segnali trovati e breakdown per-filtro
    AdLogI(LOG_CAT_UI, StringFormat(
-      "ScanHist: depth=%d | base=%d | blocked: flat=%d age=%d width=%d trend=%d time=%d ma=%d cd=%d tws=%d | PASSED=%d",
-      depth, baseDetected, flatBlocked, ageBlocked, widthBlocked,
-      trendBlocked, timeBlocked, maBlocked, cdBlocked, twsBlocked, signalCount));
+      "ScanHist: depth=%d | base=%d | blocked: er=%d sqz=%d width=%d fire=%d time=%d cd=%d tws=%d | PASSED=%d",
+      depth, baseDetected, erBlocked, sqzBlocked, widthBlocked,
+      fireBlocked, timeBlocked, cdBlocked, twsBlocked, signalCount));
 }
 
 //+------------------------------------------------------------------+
