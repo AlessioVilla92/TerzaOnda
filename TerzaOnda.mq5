@@ -224,6 +224,7 @@ int OnInit()
       AdLogE(LOG_CAT_INIT, "FAILED: LoadBrokerSpecifications");
       g_systemState = STATE_ERROR;
       UpdateDashboard();
+      Alert(StringFormat("TerzaOnda INIT FAILED — LoadBrokerSpecifications | %s", _Symbol));
       return INIT_SUCCEEDED;
    }
 
@@ -241,6 +242,7 @@ int OnInit()
       AdLogE(LOG_CAT_INIT, "FAILED: ValidateInputParameters");
       g_systemState = STATE_ERROR;
       UpdateDashboard();
+      Alert(StringFormat("TerzaOnda INIT FAILED — ValidateInputParameters | %s", _Symbol));
       return INIT_SUCCEEDED;
    }
 
@@ -255,17 +257,19 @@ int OnInit()
       AdLogE(LOG_CAT_INIT, "FAILED: InitializeATR");
       g_systemState = STATE_ERROR;
       UpdateDashboard();
+      Alert(StringFormat("TerzaOnda INIT FAILED — InitializeATR | %s", _Symbol));
       return INIT_SUCCEEDED;
    }
 
    // 5. Engine init (KPC: KAMA seeding, bande iniziali, filtri, cooldown)
-   //    NOTA: EngineInit chiama KPCPresetsInit() di nuovo internamente,
-   //    ma e' idempotente (sovrascrive con gli stessi valori).
+   //    NOTA: EngineInit NON richiama più KPCPresetsInit internamente (v2.0.1)
+   //    — i preset vengono applicati una sola volta alla riga 250.
    if(!EngineInit())
    {
       AdLogE(LOG_CAT_INIT, "FAILED: EngineInit");
       g_systemState = STATE_ERROR;
       UpdateDashboard();
+      Alert(StringFormat("TerzaOnda INIT FAILED — EngineInit | %s", _Symbol));
       return INIT_SUCCEEDED;
    }
    g_engineReady = true;
@@ -312,7 +316,10 @@ int OnInit()
    }
 
    // 11. Timer per auto-save
-   EventSetTimer(1);  // 1s initially for overlay retry, then 60s
+   // Schedule a 1s timer per il retry iniziale dell'overlay (timeseries non sempre
+   // pronto a OnInit / REASON_CHARTCHANGE). Appena il draw riesce, OnTimer passa
+   // a 60s per l'auto-save. Questa transizione è gestita in OnTimer (riga ~626).
+   EventSetTimer(1);
 
    // Fresh start: sistema parte IDLE — utente deve premere START
    if(!g_recoveryPerformed && g_systemState == STATE_INITIALIZING)
@@ -398,6 +405,9 @@ void OnTick()
    }
 
    // ── 2. VIRTUAL MONITOR (ogni tick, qualsiasi stato) ──────────────
+   // DELIBERATO: viene eseguito PRIMA del gate STATE_ACTIVE e PRIMA del new bar
+   // gate — così il P&L virtuale e le chiusure virtuali (TP/SL) si aggiornano
+   // anche in IDLE/PAUSED e intrabar per visualizzazione realistica.
    if(VirtualMode)
       VirtualMonitor();
 
@@ -419,6 +429,8 @@ void OnTick()
                 g_currentSessionName, dtSess.hour, dtSess.min));
          lastSessBlockLog = nowDT;
       }
+      // ATTENZIONE: HandleSessionEnd è DISTRUTTIVO — chiude Soup (Magic) e HS
+      // (Magic+1) e cancella pending. Idempotente via g_sessionCloseTriggered.
       HandleSessionEnd();
       return;
    }
@@ -434,6 +446,15 @@ void OnTick()
    // ── 6. ATR UPDATE ────────────────────────────────────────────────
    UpdateATR();
    UpdateEquityTracking();
+
+   // ── 6b. DAILY LOSS LIMIT — check continuo (v2.0.1) ──────────────
+   // Verifica il limite di perdita giornaliera anche senza un nuovo segnale.
+   // Se superato, chiude tutte le posizioni e mette l'EA in PAUSED.
+   if(IsDailyLossLimitBreached() && !g_dailyShutdownTriggered)
+   {
+      EnforceDailyLossShutdown();
+      return;
+   }
 
    // ── 7. ENGINE: calcola bande + segnali su bar[1] (anti-repaint) ─
    EngineSignal sig;
@@ -507,15 +528,19 @@ void OnTick()
          // ── DIAG: Log TP diagnostico ──
          AdLogD(LOG_CAT_TRIGGER, StringFormat("DIAG TP: Mode=%s | Value=%.2f | TP calcolato=%s",
                 EnumToString(TPMode), TPValue, FormatPrice(sig.tpPrice)));
-         if(sig.direction > 0 && sig.tpPrice <= sig.entryPrice)
-            AdLogW(LOG_CAT_TRIGGER, StringFormat("DIAG TP WARNING: BUY ma TP (%s) <= Entry (%s) — ordine sara' RIFIUTATO",
-                   FormatPrice(sig.tpPrice), FormatPrice(sig.entryPrice)));
-         if(sig.direction < 0 && sig.tpPrice >= sig.entryPrice)
-            AdLogW(LOG_CAT_TRIGGER, StringFormat("DIAG TP WARNING: SELL ma TP (%s) >= Entry (%s) — ordine sara' RIFIUTATO",
-                   FormatPrice(sig.tpPrice), FormatPrice(sig.entryPrice)));
 
-         // Create cycle
-         if(VirtualMode)
+         // TP invalido → blocca CreateCycle preventivamente
+         // (v2.0.1: evita round-trip broker su ordine certamente rifiutato)
+         bool tpInvalid = (sig.direction > 0 && sig.tpPrice <= sig.entryPrice)
+                       || (sig.direction < 0 && sig.tpPrice >= sig.entryPrice);
+         if(tpInvalid)
+         {
+            AdLogE(LOG_CAT_TRIGGER, StringFormat("TP INVALIDO — %s Entry=%s TP=%s: ordine NON piazzato",
+                   dirStr, FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice)));
+            Alert(StringFormat("TerzaOnda ORDINE SKIPPED — TP invalido %s | Entry=%s TP=%s | %s",
+                  dirStr, FormatPrice(sig.entryPrice), FormatPrice(sig.tpPrice), _Symbol));
+         }
+         else if(VirtualMode)
          {
             AdLogD(LOG_CAT_TRIGGER, "DIAG: VirtualMode ON — creo trade virtuale (nessun ordine reale)");
             int vSlot = VirtualCreateTrade(sig);
@@ -531,7 +556,9 @@ void OnTick()
          {
             AdLogD(LOG_CAT_TRIGGER, "DIAG: Invoco CreateCycle() per piazzare ordine reale...");
             int slot = CreateCycle(sig);
-            if(slot >= 0)
+            // v2.0.1 defensive upper-bound check: CreateCycle dovrebbe ritornare -1 o
+            // un indice valido, ma verifichiamo esplicitamente per evitare accessi OOB
+            if(slot >= 0 && slot < ArraySize(g_cycles))
             {
                AdLogD(LOG_CAT_TRIGGER, StringFormat("DIAG: CreateCycle OK — slot=%d | CycleID=#%d | Ticket=%d",
                       slot, g_cycles[slot].cycleID, g_cycles[slot].ticket));
@@ -551,7 +578,8 @@ void OnTick()
             }
             else
             {
-               AdLogW(LOG_CAT_TRIGGER, "DIAG: CreateCycle FALLITO — slot < 0 — NESSUN ORDINE PIAZZATO");
+               AdLogW(LOG_CAT_TRIGGER, StringFormat("DIAG: CreateCycle FALLITO — slot=%d non valido (size=%d) — NESSUN ORDINE PIAZZATO",
+                      slot, ArraySize(g_cycles)));
                AdLogW(LOG_CAT_TRIGGER, "DIAG: Controlla i log [CYCLE] e [ORDER] sopra per il motivo del fallimento");
                Alert(StringFormat("TerzaOnda ORDINE FALLITO %s %s — controlla log Experts | %s",
                      qStr, dirStr, _Symbol));

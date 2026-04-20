@@ -28,8 +28,10 @@ void KPCResetCooldown()
 //+------------------------------------------------------------------+
 bool KPCCheckCooldown_Sell(int currentBarIdx)
 {
-   // Fire block
-   if(g_kpcFireActive) return false;
+   // Fire block direction-aware (v2.0.1): blocca SELL solo dopo bullish fire
+   // (breakout rialzista rende pericolosi i SELL controtrend).
+   // Dopo bearish fire il SELL è coerente con il momentum → consenti.
+   if(g_kpcFireActive && g_kpcFireDirection >= 0) return false;
 
    // First signal ever: no cooldown
    if(g_kpcCDLastDirection == 0) return true;
@@ -47,8 +49,10 @@ bool KPCCheckCooldown_Sell(int currentBarIdx)
 //+------------------------------------------------------------------+
 bool KPCCheckCooldown_Buy(int currentBarIdx)
 {
-   // Fire block
-   if(g_kpcFireActive) return false;
+   // Fire block direction-aware (v2.0.1): blocca BUY solo dopo bearish fire
+   // (breakout ribassista rende pericolosi i BUY controtrend).
+   // Dopo bullish fire il BUY è coerente con il momentum → consenti.
+   if(g_kpcFireActive && g_kpcFireDirection <= 0) return false;
 
    // First signal ever: no cooldown
    if(g_kpcCDLastDirection == 0) return true;

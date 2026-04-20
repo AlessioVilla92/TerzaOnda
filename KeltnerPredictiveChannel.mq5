@@ -260,6 +260,7 @@ enum ENUM_TF_PRESET_KC
    TF_PRESET_KC_M15    = 2,  // M15
    TF_PRESET_KC_M30    = 3,  // M30
    TF_PRESET_KC_H1     = 4,  // H1
+   TF_PRESET_KC_H4     = 7,  // H4 — swing trading (v2.0.1)
    TF_PRESET_KC_MANUAL = 5   // MANUALE — tutti i parametri dall'utente
 };
 
@@ -634,6 +635,7 @@ void KCPresetsInit()
          case PERIOD_M15: preset = TF_PRESET_KC_M15; break;
          case PERIOD_M30: preset = TF_PRESET_KC_M30; break;
          case PERIOD_H1:  preset = TF_PRESET_KC_H1;  break;
+         case PERIOD_H4:  preset = TF_PRESET_KC_H4;  break;
          default:         preset = TF_PRESET_KC_MANUAL; break;
       }
    }
@@ -705,6 +707,24 @@ void KCPresetsInit()
          g_kc_fireDCWThresh_eff  = 4.0;
          g_kc_minWidthPips_eff   = 10.0;            // H1: canale min 10 pip → TP min ~5 pip
          g_kc_erTrending_eff     = 0.65;          // H1: permissivo per trend persistenti
+         g_kc_wprOB_eff          = -40.0;
+         g_kc_wprOS_eff          = -60.0;
+         break;
+      case TF_PRESET_KC_H4:
+         // H4: swing trading (v2.0.1) — simmetrico a Engine/3ondKPCPresets.mqh
+         g_kc_atrPeriod_eff      = 14;
+         g_kc_multiplier_eff     = 2.2;
+         g_kc_halfMultiplier_eff = 1.1;
+         g_kc_wprPeriod_eff      = 9;
+         g_kc_dcwPercentile_eff  = 35;
+         g_kc_atrRatioThresh_eff = 0.75;
+         g_kc_minSqueezeBars_eff = 2;
+         g_kc_nSameBars_eff      = 1;
+         g_kc_nOppositeBars_eff  = 1;
+         g_kc_fireCooldown_eff   = 2;
+         g_kc_fireDCWThresh_eff  = 4.0;
+         g_kc_minWidthPips_eff   = 12.0;
+         g_kc_erTrending_eff     = 0.65;
          g_kc_wprOB_eff          = -40.0;
          g_kc_wprOS_eff          = -60.0;
          break;

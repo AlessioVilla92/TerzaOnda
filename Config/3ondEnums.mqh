@@ -164,6 +164,7 @@ enum ENUM_TF_PRESET_KC
    TF_PRESET_KC_M15    = 2,  // M15
    TF_PRESET_KC_M30    = 3,  // M30
    TF_PRESET_KC_H1     = 4,  // H1
+   TF_PRESET_KC_H4     = 7,  // H4 — swing trading (v2.0.1)
    TF_PRESET_KC_MANUAL = 5   // MANUALE — tutti i parametri dall'utente
 };
 

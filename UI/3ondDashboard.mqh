@@ -156,7 +156,11 @@ void DrawTitleBar(int x, int y, int w)
    string tfBadge = "KPC v1.0";
    if(InpKPC_TFPreset == TF_PRESET_KC_AUTO)
       tfBadge += " " + EnumToString(Period());
-   DashLabel("H_TF", x + pad + 310, y + 10, tfBadge, TOND_BIOLUM_DIM, 8);
+   // v2.0.1: segnala LTF attivo — frecce indicatore possono divergere dai trade EA
+   if(g_kpc_useLTFEntry)
+      tfBadge += " · LTF=ON";
+   color tfBadgeClr = g_kpc_useLTFEntry ? TOND_AMBER : TOND_BIOLUM_DIM;
+   DashLabel("H_TF", x + pad + 310, y + 10, tfBadge, tfBadgeClr, 8);
 
    // State badge with dot
    string stateStr = "IDLE"; color stateClr = TOND_TEXT_MUTED;

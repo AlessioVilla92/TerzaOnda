@@ -53,7 +53,13 @@ void KPCPresetsInit()
          case PERIOD_M15: preset = TF_PRESET_KC_M15;    break;
          case PERIOD_M30: preset = TF_PRESET_KC_M30;    break;
          case PERIOD_H1:  preset = TF_PRESET_KC_H1;     break;
-         default:         preset = TF_PRESET_KC_MANUAL;  break;
+         case PERIOD_H4:  preset = TF_PRESET_KC_H4;     break;
+         default:
+            preset = TF_PRESET_KC_MANUAL;
+            AdLogW(LOG_CAT_ENGINE, StringFormat(
+               "TF non mappato (%s): preset=MANUAL con valori input utente — verificare calibrazione",
+               EnumToString(_Period)));
+            break;
       }
    }
 
@@ -133,6 +139,25 @@ void KPCPresetsInit()
          g_kpc_wprOB_eff          = -40.0;
          g_kpc_wprOS_eff          = -60.0;
          g_kpc_pendingExpiry      = PendingExpiryBars;  // H1: da input utente
+         break;
+
+      case TF_PRESET_KC_H4:
+         g_kpc_atrPeriod_eff      = 14;
+         g_kpc_multiplier_eff     = 2.2;
+         g_kpc_halfMultiplier_eff = 1.1;
+         g_kpc_wprPeriod_eff      = 9;
+         g_kpc_dcwPercentile_eff  = 35;
+         g_kpc_atrRatioThresh_eff = 0.75;
+         g_kpc_minSqueezeBars_eff = 2;
+         g_kpc_nSameBars_eff      = 1;
+         g_kpc_nOppositeBars_eff  = 1;
+         g_kpc_fireCooldown_eff   = 2;
+         g_kpc_fireDCWThresh_eff  = 4.0;
+         g_kpc_minWidthPips_eff   = 12.0;
+         g_kpc_erTrending_eff     = 0.65;
+         g_kpc_wprOB_eff          = -40.0;
+         g_kpc_wprOS_eff          = -60.0;
+         g_kpc_pendingExpiry      = PendingExpiryBars;  // H4: da input utente (lungo)
          break;
 
       case TF_PRESET_KC_M1:

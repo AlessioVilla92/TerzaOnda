@@ -24,6 +24,7 @@ int    g_kpcSqueezeBarsCount       = 0;
 bool   g_kpcSqueezeWasActive       = false;
 bool   g_kpcFireActive             = false;
 int    g_kpcFireCooldownRemaining  = 0;
+int    g_kpcFireDirection          = 0;   // v2.0.1: +1 bullish fire, -1 bearish, 0 none
 
 //--- DCW ring buffer for percentile
 double g_kpcDcwRing[];
@@ -63,6 +64,7 @@ void KPCResetSqueezeState()
    g_kpcSqueezeWasActive      = false;
    g_kpcFireActive            = false;
    g_kpcFireCooldownRemaining = 0;
+   g_kpcFireDirection         = 0;
    g_kpcLastDCW               = 0;
    g_kpcPrevDCW               = 0;
    g_kpcPrev2DCW              = 0;
@@ -215,6 +217,13 @@ void KPCCheckFire()
    {
       g_kpcFireActive = true;
       g_kpcFireCooldownRemaining = g_kpc_fireCooldown_eff;
+      // v2.0.1: determina direzione della fire confrontando close[1] con KAMA[1]
+      // bullish fire  → block SELL (counter-trend pericoloso)
+      // bearish fire  → block BUY
+      double close1 = iClose(_Symbol, PERIOD_CURRENT, 1);
+      if(close1 > g_kpcKAMA)      g_kpcFireDirection = +1;
+      else if(close1 < g_kpcKAMA) g_kpcFireDirection = -1;
+      else                        g_kpcFireDirection = 0;
       return;
    }
 
@@ -224,6 +233,7 @@ void KPCCheckFire()
       if(g_kpcFireCooldownRemaining == 0)
       {
          g_kpcFireActive = false;
+         g_kpcFireDirection = 0;
          g_kpcSqueezeWasActive = false;
       }
    }

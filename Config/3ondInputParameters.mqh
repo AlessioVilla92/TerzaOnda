@@ -292,7 +292,7 @@ input group "    🚪 EXIT CONDITIONS"
 input int    HsAntiWhipsawBars      = 3;       // ⏱️ Min barre prima di exit su segnale KPC
 // ↑ Anti-whipsaw: ignora segnali nelle prime N barre dall'attivazione HS
 
-input bool   HsCloseOnSoupProfit    = false;   // [DEPRECATED v1.7.2] Sostituito da HsCleanup in MonitorActive
+// HsCloseOnSoupProfit rimosso v2.0.1 — sostituito da HsCleanup in MonitorActive (v1.7.2)
 
 input int    HsTimeoutBars          = 32;      // ⏱️ Timeout barre (0 = disattivato, 32 = 8h su M15)
 // ↑ Se HS rimane aperto per N barre, chiudi a mercato. 0 = nessun timeout.

@@ -106,11 +106,12 @@ double g_startingBalance    = 0;
 //+------------------------------------------------------------------+
 //| DAILY TRACKING                                                   |
 //+------------------------------------------------------------------+
-double   g_dailyRealizedProfit = 0;
-int      g_dailyWins           = 0;
-int      g_dailyLosses         = 0;
-int      g_dailyCyclesCount    = 0;
-datetime g_dailyCyclesDate     = 0;
+double   g_dailyRealizedProfit    = 0;
+int      g_dailyWins              = 0;
+int      g_dailyLosses            = 0;
+int      g_dailyCyclesCount       = 0;
+datetime g_dailyCyclesDate        = 0;
+bool     g_dailyShutdownTriggered = false;   // v2.0.1: DailyLossLimit enforcement
 
 //+------------------------------------------------------------------+
 //| SESSION TRACKING                                                 |
@@ -184,11 +185,12 @@ void CheckDailyReset()
       TimeToStruct(g_dailyCyclesDate, last);
       if(now.day != last.day || now.mon != last.mon)
       {
-         g_dailyCyclesCount    = 0;
-         g_dailyRealizedProfit = 0;
-         g_dailyWins           = 0;
-         g_dailyLosses         = 0;
-         Print("[SYSTEM] Daily counters reset (cycles/profit/wins/losses)");
+         g_dailyCyclesCount       = 0;
+         g_dailyRealizedProfit    = 0;
+         g_dailyWins              = 0;
+         g_dailyLosses            = 0;
+         g_dailyShutdownTriggered = false;   // reset shutdown flag al cambio giorno
+         Print("[SYSTEM] Daily counters reset (cycles/profit/wins/losses/shutdown)");
       }
    }
    g_dailyCyclesDate = TimeCurrent();

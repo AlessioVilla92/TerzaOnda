@@ -173,6 +173,71 @@ bool HasSufficientMargin()
 }
 
 //+------------------------------------------------------------------+
+//| IsDailyLossLimitBreached — Check realized daily loss vs limit   |
+//|                                                                  |
+//| Ritorna true se il limite giornaliero è stato superato.          |
+//| v2.0.1: usato per check continuo in OnTick (non solo a segnale). |
+//+------------------------------------------------------------------+
+bool IsDailyLossLimitBreached()
+{
+   if(DailyLossLimitPct <= 0) return false;   // disabilitato
+   if(g_startingEquity <= 0)  return false;
+
+   double dailyLossPct = (g_dailyRealizedProfit / g_startingEquity) * 100.0;
+   return (dailyLossPct < -DailyLossLimitPct);
+}
+
+//+------------------------------------------------------------------+
+//| EnforceDailyLossShutdown — Close all positions + orders & PAUSE |
+//|                                                                  |
+//| Chiamata quando IsDailyLossLimitBreached() ritorna true.         |
+//| Chiude posizioni Soup (Magic) + HS (Magic+1) e cancella ordini   |
+//| pendenti. Flag g_dailyShutdownTriggered gestito dal chiamante    |
+//| (dichiarato in 3ondGlobalVariables.mqh, reset in CheckDailyReset)|
+//+------------------------------------------------------------------+
+void EnforceDailyLossShutdown()
+{
+   if(g_dailyShutdownTriggered) return;
+   g_dailyShutdownTriggered = true;
+
+   double dailyLossPct = (g_dailyRealizedProfit / g_startingEquity) * 100.0;
+   AdLogE(LOG_CAT_RISK, StringFormat(
+      "DAILY LOSS SHUTDOWN — Loss=%.2f%% | Limit=%.2f%% — chiusura posizioni + PAUSE",
+      MathAbs(dailyLossPct), DailyLossLimitPct));
+   Alert(StringFormat("TerzaOnda DAILY LOSS SHUTDOWN — %.2f%% >= %.2f%% | %s",
+         MathAbs(dailyLossPct), DailyLossLimitPct, _Symbol));
+
+   int closed = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      long posMagic = PositionGetInteger(POSITION_MAGIC);
+      if(posMagic != MagicNumber && posMagic != MagicNumber + 1) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+
+      if(g_trade.PositionClose(ticket)) closed++;
+      else AdLogW(LOG_CAT_RISK, StringFormat("DailyShutdown: PositionClose #%d failed: %s",
+                  ticket, g_trade.ResultRetcodeDescription()));
+   }
+
+   int deleted = 0;
+   for(int i = OrdersTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = OrderGetTicket(i);
+      if(ticket == 0) continue;
+      long ordMagic = OrderGetInteger(ORDER_MAGIC);
+      if(ordMagic != MagicNumber && ordMagic != MagicNumber + 1) continue;
+      if(OrderGetString(ORDER_SYMBOL) != _Symbol) continue;
+
+      if(g_trade.OrderDelete(ticket)) deleted++;
+   }
+
+   AdLogI(LOG_CAT_RISK, StringFormat("DailyShutdown done — closed=%d deleted=%d", closed, deleted));
+   g_systemState = STATE_PAUSED;
+}
+
+//+------------------------------------------------------------------+
 //| UpdateEquityTracking — Track high water mark + max drawdown     |
 //+------------------------------------------------------------------+
 void UpdateEquityTracking()

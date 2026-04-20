@@ -29,8 +29,9 @@ int      g_kpcTimeBlockEndMin      = 0;
 //+------------------------------------------------------------------+
 bool EngineInit()
 {
-   // 1. Apply TF preset (sets g_kpc_*_eff)
-   KPCPresetsInit();
+   // NOTE: KPCPresetsInit() è già invocata dal main (TerzaOnda.mq5) PRIMA di InitializeATR,
+   // perché ATR handle creation necessita g_kpc_atrPeriod_eff. Non la richiamiamo qui
+   // per evitare doppia esecuzione (idempotente ma inutile overhead).
 
    // v1.6.1: Avviso loop LTF su M1
    if(Period() == PERIOD_M1 && g_kpc_useLTFEntry)
